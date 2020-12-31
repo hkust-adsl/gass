@@ -51,6 +51,7 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
   case msp430:         return "msp430";
   case nvptx64:        return "nvptx64";
   case nvptx:          return "nvptx";
+  case gass:           return "gass";
   case ppc64:          return "powerpc64";
   case ppc64le:        return "powerpc64le";
   case ppc:            return "powerpc";
@@ -305,6 +306,7 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
     .Case("xcore", xcore)
     .Case("nvptx", nvptx)
     .Case("nvptx64", nvptx64)
+    .Case("gass", gass)
     .Case("le32", le32)
     .Case("le64", le64)
     .Case("amdil", amdil)
@@ -436,6 +438,7 @@ static Triple::ArchType parseArch(StringRef ArchName) {
     .Case("xcore", Triple::xcore)
     .Case("nvptx", Triple::nvptx)
     .Case("nvptx64", Triple::nvptx64)
+    .Case("gass", Triple::gass)
     .Case("le32", Triple::le32)
     .Case("le64", Triple::le64)
     .Case("amdil", Triple::amdil)
@@ -703,6 +706,7 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
   case Triple::msp430:
   case Triple::nvptx64:
   case Triple::nvptx:
+  case Triple::gass:
   case Triple::ppc64le:
   case Triple::r600:
   case Triple::renderscript32:
@@ -1299,6 +1303,7 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
   case llvm::Triple::mips64:
   case llvm::Triple::mips64el:
   case llvm::Triple::nvptx64:
+  case llvm::Triple::gass:
   case llvm::Triple::ppc64:
   case llvm::Triple::ppc64le:
   case llvm::Triple::renderscript64:
@@ -1338,6 +1343,7 @@ Triple Triple::get32BitArchVariant() const {
   case Triple::ppc64le:
   case Triple::systemz:
   case Triple::ve:
+  case Triple::gass:
     T.setArch(UnknownArch);
     break;
 
@@ -1423,6 +1429,7 @@ Triple Triple::get64BitArchVariant() const {
   case Triple::mips64:
   case Triple::mips64el:
   case Triple::nvptx64:
+  case Triple::gass:
   case Triple::ppc64:
   case Triple::ppc64le:
   case Triple::renderscript64:
@@ -1478,6 +1485,7 @@ Triple Triple::getBigEndianArchVariant() const {
   case Triple::msp430:
   case Triple::nvptx64:
   case Triple::nvptx:
+  case Triple::gass:
   case Triple::r600:
   case Triple::renderscript32:
   case Triple::renderscript64:
@@ -1568,6 +1576,7 @@ bool Triple::isLittleEndian() const {
   case Triple::msp430:
   case Triple::nvptx64:
   case Triple::nvptx:
+  case Triple::gass:
   case Triple::ppc64le:
   case Triple::r600:
   case Triple::renderscript32:
