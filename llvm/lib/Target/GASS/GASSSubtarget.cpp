@@ -1,0 +1,15 @@
+#include "GASSSubtarget.h"
+
+using namespace llvm;
+
+#define DEBUG_TYPE "gass-subtarget"
+
+#define GET_SUBTARGETINFO_ENUM
+#define GET_SUBTARGETINFO_TARGET_DESC
+#define GET_SUBTARGETINFO_CTOR
+#include "GASSGenSubtargetInfo.inc"
+
+GASSSubtarget::GASSSubtarget(const Triple &TT, StringRef CPU, StringRef FS,
+                             const TargetMachine &TM)
+  : GASSGenSubtargetInfo(TT, CPU, CPU, FS),
+    TLInfo(TM, *this) {}

@@ -21,7 +21,8 @@ public:
 
   // TODO: What's this for?
   unsigned getFlatAddressSpace() const {
-    return static_cast<unsigned>(AddressSpace::GENERIC);
+    // return static_cast<unsigned>(AddressSpace::GENERIC);
+    return 0;
   }
 
   // *Must* be implemented 
