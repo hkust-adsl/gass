@@ -1,7 +1,15 @@
 #include "GASSMCTargetDesc.h"
+#include "GASSMCAsmInfo.h"
+#include "GASSInstPrinter.h"
+#include "GASSMCCodeEmitter.h"
+#include "GASSTargetStreamer.h"
+#include "GASSAsmStreamer.h"
+#include "GASSELFStreamer.h"
+#include "TargetInfo/GASSTargetInfo.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
+#include "llvm/Support/TargetRegistry.h"
 
 using namespace llvm;
 
@@ -14,6 +22,81 @@ using namespace llvm;
 #define GET_SUBTARGETINFO_MC_DESC
 #include "GASSGenSubtargetInfo.inc"
 
+static MCRegisterInfo *createGASSMCRegisterInfo(const Triple &TT) {
+  MCRegisterInfo *X = new MCRegisterInfo();
+  InitGASSMCRegisterInfo(X, /*TODO*/0); // table-gen'd
+  return X;
+}
+
+static MCInstrInfo *createGASSMCInstrInfo() {
+  MCInstrInfo *X = new MCInstrInfo();
+  InitGASSMCInstrInfo(X);
+  return X;
+}
+
+static MCSubtargetInfo *createGASSMCSubtargetInfo(const Triple &TT,
+                                                  StringRef CPU, StringRef FS) {
+  return createGASSMCSubtargetInfoImpl(TT, CPU, CPU, FS);
+}
+
+static MCAsmInfo *createGASSMCAsmInfo(const MCRegisterInfo &MRI,
+                                      const Triple &TT,
+                                      const MCTargetOptions &Options) {
+  MCAsmInfo *MAI = new GASSMCAsmInfo(TT, Options);
+
+  return MAI;
+}
+
+static MCInstPrinter *createGASSMCInstPrinter(const Triple &T,
+                                              unsigned SyntaxVariant,
+                                              const MCAsmInfo &MAI,
+                                              const MCInstrInfo &MII,
+                                              const MCRegisterInfo &MRI) {
+  return new GASSInstPrinter(MAI, MII, MRI);
+}
+
+static MCCodeEmitter *createGASSMCCodeEmitter(const MCInstrInfo &MCII,
+                                              const MCRegisterInfo &MRI,
+                                              MCContext &CTX) {
+  return new GASSMCCodeEmitter(CTX, MCII);
+}
+
+//=------------------------------------------------------=//
+// Emit file (MCStreamer/AsmPrinter)
+//=------------------------------------------------------=//
+static MCTargetStreamer *
+createGASSObjectTargetStreamer(MCStreamer &S, const MCSubtargetInfo &STI) {
+  return new GASSTargetELFStreamer(S, STI);
+}
+
+static MCTargetStreamer *createGASSAsmTargetStreamer(MCStreamer &S, 
+                                                     formatted_raw_ostream &OS,
+                                                     MCInstPrinter *InstPrint,
+                                                     bool isVerboseAsm) {
+  return new GASSTargetAsmStreamer(S, OS);
+}
+
+static MCTargetStreamer *createGASSNullTargetStreamer(MCStreamer &S) {
+  return new GASSTargetStreamer(S);
+}
+
+
+
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeGASSTargetMC() {
-  // 
+  Target &T = getTheGASSTarget();
+  // Required by GASSTargetMachine.initAsmInfo()
+  TargetRegistry::RegisterMCRegInfo(T, createGASSMCRegisterInfo);
+  TargetRegistry::RegisterMCInstrInfo(T, createGASSMCInstrInfo);
+  TargetRegistry::RegisterMCSubtargetInfo(T, createGASSMCSubtargetInfo);
+  TargetRegistry::RegisterMCAsmInfo(T, createGASSMCAsmInfo);
+
+  // InstPrinter?
+  TargetRegistry::RegisterMCInstPrinter(T, createGASSMCInstPrinter);
+  TargetRegistry::RegisterMCCodeEmitter(T, createGASSMCCodeEmitter);
+
+  // Emit file (MCStreamer/AsmPrinter)
+  TargetRegistry::RegisterObjectTargetStreamer(T, 
+                                               createGASSObjectTargetStreamer);
+  TargetRegistry::RegisterAsmTargetStreamer(T, createGASSAsmTargetStreamer);
+  TargetRegistry::RegisterNullTargetStreamer(T, createGASSNullTargetStreamer);
 }

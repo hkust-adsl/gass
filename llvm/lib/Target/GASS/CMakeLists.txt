@@ -6,6 +6,7 @@ tablegen(LLVM GASSGenAsmWriter.inc -gen-asm-writer)
 tablegen(LLVM GASSGenRegisterInfo.inc -gen-register-info)
 tablegen(LLVM GASSGenInstrInfo.inc -gen-instr-info)
 tablegen(LLVM GASSGenSubtargetInfo.inc -gen-subtarget)
+tablegen(LLVM GASSGenMCCodeEmitter.inc -gen-emitter)
 
 tablegen(LLVM GASSGenGlobalISel.inc -gen-global-isel)
 tablegen(LLVM GASSGenRegisterBank.inc -gen-register-bank)

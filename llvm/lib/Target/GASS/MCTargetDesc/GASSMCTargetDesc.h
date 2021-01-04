@@ -12,10 +12,6 @@ class MCContext;
 class Target;
 class MCSubtargetInfo;
 
-MCCodeEmitter *createGASSMCCodeEmitter(const MCInstrInfo &MCII,
-                                       const MCRegisterInfo &MRI,
-                                       MCContext &CTX);
-
 MCAsmBackend *createGASSAsmBackend(const Target &T, const MCSubtargetInfo &STI,
                                    const MCRegisterInfo &MRI,
                                    const MCTargetOptions &Options);

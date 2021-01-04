@@ -18,11 +18,11 @@ class GASSInst<dag outs, dag ins, bits<12> opcode,
   bits<8> Src1;
   bits<8> Src2;
 
-  let Inst{103-96} = Src1;
-  let Inst{95-88} = Src0;
-  let Inst{87-80} = Dst;
+  // let Inst{103-96} = Src1;
+  // let Inst{95-88} = Src0;
+  // let Inst{87-80} = Dst;
   let Inst{75-64} = opcode;
-  let Inst{7-0} = Src2;
+  // let Inst{7-0} = Src2;
 }
 
 //=---------------------------------=//
