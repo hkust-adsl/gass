@@ -5,6 +5,8 @@
 #include "GASSTargetStreamer.h"
 #include "GASSAsmStreamer.h"
 #include "GASSELFStreamer.h"
+#include "GASSELFObjectWriter.h"
+#include "GASSAsmBackend.h"
 #include "TargetInfo/GASSTargetInfo.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
@@ -61,6 +63,15 @@ static MCCodeEmitter *createGASSMCCodeEmitter(const MCInstrInfo &MCII,
   return new GASSMCCodeEmitter(CTX, MCII);
 }
 
+static MCAsmBackend *createGASSAsmBackend(const Target &T, 
+                                          const MCSubtargetInfo &STI,
+                                          const MCRegisterInfo &MRI,
+                                          const MCTargetOptions &Options) {
+  const Triple &TT = STI.getTargetTriple();
+  uint8_t OSABI = MCELFObjectTargetWriter::getOSABI(TT.getOS());
+  return new GASSAsmBackend(OSABI);
+}
+
 //=------------------------------------------------------=//
 // Emit file (MCStreamer/AsmPrinter)
 //=------------------------------------------------------=//
@@ -94,6 +105,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeGASSTargetMC() {
   TargetRegistry::RegisterMCInstPrinter(T, createGASSMCInstPrinter);
   TargetRegistry::RegisterMCCodeEmitter(T, createGASSMCCodeEmitter);
 
+  TargetRegistry::RegisterMCAsmBackend(T, createGASSAsmBackend);
   // Emit file (MCStreamer/AsmPrinter)
   TargetRegistry::RegisterObjectTargetStreamer(T, 
                                                createGASSObjectTargetStreamer);

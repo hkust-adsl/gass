@@ -4,6 +4,7 @@ add_llvm_component_library(LLVMGASSDesc
   GASSMCCodeEmitter.cpp
   GASSMCTargetDesc.cpp
   GASSAsmStreamer.cpp
+  GASSAsmBackend.cpp
   GASSELFStreamer.cpp
   GASSTargetStreamer.cpp
   

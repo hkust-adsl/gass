@@ -3,20 +3,6 @@
 
 #include "llvm/MC/MCTargetOptions.h"
 
-namespace llvm {
-class MCAsmBackend;
-class MCCodeEmitter;
-class MCInstrInfo;
-class MCRegisterInfo;
-class MCContext;
-class Target;
-class MCSubtargetInfo;
-
-MCAsmBackend *createGASSAsmBackend(const Target &T, const MCSubtargetInfo &STI,
-                                   const MCRegisterInfo &MRI,
-                                   const MCTargetOptions &Options);
-} // namespace llvm
-
 #define GET_REGINFO_ENUM
 #include "GASSGenRegisterInfo.inc"
 

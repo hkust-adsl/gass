@@ -1,6 +1,7 @@
 #include "GASS.h"
 #include "GASSTargetMachine.h"
 #include "GASSTargetTransformInfo.h"
+#include "GASSISelDAGToDAG.h"
 #include "TargetInfo/GASSTargetInfo.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
@@ -52,12 +53,7 @@ public:
   }
 
   void addIRPasses() override;
-  // // GISel
-  // bool addIRTranslator() override;
-  // bool addLegalizeMachineIR() override;
-  // bool addRegBankSelect() override;
-  // bool addGlobalInstructionSelect() override;
-  // End of GISel
+  bool addInstSelector() override;
   // void addPreRegAlloc() override;
   // void addPostRegAlloc() override;
 
@@ -81,4 +77,9 @@ void GASSPassConfig::addIRPasses() {
   TargetPassConfig::addIRPasses();
 
   addPass(createLoadStoreVectorizerPass());
+}
+
+bool GASSPassConfig::addInstSelector() {
+  addPass(new GASSDAGToDAGISel(getGASSTargetMachine()));
+  return false;
 }

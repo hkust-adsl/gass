@@ -6,13 +6,11 @@
 namespace llvm {
 class GASSTargetMachine;
 class GASSSubtarget;
-class InstructionSelector;
-class GASSRegisterBankInfo;
+class MachineInstr;
+class MCInst;
 
-InstructionSelector 
-*createGASSInstructionSelector(const GASSTargetMachine &TM,
-                               const GASSSubtarget &STI,
-                               const GASSRegisterBankInfo &RBI);
+// Required by AsmPrinter
+void LowerToMCInst(const MachineInstr *MI, MCInst &Inst);
 } // namespace llvm
 
 #endif
