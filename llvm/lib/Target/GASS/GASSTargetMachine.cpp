@@ -1,14 +1,10 @@
 #include "GASS.h"
 #include "GASSTargetMachine.h"
-#include "GASSRegisterBankInfo.h"
 #include "GASSTargetTransformInfo.h"
 #include "TargetInfo/GASSTargetInfo.h"
-#include "llvm/CodeGen/GlobalISel/IRTranslator.h"
-#include "llvm/CodeGen/GlobalISel/InstructionSelect.h"
-#include "llvm/CodeGen/GlobalISel/Legalizer.h"
-#include "llvm/CodeGen/GlobalISel/RegBankSelect.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Vectorize.h"
@@ -56,11 +52,11 @@ public:
   }
 
   void addIRPasses() override;
-  // GISel
-  bool addIRTranslator() override;
-  bool addLegalizeMachineIR() override;
-  bool addRegBankSelect() override;
-  bool addGlobalInstructionSelect() override;
+  // // GISel
+  // bool addIRTranslator() override;
+  // bool addLegalizeMachineIR() override;
+  // bool addRegBankSelect() override;
+  // bool addGlobalInstructionSelect() override;
   // End of GISel
   // void addPreRegAlloc() override;
   // void addPostRegAlloc() override;
@@ -74,9 +70,6 @@ public:
 TargetPassConfig *GASSTargetMachine::createPassConfig(PassManagerBase &PM) {
   return new GASSPassConfig(*this, PM);
 }
-// TargetPassConfig *GASSTargetMachine::createPassConfig(PassManagerBase &PM) {
-//   return new GASSPassConfig(*this, PM);
-// }
 
 void GASSPassConfig::addIRPasses() {
   // addPass(createGASSAddrSpacePass()); // required by infer address space
@@ -89,30 +82,3 @@ void GASSPassConfig::addIRPasses() {
 
   addPass(createLoadStoreVectorizerPass());
 }
-
-//=-------------------------------------------=//
-// GISel
-//=-------------------------------------------=//
-bool GASSPassConfig::addIRTranslator() {
-  addPass(new IRTranslator(getOptLevel()));
-  return false;
-}
-
-bool GASSPassConfig::addLegalizeMachineIR() {
-  addPass(new Legalizer());
-  return false;
-}
-
-bool GASSPassConfig::addRegBankSelect() {
-  addPass(new RegBankSelect());
-  return false;
-}
-
-bool GASSPassConfig::addGlobalInstructionSelect() {
-  const GASSTargetMachine &GASSTM = getGASSTargetMachine();
-  const GASSSubtarget &STI = *GASSTM.getSubtargetImpl();
-  GASSRegisterBankInfo *RBI = new GASSRegisterBankInfo(*STI.getRegisterInfo());
-  addPass(createGASSInstructionSelector(GASSTM, STI, *RBI));
-  return false;
-}
-

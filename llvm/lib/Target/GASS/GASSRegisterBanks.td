@@ -1,1 +1,0 @@
-def VGPRRegBank : RegisterBank<"VGPR", [VReg32]>;

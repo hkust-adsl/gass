@@ -2,7 +2,7 @@ include "llvm/Target/Target.td"
 
 include "GASSRegisterInfo.td"
 include "GASSInstrInfo.td"
-include "GASSRegisterBanks.td"
+// include "GASSRegisterBanks.td"
 
 def SM70 : SubtargetFeature<"sm_70", "SmVersion", "70", "Target SM 7.0">;
 
