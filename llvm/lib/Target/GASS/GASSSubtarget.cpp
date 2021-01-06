@@ -12,4 +12,9 @@ using namespace llvm;
 GASSSubtarget::GASSSubtarget(const Triple &TT, StringRef CPU, StringRef FS,
                              const TargetMachine &TM)
   : GASSGenSubtargetInfo(TT, CPU, CPU, FS),
-    TLInfo(TM, *this) {}
+    TLInfo(TM, *this) {
+    // Provide the default CPU if we don't have one.
+    std::string TargetName = std::string(CPU.empty() ? "sm_70" : CPU);
+
+    ParseSubtargetFeatures(TargetName, /*TuneCPU*/ TargetName, FS);
+}

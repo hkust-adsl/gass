@@ -41,8 +41,8 @@ public:
   }
 protected:
   //
-public:
-  // 
+public:  
+  unsigned getSmVersion() const { return SmVersion; }
 };
 } // namespace llvm
 

@@ -7,6 +7,8 @@ namespace llvm {
 class GASSTargetStreamer : public MCTargetStreamer {
 public:
   GASSTargetStreamer(MCStreamer &S);
+
+  virtual void emitAttributes(unsigned SmVersion) = 0;
 };
 } // namespace llvm
 

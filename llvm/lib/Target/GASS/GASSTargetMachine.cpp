@@ -54,12 +54,6 @@ public:
 
   void addIRPasses() override;
   bool addInstSelector() override;
-  // void addPreRegAlloc() override;
-  // void addPostRegAlloc() override;
-
-  // FunctionPass *createTargetRegisterAllocator(bool) override;
-  // void addFastRegAlloc() override;
-  // void addOptimizedRegAlloc() override;
 };
 } // anonymous namespace
 

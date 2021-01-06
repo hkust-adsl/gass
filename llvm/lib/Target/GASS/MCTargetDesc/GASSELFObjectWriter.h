@@ -4,6 +4,7 @@
 #include "llvm/MC/MCObjectWriter.h"
 #include "llvm/MC/MCELFObjectWriter.h"
 
+// Why we need this?
 namespace llvm {
 class GASSELFObjectWriter : public MCELFObjectTargetWriter {
 public:

@@ -1,4 +1,5 @@
 #include "GASSAsmStreamer.h"
+#include "llvm/Support/FormattedStream.h"
 
 using namespace llvm;
 
@@ -8,4 +9,8 @@ GASSTargetAsmStreamer::GASSTargetAsmStreamer(MCStreamer &S,
 
 void GASSTargetAsmStreamer::emitDwarfFileDirective(StringRef Directive) {
   // TODO: fill this.
+}
+
+void GASSTargetAsmStreamer::emitAttributes(unsigned SmVersion) {
+  OS << ".target sm_" << SmVersion;
 }

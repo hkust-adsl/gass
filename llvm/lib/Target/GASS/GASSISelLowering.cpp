@@ -1,4 +1,6 @@
 #include "GASSISelLowering.h"
+#include "GASSSubtarget.h"
+#include "GASSTargetMachine.h"
 
 using namespace llvm;
 
@@ -6,7 +8,18 @@ using namespace llvm;
 
 GASSTargetLowering::GASSTargetLowering(const TargetMachine &TM,
                                        const GASSSubtarget &STI)
-  : TargetLowering(TM), Subtarget(STI) {}
+  : TargetLowering(TM), Subtarget(STI) {
+  addRegisterClass(MVT::i32, &GASS::VReg32RegClass);
+  addRegisterClass(MVT::f32, &GASS::VReg32RegClass);
+  
+  // ConstantFP are legal in GASS (*Must*, otherwise will be expanded to 
+  //                                                   load<ConstantPool>)
+  setOperationAction(ISD::ConstantFP, MVT::f64, Legal);
+  setOperationAction(ISD::ConstantFP, MVT::f32, Legal);
+  setOperationAction(ISD::ConstantFP, MVT::f16, Legal);
+
+  computeRegisterProperties(Subtarget.getRegisterInfo());
+}
 
 //=------------------------------------------=//
 // DAG combine
@@ -34,7 +47,7 @@ GASSTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                                 const SmallVectorImpl<SDValue> &OutVals,
                                 const SDLoc &dl, SelectionDAG &DAG) const {
   // TODO: fill this.
-  return Chain;
+  return DAG.getNode(GASSISD::EXIT, dl, MVT::Other, Chain);
 }
 
 // Ins: ISD::InputArg. Mainly about type (VT)

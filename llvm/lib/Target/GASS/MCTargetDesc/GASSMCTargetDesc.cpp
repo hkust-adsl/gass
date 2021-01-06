@@ -87,10 +87,6 @@ static MCTargetStreamer *createGASSAsmTargetStreamer(MCStreamer &S,
   return new GASSTargetAsmStreamer(S, OS);
 }
 
-static MCTargetStreamer *createGASSNullTargetStreamer(MCStreamer &S) {
-  return new GASSTargetStreamer(S);
-}
-
 
 
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeGASSTargetMC() {
@@ -105,10 +101,12 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeGASSTargetMC() {
   TargetRegistry::RegisterMCInstPrinter(T, createGASSMCInstPrinter);
   TargetRegistry::RegisterMCCodeEmitter(T, createGASSMCCodeEmitter);
 
+  // // Register the obj streamer.
+  // TargetRegistry::RegisterELFStreamer(T, createELFStreamer);
+
   TargetRegistry::RegisterMCAsmBackend(T, createGASSAsmBackend);
   // Emit file (MCStreamer/AsmPrinter)
   TargetRegistry::RegisterObjectTargetStreamer(T, 
                                                createGASSObjectTargetStreamer);
   TargetRegistry::RegisterAsmTargetStreamer(T, createGASSAsmTargetStreamer);
-  TargetRegistry::RegisterNullTargetStreamer(T, createGASSNullTargetStreamer);
 }

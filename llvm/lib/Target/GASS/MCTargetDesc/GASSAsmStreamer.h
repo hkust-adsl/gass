@@ -10,6 +10,9 @@ public:
   GASSTargetAsmStreamer(MCStreamer &S, formatted_raw_ostream &OS);
 
   void emitDwarfFileDirective(StringRef Directive) override;
+
+  // Override pure virtual functions defined in GASSTargetStreamer
+  void emitAttributes(unsigned SmVersion) override;
 };
 }
 

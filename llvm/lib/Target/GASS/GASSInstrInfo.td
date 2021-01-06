@@ -25,6 +25,10 @@ class GASSInst<dag outs, dag ins, bits<12> opcode,
   // let Inst{7-0} = Src2;
 }
 
+// SDNode
+def GASSexit : SDNode<"GASSISD::EXIT", SDTNone, 
+    [SDNPHasChain, SDNPOptInGlue]>; // AMDGPU does this.
+
 //=---------------------------------=//
 // float-point
 //=---------------------------------=//
@@ -40,5 +44,10 @@ defm FFMA : FFMA<"FFMA", VReg32, 0x223>;
 //=---------------------------------=//
 // Misc
 //=---------------------------------=//
-def EXIT : GASSInst<(outs), (ins), 0x94d, "EXIT", []> ; // ret void?
-def NOP : GASSInst<(outs), (ins), 0x918, "NOP", []> ; // maybe @llvm.donothing()
+def EXIT : GASSInst<(outs), (ins), 0x94d, "EXIT;", [(GASSexit)]> {
+  let isTerminator = true;
+  let isBarrier = true;
+  let hasSideEffects = true;
+}
+
+def NOP : GASSInst<(outs), (ins), 0x918, "NOP;", []> ; // maybe @llvm.donothing()

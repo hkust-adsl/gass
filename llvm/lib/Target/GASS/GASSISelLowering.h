@@ -7,6 +7,14 @@
 namespace llvm {
 class GASSSubtarget;
 
+namespace GASSISD {
+enum NodeType : unsigned {
+  FIRST_NUMBER = ISD::BUILTIN_OP_END,
+
+  EXIT,
+};
+} // namespace GASSISD
+
 class GASSTargetLowering : public TargetLowering {
   const GASSSubtarget &Subtarget;
 
