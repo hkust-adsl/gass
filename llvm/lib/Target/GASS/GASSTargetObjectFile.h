@@ -7,6 +7,8 @@
 
 namespace llvm {
 
+// This seems like a layering problem.
+// Maybe we should move this to "MCTargetDesc"?
 class GASSTargetObjectFile : public TargetLoweringObjectFile {
 public:
   GASSTargetObjectFile() : TargetLoweringObjectFile() {}
@@ -26,10 +28,10 @@ public:
     return DataSection;
   }
 
+  // section that contains encoded code
+  // .text.{name}
   MCSection *SelectSectionForGlobal(const GlobalObject *GO, SectionKind Kind,
-                                    const TargetMachine &TM) const override {
-    return getDataSection();
-  }
+                                    const TargetMachine &TM) const override;
 };
 
 } // namespace llvm

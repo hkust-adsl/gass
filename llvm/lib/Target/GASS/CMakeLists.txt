@@ -24,6 +24,7 @@ add_llvm_target(GASSCodeGen
   GASSRegisterInfo.cpp
   GASSSubtarget.cpp
   GASSTargetMachine.cpp
+  GASSTargetObjectFile.cpp
 
   LINK_COMPONENTS
   AsmPrinter

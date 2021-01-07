@@ -40,7 +40,7 @@ void GASSAsmPrinter::emitInstruction(const MachineInstr *MI) {
   EmitToStreamer(*OutStreamer, Inst);
 }
 
-// SmVersion
+// This is called by doInitialization(Module &M)
 void GASSAsmPrinter::emitStartOfAsmFile(Module &M) {
   GASSTargetStreamer &GTS = 
     static_cast<GASSTargetStreamer &>(*OutStreamer->getTargetStreamer());
