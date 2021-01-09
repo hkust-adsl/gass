@@ -8,6 +8,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Scalar/ConstantHoisting.h"
 #include "llvm/Transforms/Vectorize.h"
 #include <memory>
 
@@ -62,8 +63,8 @@ TargetPassConfig *GASSTargetMachine::createPassConfig(PassManagerBase &PM) {
 }
 
 void GASSPassConfig::addIRPasses() {
-  // addPass(createGASSAddrSpacePass()); // required by infer address space
-  // SROA
+  // disable passes that I don't know how they are useful
+  addPass(createGASSAddrSpacePass()); // required by infer address space
   addPass(createSROAPass());
   addPass(createInferAddressSpacesPass());
 

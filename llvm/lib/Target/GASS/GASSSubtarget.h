@@ -42,7 +42,9 @@ public:
 protected:
   //
 public:  
+  // NVGPU specific info
   unsigned getSmVersion() const { return SmVersion; }
+  unsigned getParamBase() const;
 };
 } // namespace llvm
 

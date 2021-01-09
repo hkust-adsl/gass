@@ -12,6 +12,14 @@ enum NodeType : unsigned {
   FIRST_NUMBER = ISD::BUILTIN_OP_END,
 
   EXIT,
+
+  LD,
+  LDC,
+  LDG,
+  LDS,
+  LDL,
+
+  MOV,
 };
 } // namespace GASSISD
 
@@ -21,6 +29,8 @@ class GASSTargetLowering : public TargetLowering {
 public:
   explicit GASSTargetLowering(const TargetMachine &TM,
                               const GASSSubtarget &STI);
+  
+  const char *getTargetNodeName(unsigned Opcode) const override;
   
   //=------DAG Combine--------------------------=//
   SDValue PerformDAGCombine(SDNode *N, DAGCombinerInfo &DCI) const override;

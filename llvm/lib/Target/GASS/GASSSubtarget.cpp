@@ -18,3 +18,14 @@ GASSSubtarget::GASSSubtarget(const Triple &TT, StringRef CPU, StringRef FS,
 
     ParseSubtargetFeatures(TargetName, /*TuneCPU*/ TargetName, FS);
 }
+
+unsigned GASSSubtarget::getParamBase() const {
+  switch (SmVersion) {
+  default:
+    llvm_unreachable("SmVersion invalid");
+  case 70:
+  case 75:
+  case 80:
+    return 0x160;
+  }
+}

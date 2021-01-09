@@ -8,9 +8,12 @@ class GASSTargetMachine;
 class GASSSubtarget;
 class MachineInstr;
 class MCInst;
+class FunctionPass;
 
 // Required by AsmPrinter
 void LowerToMCInst(const MachineInstr *MI, MCInst &Inst);
+
+FunctionPass *createGASSAddrSpacePass();
 
 namespace GASS {
 struct CtrlInfo {
@@ -19,6 +22,16 @@ struct CtrlInfo {
   unsigned ReadBarrier = 0;
   unsigned WriteBarrier = 0;
   unsigned Yield = 0;
+};
+
+// Following the practice in NVPTX
+enum AddressSpace : unsigned {
+  GENERIC = 0,
+  GLOBAL = 1,
+  CONSTANT = 2,
+  SHARED = 3,
+  PARAM = 4, // Remove this?
+  LOCAL = 5
 };
 } // namespace GASS
 

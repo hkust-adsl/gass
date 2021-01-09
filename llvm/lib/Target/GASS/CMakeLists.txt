@@ -15,6 +15,7 @@ add_public_tablegen_target(GASSCommonTableGen)
 # TODO: MCCodeEmitter.inc
 
 add_llvm_target(GASSCodeGen
+  GASSAddAddrSpace.cpp
   GASSAsmPrinter.cpp
   GASSFrameLowering.cpp
   GASSInstrInfo.cpp

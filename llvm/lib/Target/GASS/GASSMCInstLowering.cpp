@@ -17,4 +17,7 @@ void llvm::LowerToMCInst(const MachineInstr *MI, MCInst &Inst) {
     lowerToMCOperand(MO, MCOp);
     Inst.addOperand(MCOp);
   }
+
+  // Store control info in flags :) amazing
+  Inst.setFlags(0x000fea00);
 }

@@ -15,8 +15,10 @@ public:
   }
 
 private:
-  void Select(SDNode *Node) override;
 #include "GASSGenDAGISel.inc"
+  void Select(SDNode *Node) override;
+  bool tryLoad(SDNode *N);
+  bool tryStore(SDNode *N);
 };
 } // namespace llvm
 
