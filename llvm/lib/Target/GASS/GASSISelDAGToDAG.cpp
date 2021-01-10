@@ -57,10 +57,30 @@ bool GASSDAGToDAGISel::tryLoad(SDNode *N) {
   MemSDNode *LD = cast<MemSDNode>(N);
   assert(LD->readMem() && "Expected load");
   EVT LoadedVT = LD->getMemoryVT();
+  SDNode *GASSLD = nullptr;
+  unsigned Opcode;
 
   unsigned AddrSpace = getCodeAddrSpace(LD);
 
+  SDValue Chain = N->getOperand(0);
+  SDValue Ptr = N->getOperand(1);
+  MVT::SimpleValueType TargetVT = LD->getSimpleValueType(0).SimpleTy;
 
+  if (AddrSpace == GASS::GENERIC) {
+    llvm_unreachable("GENERIC load not implemented");
+  } else if (AddrSpace == GASS::GLOBAL) {
+    Opcode = GASS::LDG32r;
+    SDValue Ops[] = {Ptr, Chain};
+    GASSLD = CurDAG->getMachineNode(Opcode, dl, TargetVT, MVT::Other, Ops);
+  } else if (AddrSpace == GASS::SHARED) {
+    llvm_unreachable("SHARED load not implemented");
+  } else if (AddrSpace == GASS::LOCAL) {
+    llvm_unreachable("LOCAL load not implemented");
+  } else if (AddrSpace == GASS::CONSTANT) {
+    llvm_unreachable("CONSTANT load not implemented");
+  }
+
+  ReplaceNode(N, GASSLD);
   return false;
 }
 
@@ -68,6 +88,7 @@ bool GASSDAGToDAGISel::tryStore(SDNode *N) {
   SDLoc dl(N);
   MemSDNode *ST = cast<MemSDNode>(N);
   assert(ST->writeMem() && "Expected store");
+  StoreSDNode *PlainStore = dyn_cast<StoreSDNode>(N);
   EVT StoreVT = ST->getMemoryVT();
   SDNode *GASSST = nullptr;
   unsigned Opcode;
@@ -75,19 +96,18 @@ bool GASSDAGToDAGISel::tryStore(SDNode *N) {
   unsigned AddrSpace = getCodeAddrSpace(ST);
 
   // Create the machine instruction DAG
-  SDValue Chain = ST->getChain();
-  SDValue Value = ST->getValue(); // What's value?
-  SDValue BasePtr = ST->getBasePtr();
+  SDValue Chain = ST->getChain(); // Dependency. (Same as value?)
+  SDValue Value = PlainStore->getValue(); // Value it reads (store).
+  SDValue BasePtr = ST->getBasePtr(); // Ptr.
   SDValue Addr;
   SDValue Offset, Base;
 
   if (AddrSpace == GASS::GENERIC) {
     llvm_unreachable("GENERIC Store not implemented");
   } else if (AddrSpace == GASS::GLOBAL) {
-    Opcode = GASS::STG32_r;
+    Opcode = GASS::STG32r;
     SDValue Ops[] = {Value,
-                     Addr,
-                     Chain};
+                     BasePtr, Chain}; // Should we pass chain as op?
     GASSST = CurDAG->getMachineNode(Opcode, dl, MVT::Other, Ops);
   } else if (AddrSpace == GASS::SHARED) {
     llvm_unreachable("SHARED Store not implemented");

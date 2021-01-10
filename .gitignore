@@ -24,6 +24,9 @@
 # Nested build directory
 /build*
 
+# GASS Examples
+/gass-example
+
 #==============================================================================#
 # Explicit files to ignore (only matches one).
 #==============================================================================#
