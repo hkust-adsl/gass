@@ -81,7 +81,7 @@ bool GASSDAGToDAGISel::tryLoad(SDNode *N) {
   }
 
   ReplaceNode(N, GASSLD);
-  return false;
+  return true;
 }
 
 bool GASSDAGToDAGISel::tryStore(SDNode *N) {
