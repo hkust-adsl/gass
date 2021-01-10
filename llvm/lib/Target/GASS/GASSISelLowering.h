@@ -31,6 +31,9 @@ public:
                               const GASSSubtarget &STI);
   
   const char *getTargetNodeName(unsigned Opcode) const override;
+
+  // For setOperationAction(..., MVT::xx, Custom)
+  SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const override;
   
   //=------DAG Combine--------------------------=//
   SDValue PerformDAGCombine(SDNode *N, DAGCombinerInfo &DCI) const override;
@@ -54,6 +57,9 @@ public:
                       const SmallVectorImpl<ISD::OutputArg> &Outs,
                       const SmallVectorImpl<SDValue> &OutVals, const SDLoc &dl,
                       SelectionDAG &DAG) const override;
+
+private:
+  SDValue lowerAddrSpaceCast(SDValue Op, SelectionDAG &DAG) const;
 };
 
 } // namespace llvm

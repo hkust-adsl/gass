@@ -12,12 +12,17 @@ GASSTargetLowering::GASSTargetLowering(const TargetMachine &TM,
   addRegisterClass(MVT::i32, &GASS::VReg32RegClass);
   addRegisterClass(MVT::f32, &GASS::VReg32RegClass);
   addRegisterClass(MVT::i64, &GASS::VReg64RegClass);
+  addRegisterClass(MVT::f64, &GASS::VReg64RegClass);
   
   // ConstantFP are legal in GASS (*Must*, otherwise will be expanded to 
   //                                                   load<ConstantPool>)
   setOperationAction(ISD::ConstantFP, MVT::f64, Legal);
   setOperationAction(ISD::ConstantFP, MVT::f32, Legal);
   setOperationAction(ISD::ConstantFP, MVT::f16, Legal);
+
+  // Custom
+  setOperationAction(ISD::ADDRSPACECAST, MVT::i32, Custom);
+  setOperationAction(ISD::ADDRSPACECAST, MVT::i64, Custom);
 
   computeRegisterProperties(Subtarget.getRegisterInfo());
 }
@@ -96,4 +101,28 @@ SDValue GASSTargetLowering::LowerFormalArguments(
   }
 
   return Chain;
+}
+
+SDValue 
+GASSTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
+  switch(Op.getOpcode()) {
+  default:
+    llvm_unreachable("Custom lowering not defined for operation");
+  case ISD::ADDRSPACECAST: return lowerAddrSpaceCast(Op, DAG);
+  }
+}
+
+//=--------------------------------------=//
+// private lowering
+//=--------------------------------------=//
+SDValue
+GASSTargetLowering::lowerAddrSpaceCast(SDValue Op, SelectionDAG &DAG) const {
+  SDLoc dl(Op);
+  SDValue Src = Op.getOperand(0);
+  MVT DstVT = Op.getSimpleValueType(); // Which is?
+
+  // Always truncate
+  Op = DAG.getNode(ISD::TRUNCATE, dl, DstVT, Src);
+
+  return Op;
 }
