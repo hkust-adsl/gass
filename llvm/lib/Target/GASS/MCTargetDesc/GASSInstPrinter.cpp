@@ -14,7 +14,8 @@ GASSInstPrinter::GASSInstPrinter(const MCAsmInfo &MAI, const MCInstrInfo &MII,
   : MCInstPrinter(MAI, MII, MRI) {}
 
 void GASSInstPrinter::printRegName(raw_ostream &OS, unsigned RegNo) const {
-  // TODO
+  // This will not be called?
+  OS << RegNo;
 }
 
 void GASSInstPrinter::printInst(const MCInst *MI, uint64_t Address,
@@ -27,5 +28,19 @@ void GASSInstPrinter::printInst(const MCInst *MI, uint64_t Address,
 
 void GASSInstPrinter::printOperand(const MCInst *MI, 
                                    unsigned OpNo, raw_ostream &O) {
-  // TODO
+  const MCOperand &Op = MI->getOperand(OpNo);
+  if (Op.isReg()) {
+    printRegOperand(Op.getReg(), O);
+  } else if (Op.isImm()) {
+    O << formatImm(Op.getImm());
+  } else {
+    O << "/*INV_OP*/";
+  }
+}
+
+// Private helper functions
+void GASSInstPrinter::printRegOperand(unsigned RegNo, raw_ostream &O) {
+  StringRef RegName(getRegisterName(RegNo));
+
+  O << RegName;
 }

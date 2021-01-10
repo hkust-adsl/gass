@@ -5,7 +5,16 @@
 using namespace llvm;
 
 static void lowerToMCOperand(const MachineOperand &MO, MCOperand &MCOp) {
-  // 
+  switch (MO.getType()) {
+  default:
+    llvm_unreachable("unknown operand type");
+  case MachineOperand::MO_Register:
+    MCOp = MCOperand::createReg(MO.getReg());
+    break;
+  case MachineOperand::MO_Immediate:
+    MCOp = MCOperand::createImm(MO.getImm());
+    break;
+  }
 }
 
 void llvm::LowerToMCInst(const MachineInstr *MI, MCInst &Inst) {
