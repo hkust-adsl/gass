@@ -45,6 +45,10 @@ void GASSDAGToDAGISel::Select(SDNode *N) {
     if (tryStore(N))
       return;
     break;
+  case GASSISD::LDC:
+    if (tryLDC(N))
+      return;
+    break;
   default:
     break;
   }
@@ -81,6 +85,36 @@ bool GASSDAGToDAGISel::tryLoad(SDNode *N) {
   }
 
   ReplaceNode(N, GASSLD);
+  return true;
+}
+
+bool GASSDAGToDAGISel::tryLDC(SDNode *N) {
+  SDLoc dl(N);
+  SDNode *GASSLDC = nullptr;
+  unsigned Opcode;
+
+  MVT TargetVT = N->getValueType(0).getSimpleVT();
+  SDValue Offset = N->getOperand(0);
+  unsigned Width = TargetVT.getFixedSizeInBits();
+
+  unsigned OffsetVal = cast<ConstantSDNode>(Offset)->getZExtValue();
+
+  SmallVector<SDValue, 1> Ops;
+  switch (Width) {
+  default: llvm_unreachable("Invalid LDC width");
+  case 32: 
+    Opcode = GASS::LDC32c;
+    Ops.push_back(CurDAG->getTargetConstant(OffsetVal, dl, MVT::i32));
+    break;
+  case 64: 
+    Opcode = GASS::LDC64c;
+    Ops.push_back(CurDAG->getTargetConstant(OffsetVal, dl, MVT::i64));
+    break;
+  }
+
+  GASSLDC = CurDAG->getMachineNode(Opcode, dl, TargetVT, Ops);
+
+  ReplaceNode(N, GASSLDC);
   return true;
 }
 

@@ -29,8 +29,10 @@ GASSTargetLowering::GASSTargetLowering(const TargetMachine &TM,
 
 const char *GASSTargetLowering::getTargetNodeName(unsigned Opcode) const {
   switch (Opcode) {
+  default: return "Unknown Node Name";
   case GASSISD::EXIT: return "GASSISD::EXIT";
   case GASSISD::MOV:  return "GASSISD::MOV";
+  case GASSISD::LDC:  return "GASSISD::LDC";
   }
 }
 
@@ -92,8 +94,8 @@ SDValue GASSTargetLowering::LowerFormalArguments(
     // LDC.$Width or MOV?
     Type *Ty = ArgsType[i];
     EVT ObjectVT = getValueType(DL, Ty);
-    SDValue ParamNode = DAG.getNode(GASSISD::MOV, dl, ObjectVT, 
-                                    DAG.getConstant(CBankOff, dl, MVT::i32));
+    SDValue ParamNode = DAG.getNode(GASSISD::LDC, dl, ObjectVT, 
+                                    DAG.getConstant(CBankOff, dl, ObjectVT)); 
     InVals.push_back(ParamNode);
 
     // Move forward CBankOff

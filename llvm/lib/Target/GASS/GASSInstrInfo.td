@@ -21,12 +21,39 @@ multiclass FFMA<string OpcStr, RegisterClass RC, bits<12> Enc> {
 
 defm FFMA : FFMA<"FFMA", VReg32, 0x223>;
 
+
+//=---------------------------------=//
+// mov
+//=---------------------------------=//
+multiclass MOV<RegisterClass RC, int Width> {
+  def r : GASSInst<(outs RC:$dst),
+                   (ins RC:$src),
+                   0x202,
+                   "MOV."#Width#" \t$dst, $src;",
+                   []>;
+
+  def i : GASSInst<(outs RC:$dst),
+                   (ins RC:$src),
+                   0x202,
+                   "MOV."#Width#" \t$dst, $src;",
+                   []>;
+
+  def c : GASSInst<(outs RC:$dst),
+                   (ins RC:$src), // Not true.
+                   0x202,
+                   "MOV."#Width#" \t$dst, $src;",
+                   []>;
+}
+
+defm MOV32 : MOV<VReg32, 32>;
+defm MOV64 : MOV<VReg64, 64>; // Really need to support this?
+
 //=---------------------------------=//
 // load/store instructions
 //=---------------------------------=//
 multiclass LDC<RegisterClass RC, int Width> {
   def c : GASSInst<(outs RC:$dst),
-                   (ins i16imm:$offset),
+                   (ins i32imm:$offset),
                    0xb82,
                    "LDC." #Width #" \t$dst, [$offset];",
                    []>; 

@@ -19,6 +19,7 @@ private:
   void Select(SDNode *Node) override;
   bool tryLoad(SDNode *N);
   bool tryStore(SDNode *N);
+  bool tryLDC(SDNode *N);
 };
 } // namespace llvm
 
