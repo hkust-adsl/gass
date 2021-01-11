@@ -56,7 +56,11 @@ multiclass LDC<RegisterClass RC, int Width> {
                    (ins i32imm:$offset),
                    0xb82,
                    "LDC." #Width #" \t$dst, [$offset];",
-                   []>; 
+                   []> {
+    bits<8> dst;
+    let Dst = dst;
+    let Src0 = 0xff; // TODO: change this to RZ;
+  }
 
   // def rc : ;
 }

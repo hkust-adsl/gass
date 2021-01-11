@@ -25,6 +25,12 @@ public:
                              APInt &Inst,
                              APInt &Scratch,
                              const MCSubtargetInfo &STI) const;
+
+  // Required by TableGen'erated functions
+  void getMachineOpValue(const MCInst &MI, const MCOperand &MO,
+                         APInt &Op,
+                         SmallVectorImpl<MCFixup> &Fixups,
+                         const MCSubtargetInfo &STI) const;
 };
 } // namespace llvm
 
