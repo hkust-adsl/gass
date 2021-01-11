@@ -57,11 +57,7 @@ multiclass LDC<RegisterClass RC, int Width> {
                        0xb82,
                        "LDC." #Width #" \t$dst, [$offset];",
                        [],
-                       Width> {
-    bits<8> dst;
-    let Dst = dst;
-    let Src0 = 0xff; // TODO: change this to RZ;
-  }
+                       Width>;
 
   // def rc : ;
 }
@@ -70,18 +66,19 @@ defm LDC32 : LDC<VReg32, 32>;
 defm LDC64 : LDC<VReg64, 64>;
 
 multiclass LDG<RegisterClass RC, int Width> {
-  def r : GASSInstLdst<(outs RC:$dst),
+  def r : GASSInstLdstGlobal<(outs RC:$dst),
                        (ins VReg64:$ptr),
                        0x381,
                        "LDG."#Width#" \t$dst, [$ptr];",
                        [],
                        Width>;
 
-  def ri : GASSInst<(outs RC:$dst),
+  def ri : GASSInstLdstGlobal<(outs RC:$dst),
                     (ins VReg64:$ptr, i16imm:$offset),
                     0x381,
                     "LDG."#Width#" \t$dst, [$ptr+$offset];",
-                    []>;
+                    [],
+                    Width>;
 }
 
 defm LDG32 : LDG<VReg32, 32>;
@@ -89,14 +86,14 @@ defm LDG64 : LDG<VReg64, 64>;
 
 
 multiclass STG<RegisterClass RC, int Width> {
-  def r : GASSInstLdst<(outs),
+  def r : GASSInstLdstGlobal<(outs),
                        (ins RC:$src, VReg64:$ptr), // RZ?
                        0x386,
                        "STG."#Width#" \t[$ptr], $src;",
                        [],
                        Width>;
   
-  def ri : GASSInstLdst<(outs),
+  def ri : GASSInstLdstGlobal<(outs),
                         (ins RC:$src, VReg64:$ptr, i16imm:$offset),
                         0x386,
                         "STG."#Width#" \t[$ptr+$offset], $src;",

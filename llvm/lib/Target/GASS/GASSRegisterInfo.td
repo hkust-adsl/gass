@@ -48,6 +48,6 @@ def VReg32 : GASSRegClass<[i32,f32,v2f16], 32, (add (sequence "VGPR%u", 0, 255))
 
 // def : RegisterWithSubRegs<"", 
 //                           [VREG0, VREG1], [VREG2, VREG3], ...>;
-def VReg64Tuple : GASSRegTuples<[sub0, sub1], VReg32, 255, 1, 2, "v">;
+def VReg64Tuple : GASSRegTuples<[sub0, sub1], VReg32, 255, 2, 2, "v">;
 
 def VReg64 : GASSRegClass<[i64, f64], 64, (add VReg64Tuple)>;

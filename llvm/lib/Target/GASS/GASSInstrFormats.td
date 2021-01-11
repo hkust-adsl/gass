@@ -39,4 +39,22 @@ class GASSInstLdst<dag outs, dag ins, bits<12> opcode, string asmstr,
     ); // max is 6 
   
   let Inst{11-9} = WidthEncoding;
+
+  bits<8> dst;
+  bits<8> ptr;
+
+  // TODO: check this
+  let Dst = dst;
+  let Src0 = ptr;
+}
+
+class GASSInstLdstGlobal<dag outs, dag ins, bits<12> opcode, string asmstr, 
+                   list<dag> pattern, int width>
+  : GASSInstLdst<outs, ins, opcode, asmstr, pattern, width> {
+  // .E (64-bit version)
+  let Inst{8} = 1;
+  // cache & scope set as default value (maybe we should expose them?)
+  let Inst{21-20} = 1; // 0->.EF; 3->.LU
+  let Inst{16-15} = 1; // 0->.CONSTANT; 2->.STRONG; 3->.WEEK
+  let Inst{14-13} = 3; // 0->.CTA; 2->.GPU; 3->.SYS
 }

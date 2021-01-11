@@ -1,8 +1,16 @@
 include "llvm/Target/Target.td"
 
+
+//=---------------------------------------=//
+// Register File Description
+//=---------------------------------------=//
 include "GASSRegisterInfo.td"
+
+//=---------------------------------------=//
+// Instruction Description
+//=---------------------------------------=//
+// include "GASSSchedule.td"
 include "GASSInstrInfo.td"
-// include "GASSRegisterBanks.td"
 
 def SM70 : SubtargetFeature<"sm_70", "SmVersion", "70", "Target SM 7.0">;
 def SM75 : SubtargetFeature<"sm_75", "SmVersion", "75", "Target SM 7.5">;
