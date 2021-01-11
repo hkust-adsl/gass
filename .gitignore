@@ -26,6 +26,8 @@
 
 # GASS Examples
 /gass-example
+# local files
+/other
 
 #==============================================================================#
 # Explicit files to ignore (only matches one).

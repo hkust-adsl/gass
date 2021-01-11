@@ -1,11 +1,11 @@
-class GASSInst<dag outOperandList, dag inOperandList, bits<12> opcode, 
+class GASSInst<dag outs, dag ins, bits<12> opcode, 
                string asmstr, list<dag> pattern> : Instruction {
   let Namespace = "GASS";
 
   bits<128> Inst;
 
-  dag OutOperandList = outOperandList;
-  dag InOperandList = inOperandList;
+  dag OutOperandList = outs;
+  dag InOperandList = ins;
   let AsmString = asmstr;
   let Pattern = pattern;
 
@@ -21,4 +21,22 @@ class GASSInst<dag outOperandList, dag inOperandList, bits<12> opcode,
   let Inst{79-76}  = PredMask;
   let Inst{75-64}  = opcode;
   let Inst{7-0}    = Src2;
+}
+
+class GASSInstLdst<dag outs, dag ins, bits<12> opcode, string asmstr, 
+                   list<dag> pattern, int width>
+  : GASSInst<outs, ins, opcode, asmstr, pattern> {
+  // Width encoding
+  bits<3> WidthEncoding = 
+    !cond(
+      // ignore .u8/.u16 versions
+      !eq(width, 8) : 1, 
+      !eq(width, 16) : 3,
+      !eq(width, 32) : 4,
+      !eq(width, 64) : 5,
+      !eq(width, 128) : 6,
+      true : 4 // default width is .32
+    ); // max is 6 
+  
+  let Inst{11-9} = WidthEncoding;
 }
