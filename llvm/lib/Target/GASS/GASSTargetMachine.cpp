@@ -16,6 +16,8 @@ using namespace llvm;
 
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeGASSTarget() {
   RegisterTargetMachine<GASSTargetMachine> X(getTheGASSTarget());
+  auto PR = PassRegistry::getPassRegistry();
+  initializeGASSStallSettingPass(*PR);
 }
 
 GASSTargetMachine::GASSTargetMachine(const Target &T, const Triple &TT,
@@ -55,6 +57,9 @@ public:
 
   void addIRPasses() override;
   bool addInstSelector() override;
+
+  // Set instruction control info
+  void addPreEmitPass() override;
 };
 } // anonymous namespace
 
@@ -77,4 +82,8 @@ void GASSPassConfig::addIRPasses() {
 bool GASSPassConfig::addInstSelector() {
   addPass(new GASSDAGToDAGISel(getGASSTargetMachine()));
   return false;
+}
+
+void GASSPassConfig::addPreEmitPass() {
+  addPass(createGASSStallSettingPass());
 }

@@ -19,7 +19,7 @@ multiclass FFMA<string OpcStr, RegisterClass RC, bits<12> Enc> {
                     [(set f32:$dst, (fma f32:$a, f32:$b, f32:$c))]>;
 }
 
-defm FFMA : FFMA<"FFMA", VReg32, 0x223>;
+defm FFMA : FFMA<"FFMA", VReg32, 0x223>, Sched<[WriteFP32]>;
 
 
 //=---------------------------------=//
@@ -45,8 +45,8 @@ multiclass MOV<RegisterClass RC, int Width> {
                    []>;
 }
 
-defm MOV32 : MOV<VReg32, 32>;
-defm MOV64 : MOV<VReg64, 64>; // Really need to support this?
+defm MOV32 : MOV<VReg32, 32>, Sched<[WriteLD]>;
+defm MOV64 : MOV<VReg64, 64>, Sched<[WriteLD]>; // Really need to support this?
 
 //=---------------------------------=//
 // load/store instructions
@@ -62,8 +62,8 @@ multiclass LDC<RegisterClass RC, int Width> {
   // def rc : ;
 }
 
-defm LDC32 : LDC<VReg32, 32>;
-defm LDC64 : LDC<VReg64, 64>;
+defm LDC32 : LDC<VReg32, 32>, Sched<[WriteLD]>;
+defm LDC64 : LDC<VReg64, 64>, Sched<[WriteLD]>;
 
 multiclass LDG<RegisterClass RC, int Width> {
   def r : GASSInstLdstGlobal<(outs RC:$dst),
@@ -81,8 +81,8 @@ multiclass LDG<RegisterClass RC, int Width> {
                     Width>;
 }
 
-defm LDG32 : LDG<VReg32, 32>;
-defm LDG64 : LDG<VReg64, 64>;
+defm LDG32 : LDG<VReg32, 32>, Sched<[WriteLD]>;
+defm LDG64 : LDG<VReg64, 64>, Sched<[WriteLD]>;
 
 
 multiclass STG<RegisterClass RC, int Width> {
@@ -101,16 +101,18 @@ multiclass STG<RegisterClass RC, int Width> {
                         Width>;
 }
 
-defm STG32 : STG<VReg32, 32>;
-defm STG64 : STG<VReg64, 64>;
+defm STG32 : STG<VReg32, 32>, Sched<[WriteST]>;
+defm STG64 : STG<VReg64, 64>, Sched<[WriteST]>;
 
 //=---------------------------------=//
 // Misc
 //=---------------------------------=//
-def EXIT : GASSInst<(outs), (ins), 0x94d, "EXIT;", [(GASSexit)]> {
+def EXIT : GASSInst<(outs), (ins), 0x94d, "EXIT;", [(GASSexit)]>,
+           Sched<[]> {
   let isTerminator = true;
   let isBarrier = true;
   let hasSideEffects = true;
 }
 
-def NOP : GASSInst<(outs), (ins), 0x918, "NOP;", []> ; // maybe @llvm.donothing()
+def NOP : GASSInst<(outs), (ins), 0x918, "NOP;", []>,
+          Sched<[]> ; // maybe @llvm.donothing()

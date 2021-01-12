@@ -9,7 +9,7 @@ include "GASSRegisterInfo.td"
 //=---------------------------------------=//
 // Instruction Description
 //=---------------------------------------=//
-// include "GASSSchedule.td"
+include "GASSSchedule.td"
 include "GASSInstrInfo.td"
 
 def SM70 : SubtargetFeature<"sm_70", "SmVersion", "70", "Target SM 7.0">;
@@ -20,9 +20,14 @@ def SM80 : SubtargetFeature<"sm_80", "SmVersion", "80", "Target SM 8.0">;
 class Proc<string Name, list<SubtargetFeature> Features>
   : Processor<Name, NoItineraries, Features>;
 
-def : Proc<"sm_70", [SM70]>;
-def : Proc<"sm_75", [SM75]>;
-def : Proc<"sm_80", [SM80]>;
+// SchedModel
+include "GASSSchedSM70.td"
+
+// ProcessorModel = Processor + SchedModel
+def : ProcessorModel<"sm_70", SM70Model, [SM70]>;
+// Turing can reuse Volta's Schedule Model
+def : ProcessorModel<"sm_75", SM70Model, [SM75]>;
+def : ProcessorModel<"sm_80", SM70Model, [SM80]>;
 
 def GASSInstrInfo : InstrInfo {}
 

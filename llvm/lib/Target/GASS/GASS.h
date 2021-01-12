@@ -2,6 +2,7 @@
 #define LLVM_LIB_TARGET_GASS_GASS_H
 
 #include "llvm/Support/CodeGen.h"
+#include "llvm/PassRegistry.h"
 
 namespace llvm {
 class GASSTargetMachine;
@@ -14,6 +15,9 @@ class FunctionPass;
 void LowerToMCInst(const MachineInstr *MI, MCInst &Inst);
 
 FunctionPass *createGASSAddrSpacePass();
+FunctionPass *createGASSStallSettingPass(); 
+
+void initializeGASSStallSettingPass(PassRegistry&);
 
 namespace GASS {
 struct CtrlInfo {
