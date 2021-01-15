@@ -1,12 +1,8 @@
 #include "GASS.h"
 #include "GASSInstrInfo.h"
-#include "llvm/CodeGen/MachineDominators.h"
-#include "llvm/CodeGen/MachineDominanceFrontier.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/RDFGraph.h"
-#include "llvm/CodeGen/RDFLiveness.h"
 
 using namespace llvm;
 
@@ -21,14 +17,6 @@ public:
 
   GASSBarrierSetting() : MachineFunctionPass(ID) {
     initializeGASSBarrierSettingPass(*PassRegistry::getPassRegistry());
-  }
-
-  // Required
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<MachineDominatorTree>();
-    AU.addRequired<MachineDominanceFrontier>();
-    AU.setPreservesAll();
-    MachineFunctionPass::getAnalysisUsage(AU);
   }
 
   bool runOnMachineFunction(MachineFunction &MF) override;
@@ -57,24 +45,26 @@ bool GASSBarrierSetting::runOnMachineFunction(MachineFunction &MF) {
   const TargetSubtargetInfo &ST = MF.getSubtarget();
   const TargetInstrInfo *TII = ST.getInstrInfo();
   const TargetRegisterInfo *TRI = ST.getRegisterInfo();
-  
-  MachineDominatorTree *MDT = &getAnalysis<MachineDominatorTree>();
-  const auto &MDF = getAnalysis<MachineDominanceFrontier>();
 
-  rdf::TargetOperandInfo TOI(*TII);
-  rdf::DataFlowGraph G(MF, *TII, *TRI, *MDT, MDF, TOI);
-  G.build();
-
-  // Debug
-  // errs() << rdf::PrintNode<rdf::FuncNode*>(G.getFunc(), G) << "\n";
-
-  MachineRegisterInfo *MRI = &MF.getRegInfo();
-
-  rdf::Liveness LV(*MRI, G);
-  LV.trace(true); // dump result?
-  LV.computeLiveIns();
-  LV.resetLiveIns();
-  LV.resetKills();
+  // Use MachineRegisterInfo
+  const MachineRegisterInfo &MRI = MF.getRegInfo();
+  for (const MachineBasicBlock &MBB : MF) {
+    for (const MachineInstr &MI : MBB) {
+      for (const MachineOperand &MOP : MI.operands()) {
+        if (MOP.isReg()) {
+          MOP.dump();
+          errs() << " in ";
+          MI.dump();
+          errs() << " is used by ";
+          for (const MachineOperand &X : MRI.use_operands(MOP.getReg())) {
+            X.dump();
+            errs() << " in ";
+            X.getParent()->dump();
+          }
+        }
+      }
+    }
+  }
 
   return true;
 }
