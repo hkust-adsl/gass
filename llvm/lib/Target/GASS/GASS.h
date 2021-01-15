@@ -15,9 +15,12 @@ class FunctionPass;
 void LowerToMCInst(const MachineInstr *MI, MCInst &Inst);
 
 FunctionPass *createGASSAddrSpacePass();
+FunctionPass *createGASSBarrierSettingPass();
 FunctionPass *createGASSStallSettingPass(); 
 
+void initializeGASSBarrierSettingPass(PassRegistry &);
 void initializeGASSStallSettingPass(PassRegistry&);
+
 
 namespace GASS {
 struct CtrlInfo {

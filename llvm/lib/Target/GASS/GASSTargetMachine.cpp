@@ -85,5 +85,6 @@ bool GASSPassConfig::addInstSelector() {
 }
 
 void GASSPassConfig::addPreEmitPass() {
+  addPass(createGASSBarrierSettingPass());
   addPass(createGASSStallSettingPass());
 }

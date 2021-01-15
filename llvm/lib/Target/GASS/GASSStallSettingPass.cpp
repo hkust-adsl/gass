@@ -41,10 +41,11 @@ bool GASSStallSetting::runOnMachineFunction(MachineFunction &MF) {
   for (MachineBasicBlock &MBB : MF) {
     for (MachineInstr &MI : MBB) {
       unsigned Lat = SchedModel.computeInstrLatency(&MI, false);
-      MI.dump();
-      printf("'s Lat is %d\n", Lat);
+      // Set stall cycles
     }
   }
+
+  return true;
 }
 
 FunctionPass *llvm::createGASSStallSettingPass() {

@@ -17,13 +17,14 @@ add_public_tablegen_target(GASSCommonTableGen)
 add_llvm_target(GASSCodeGen
   GASSAddAddrSpace.cpp
   GASSAsmPrinter.cpp
+  GASSBarrierSettingPass.cpp
   GASSFrameLowering.cpp
   GASSInstrInfo.cpp
   GASSISelDAGToDAG.cpp
   GASSISelLowering.cpp
   GASSMCInstLowering.cpp
   GASSRegisterInfo.cpp
-  GASSStallSetting.cpp
+  GASSStallSettingPass.cpp
   GASSSubtarget.cpp
   GASSTargetMachine.cpp
   GASSTargetObjectFile.cpp

@@ -13,6 +13,13 @@ class GASSSubtarget;
 class GASSInstrInfo : public GASSGenInstrInfo {
 
 };
+
+namespace GASS {
+enum TsflagMask : unsigned {
+  FixedLatMask = 0x1,
+};
+} // namespace GASS
+
 } // namespace llvm
 
 #endif

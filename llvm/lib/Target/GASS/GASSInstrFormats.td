@@ -21,6 +21,11 @@ class GASSInst<dag outs, dag ins, bits<12> opcode,
   let Inst{79-76}  = PredMask;
   let Inst{75-64}  = opcode;
   let Inst{7-0}    = Src2;
+
+  // Schedule Info
+  // Need to sync with TsflagsMask in 'GASSInstrInfo.h'
+  bit isFixLat = true;
+  let TSFlags{0} = isFixLat;
 }
 
 class GASSInstLdst<dag outs, dag ins, bits<12> opcode, string asmstr, 
@@ -46,6 +51,8 @@ class GASSInstLdst<dag outs, dag ins, bits<12> opcode, string asmstr,
   // TODO: check this
   let Dst = dst;
   let Src0 = ptr;
+
+  let isFixLat = false;
 }
 
 class GASSInstLdstGlobal<dag outs, dag ins, bits<12> opcode, string asmstr, 
