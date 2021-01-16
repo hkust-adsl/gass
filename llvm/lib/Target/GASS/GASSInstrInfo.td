@@ -65,6 +65,7 @@ multiclass LDC<RegisterClass RC, int Width> {
 defm LDC32 : LDC<VReg32, 32>, Sched<[WriteLD]>;
 defm LDC64 : LDC<VReg64, 64>, Sched<[WriteLD]>;
 
+let mayLoad = true in {
 multiclass LDG<RegisterClass RC, int Width> {
   def r : GASSInstLdstGlobal<(outs RC:$dst),
                        (ins VReg64:$ptr),
@@ -79,6 +80,7 @@ multiclass LDG<RegisterClass RC, int Width> {
                     "LDG."#Width#" \t$dst, [$ptr+$offset];",
                     [],
                     Width>;
+}
 }
 
 defm LDG32 : LDG<VReg32, 32>, Sched<[WriteLD]>;

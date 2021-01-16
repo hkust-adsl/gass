@@ -11,7 +11,17 @@ namespace llvm {
 class GASSSubtarget;
 
 class GASSInstrInfo : public GASSGenInstrInfo {
+public:
+  static bool isLoad(const MachineInstr &MI);
+  static bool isStore(const MachineInstr &MI);
 
+  // Encode wait barrier (3+3+6=12 bits)
+  static void encodeReadBarrier(MachineInstr &MI, unsigned BarIdx);
+  static void encodeWriteBarrier(MachineInstr &MI, unsigned BarIdx);
+  static void encodeBarrierMask(MachineInstr &MI, unsigned BarIdx);
+
+  // Encode stall cycles (4 bits)
+  static void encodeStallCycles(MachineInstr &MI, unsigned Stalls);
 };
 
 namespace GASS {
