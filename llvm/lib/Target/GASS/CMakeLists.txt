@@ -28,6 +28,7 @@ add_llvm_target(GASSCodeGen
   GASSSubtarget.cpp
   GASSTargetMachine.cpp
   GASSTargetObjectFile.cpp
+  LiveBarRange.cpp
 
   LINK_COMPONENTS
   AsmPrinter
