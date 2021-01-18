@@ -20,6 +20,7 @@ public:
   static MachineOperand* getMemOperandReg(MachineInstr &MI);
 
   // Encode wait barrier (3+3+6=12 bits)
+  static void initializeFlagsEncoding(MachineInstr &MI);
   static void encodeReadBarrier(MachineInstr &MI, unsigned BarIdx);
   static void encodeWriteBarrier(MachineInstr &MI, unsigned BarIdx);
   static void encodeBarrierMask(MachineInstr &MI, unsigned BarIdx);

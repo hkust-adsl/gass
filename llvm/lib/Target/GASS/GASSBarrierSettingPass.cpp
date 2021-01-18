@@ -199,6 +199,9 @@ void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
   // TODO: handle livein & liveout
   for (auto iter = MBB.begin(); iter != MBB.end(); ++iter) {
     MachineInstr &MI = *iter;
+
+    // Provide default flag encoding
+    GII->initializeFlagsEncoding(MI);
     // Check RAW dependency
     if (GII->isLoad(MI)) {
       MachineOperand *BSrc = MI.defs().begin();

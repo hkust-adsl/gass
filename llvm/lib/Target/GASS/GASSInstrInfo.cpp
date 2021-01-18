@@ -50,6 +50,7 @@ MachineOperand* GASSInstrInfo::getMemOperandReg(MachineInstr &MI) {
 void GASSInstrInfo::encodeReadBarrier(MachineInstr &MI, unsigned BarIdx) {
   assert(BarIdx < 6 && "Read Barrier should be smaller than 6");
   uint16_t Flags = MI.getFlags();
+  Flags &= ~(0b111 << 7); // clear default value
   Flags |= BarIdx << 7;
   MI.setFlags(Flags);
 }
@@ -57,6 +58,7 @@ void GASSInstrInfo::encodeReadBarrier(MachineInstr &MI, unsigned BarIdx) {
 void GASSInstrInfo::encodeWriteBarrier(MachineInstr &MI, unsigned BarIdx) {
   assert(BarIdx < 6 && "Write barrier should be smaller than 6");
   uint16_t Flags = MI.getFlags();
+  Flags &= ~(0b111 << 4); // clear default value
   Flags |= BarIdx << 4;
   MI.setFlags(Flags);
 }
@@ -64,6 +66,7 @@ void GASSInstrInfo::encodeWriteBarrier(MachineInstr &MI, unsigned BarIdx) {
 void GASSInstrInfo::encodeBarrierMask(MachineInstr &MI, unsigned BarMask) {
   assert(BarMask < 64 && "Wait barrier mask should be smaller than 64");
   uint16_t Flags = MI.getFlags();
+  Flags &= ~(0b11'1111 << 10);
   Flags |= BarMask << 10;
   MI.setFlags(Flags);
 }
@@ -71,6 +74,15 @@ void GASSInstrInfo::encodeBarrierMask(MachineInstr &MI, unsigned BarMask) {
 void GASSInstrInfo::encodeStallCycles(MachineInstr &MI, unsigned Stalls) {
   assert(Stalls < 16 && "Stall cycles should be smaller than 16");
   uint16_t Flags = MI.getFlags();
+  Flags &= ~(0b1111);
   Flags |= Stalls;
   MI.setFlags(Flags);
+}
+
+void GASSInstrInfo::initializeFlagsEncoding(MachineInstr &MI) {
+  // Default value:
+  // Read & Write Barrier idx = 0b111;
+  // let default stall cycles be 2
+  uint16_t DefalutFlags = 0b0000'0011'1111'0010;
+  MI.setFlags(DefalutFlags);
 }
