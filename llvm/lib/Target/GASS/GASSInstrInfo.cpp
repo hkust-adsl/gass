@@ -29,6 +29,18 @@ bool GASSInstrInfo::isStore(const MachineInstr &MI) {
   return false;
 }
 
+MachineOperand* GASSInstrInfo::getMemOperandReg(MachineInstr &MI) {
+  MachineOperand *Ret = nullptr;
+  switch (MI.getOpcode()) {
+  default: return Ret;
+  case GASS::LDG32r: case GASS::LDG32ri:
+    return &MI.getOperand(1);
+  case GASS::STG32r: case GASS::STG32ri:
+  case GASS::STG64r: case GASS::STG64ri:
+    return &MI.getOperand(0);
+  }
+}
+
 //=------------------------------------------------=//
 // Encoding info (sm_70 ~ )
 //=------------------------------------------------=//

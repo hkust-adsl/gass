@@ -126,9 +126,9 @@ public:
   }
 
   void dump() const {
-    dbgs() << *Src << "(line " << LBR.beginIndex() << ") -> "
-            << *Dst << "(line " << LBR.endIndex() << ") "
-            << "[PhysBarIdx: " << PhysBarIdx << "]\n";
+    dbgs() << *Src << " (line " << LBR.beginIndex() << ") -> "
+            << *Dst << " (line " << LBR.endIndex() << ") "
+            << " \t[PhysBarIdx: " << PhysBarIdx << ", " << getBTStr() << "]\n";
   }
 
 private:
@@ -140,6 +140,17 @@ private:
   MachineOperand *Src = nullptr;
   MachineOperand *Dst = nullptr;
   LiveBarRange LBR;
+
+  // helper function
+  std::string const getBTStr() const {
+  switch (BT) {
+  case RAW_C : return "RAW_C";
+  case RAW_S : return "RAW_S";
+  case RAW_G : return "RAW_G";
+  case WAR_G : return "WAR_G";
+  case WAR_S : return "WAR_S";
+  }
+  }
 };
 
 // Simpler abstraction?
@@ -186,7 +197,8 @@ void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
   std::vector<Barrier> Barriers;
 
   // TODO: handle livein & liveout
-  for (MachineInstr &MI : MBB) {
+  for (auto iter = MBB.begin(); iter != MBB.end(); ++iter) {
+    MachineInstr &MI = *iter;
     // Check RAW dependency
     if (GII->isLoad(MI)) {
       MachineOperand *BSrc = MI.defs().begin();
@@ -194,7 +206,7 @@ void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
       for (MachineOperand &BDst : MRI->use_operands(BSrc->getReg())) {
         // Create Barrier
         SlotIndex SIDst = LIS->getInstructionIndex(*BDst.getParent());
-        Barriers.emplace_back(RAW_G, BSrc, &BDst, SISrc, SIDst);
+        Barriers.emplace_back(/*TODO*/RAW_G, BSrc, &BDst, SISrc, SIDst);
       }
       // Create WAR for MemOperand
     } else if (GII->isStore(MI)) {
@@ -202,7 +214,24 @@ void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
     }
 
     // Check WAR dependency
-    for (const MachineOperand &MOP : MI.operands()) {
+    if (MachineOperand *BSrc = GII->getMemOperandReg(MI)) {
+      SlotIndex SISrc = LIS->getInstructionIndex(MI);
+
+      // if current instr writes to it, we don't need to care about that
+      auto war_iter = iter;
+      ++war_iter;
+      for (; war_iter != MBB.end(); ++war_iter) {
+        for (MachineOperand &Def : war_iter->defs()) {
+          if (Def.isReg()) {
+            if (GRI->regsOverlap(BSrc->getReg(), Def.getReg())) {
+              SlotIndex SIDst = LIS->getInstructionIndex(*war_iter);
+              Barriers.emplace_back(WAR_G, BSrc, &Def, SISrc, SIDst);
+              goto TheEnd; // double break
+            }
+          }
+        }
+      }
+      TheEnd: {}
     }
   }
 

@@ -15,6 +15,10 @@ public:
   static bool isLoad(const MachineInstr &MI);
   static bool isStore(const MachineInstr &MI);
 
+  // return register of memory operand register (MemOperandReg)
+  // return nullptr if this MI has no MemOperandReg
+  static MachineOperand* getMemOperandReg(MachineInstr &MI);
+
   // Encode wait barrier (3+3+6=12 bits)
   static void encodeReadBarrier(MachineInstr &MI, unsigned BarIdx);
   static void encodeWriteBarrier(MachineInstr &MI, unsigned BarIdx);
