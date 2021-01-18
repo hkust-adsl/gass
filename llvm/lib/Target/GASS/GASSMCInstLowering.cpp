@@ -4,6 +4,30 @@
 
 using namespace llvm;
 
+static void lowerToMCFlags(const MachineInstr &MI, MCInst &MCI) {
+  // 1. decode
+  // uint16_t flags; // 3+3+6+4 
+  // Wait Mask (6 bits) :: Read Barrier Idx (3 bits) :: 
+  // Write Barrier Idx (3 bits) :: Stall Cycles (4 bits)
+  uint16_t MIFlags = MI.getFlags();
+  uint32_t WaitMask    = (MIFlags & 0b1111'1100'0000'0000) >> 10;
+  uint32_t ReadBarIdx  = (MIFlags & 0b0000'0011'1000'0000) >> 7;
+  uint32_t WriteBarIdx = (MIFlags & 0b0000'0000'0111'0000) >> 4;
+  uint32_t Stalls      = (MIFlags & 0b0000'0000'0000'1111);
+
+  // 2. encode
+  // 00 (2 bits) :: 0000 (reuse, 4 bits) :: Wait Mask (6 bits) ::
+  // Read Barrier Idx (3 bits) :: Write Barrier Idx (3 bits) ::
+  // 1 (yield 1 bit) :: stalls (4 bits) :: 0...0 (padding 9 bits)
+  uint32_t MCFlags = 0x10; // Yield
+  MCFlags |= Stalls;
+  MCFlags |= WriteBarIdx << 5;
+  MCFlags |= ReadBarIdx << 8;
+  MCFlags |= WaitMask << 11;
+  MCFlags = MCFlags << 9;
+  MCI.setFlags(MCFlags);
+}
+
 static void lowerToMCOperand(const MachineOperand &MO, MCOperand &MCOp) {
   switch (MO.getType()) {
   default:
@@ -28,5 +52,6 @@ void llvm::LowerToMCInst(const MachineInstr *MI, MCInst &Inst) {
   }
 
   // Store control info in flags :) amazing
-  Inst.setFlags(0x000fea00);
+  // Inst.setFlags(0x000fea00);
+  lowerToMCFlags(*MI, Inst);
 }
