@@ -46,8 +46,10 @@ class GASSInstLdst<dag outs, dag ins, bits<12> opcode, string asmstr,
   let Inst{11-9} = WidthEncoding;
 
   bits<8> dst;
+  bits<8> ptr;
   
   let Dst = dst;
+  let Src0 = ptr;
   
   let isFixLat = false;
 }
@@ -62,6 +64,4 @@ class GASSInstLdstGlobal<dag outs, dag ins, bits<12> opcode, string asmstr,
   let Inst{16-15} = 1; // 0->.CONSTANT; 2->.STRONG; 3->.WEEK
   let Inst{14-13} = 3; // 0->.CTA; 2->.GPU; 3->.SYS
 
-  bits<8> ptr;
-  let Src0 = ptr;
 }

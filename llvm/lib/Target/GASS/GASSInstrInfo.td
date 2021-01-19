@@ -14,6 +14,7 @@ def GASSldc : SDNode<"GASSISD::LDC", SDTLoad, []>; // Constant load
 //=---------------------------------=//
 def constantmem : Operand<i32> {
   let PrintMethod = "printConstantMem";
+  // let EncoderMethod = "encodeConstantMem"; // default: getMachineOpValue
 }
 
 //=---------------------------------=//
@@ -65,6 +66,7 @@ multiclass LDC<RegisterClass RC, int Width> {
                        "LDC." #Width #" \t$dst, $offset;",
                        [],
                        Width> {
+    let ptr = 0xff; // base offset
     bits<32> offset; // TODO: check width of constant mem
     let Inst{127-96} = offset; 
   }
