@@ -1,17 +1,17 @@
+//==-------------------------------------------------------------------==//
+//
 // Setting wait barrier for instructions
 //
 // Highlevel design phylosophy:
 //   Mimic register allocation
 //   Allocate physical barrier to vritual barriers
-// 
-// So we need:
-//   LiveBarMatrix (ref: LiveRegMatrix)
 //
 // Note:
 // 1. Smem instr execution order is the same as the issuing order
 // 2. Gmem instrs are executed out-of-order
 // 3. If 
 // 
+//==--------------------------------------------------------------------==//
 
 #include "GASS.h"
 #include "GASSSubtarget.h"

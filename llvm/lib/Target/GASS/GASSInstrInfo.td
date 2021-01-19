@@ -68,7 +68,7 @@ multiclass LDC<RegisterClass RC, int Width> {
                        Width> {
     let ptr = 0xff; // base offset
     bits<32> offset; // TODO: check width of constant mem
-    let Inst{127-96} = offset; 
+    let Inst{127-102} = offset{25-0}; 
   }
 
   // def rc : ;

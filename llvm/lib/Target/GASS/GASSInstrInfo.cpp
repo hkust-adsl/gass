@@ -82,7 +82,7 @@ void GASSInstrInfo::encodeStallCycles(MachineInstr &MI, unsigned Stalls) {
 void GASSInstrInfo::initializeFlagsEncoding(MachineInstr &MI) {
   // Default value:
   // Read & Write Barrier idx = 0b111;
-  // let default stall cycles be 2
-  uint16_t DefalutFlags = 0b0000'0011'1111'0010;
-  MI.setFlags(DefalutFlags);
+  uint16_t Flags = MI.getFlags();
+  Flags |= 0b0000'0011'1111'0000;
+  MI.setFlags(Flags);
 }
