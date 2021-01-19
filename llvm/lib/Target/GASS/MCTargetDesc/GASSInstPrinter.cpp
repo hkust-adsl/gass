@@ -44,3 +44,11 @@ void GASSInstPrinter::printRegOperand(unsigned RegNo, raw_ostream &O) {
 
   O << RegName;
 }
+
+void GASSInstPrinter::printConstantMem(const MCInst *MI, 
+                                       unsigned OpNo, raw_ostream &O) {
+  const MCOperand &Op = MI->getOperand(OpNo);
+  // example: c[0x0][0x160]
+  unsigned value = Op.getImm();
+  O << "c[0x0][" << format_hex(value, 3) << "]";
+}

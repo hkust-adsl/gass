@@ -28,7 +28,9 @@ public:
   void printOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);  
 
 private:
+  // Customized printing methods
   void printRegOperand(unsigned RegNo, raw_ostream &O);
+  void printConstantMem(const MCInst *MI, unsigned OpNo, raw_ostream &O);
 };
 }
 

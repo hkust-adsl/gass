@@ -10,6 +10,13 @@ def GASSexit : SDNode<"GASSISD::EXIT", SDTNone,
 def GASSldc : SDNode<"GASSISD::LDC", SDTLoad, []>; // Constant load
 
 //=---------------------------------=//
+// Operands
+//=---------------------------------=//
+def constantmem : Operand<i32> {
+  let PrintMethod = "printConstantMem";
+}
+
+//=---------------------------------=//
 // float-point
 //=---------------------------------=//
 multiclass FFMA<string OpcStr, RegisterClass RC, bits<12> Enc> {
@@ -53,11 +60,14 @@ defm MOV64 : MOV<VReg64, 64>, Sched<[WriteLD]>; // Really need to support this?
 //=---------------------------------=//
 multiclass LDC<RegisterClass RC, int Width> {
   def c : GASSInstLdst<(outs RC:$dst),
-                       (ins i32imm:$offset),
+                       (ins constantmem:$offset), 
                        0xb82,
-                       "LDC." #Width #" \t$dst, [$offset];",
+                       "LDC." #Width #" \t$dst, $offset;",
                        [],
-                       Width>;
+                       Width> {
+    bits<32> offset; // TODO: check width of constant mem
+    let Inst{127-96} = offset; 
+  }
 
   // def rc : ;
 }
@@ -72,14 +82,18 @@ multiclass LDG<RegisterClass RC, int Width> {
                        0x381,
                        "LDG."#Width#" \t$dst, [$ptr];",
                        [],
-                       Width>;
+                       Width> {
+    let Inst{20-17} = 0x7; // predicate: PT 
+  }
 
   def ri : GASSInstLdstGlobal<(outs RC:$dst),
                     (ins VReg64:$ptr, i16imm:$offset),
                     0x381,
                     "LDG."#Width#" \t$dst, [$ptr+$offset];",
                     [],
-                    Width>;
+                    Width> {
+    let Inst{20-17} = 0x7; // predicate: PT
+  }
 }
 }
 
@@ -114,7 +128,11 @@ def EXIT : GASSInst<(outs), (ins), 0x94d, "EXIT;", [(GASSexit)]>,
   let isTerminator = true;
   let isBarrier = true;
   let hasSideEffects = true;
+
+  let Inst{26-23} = 0x7; // predicate PT
 }
 
 def NOP : GASSInst<(outs), (ins), 0x918, "NOP;", []>,
-          Sched<[]> ; // maybe @llvm.donothing()
+          Sched<[]> { // maybe @llvm.donothing()
+  let Inst{26-23} = 0x7; // predicate PT
+}

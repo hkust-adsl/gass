@@ -250,7 +250,7 @@ void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
 
   // 3.1 print allocated result (debug info)
   for (const Barrier &Bar : Barriers) {
-    Bar.dump();
+    LLVM_DEBUG(Bar.dump());
   }
 
   // 4. Encoding Barrier info
