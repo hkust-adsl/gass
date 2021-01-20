@@ -32,6 +32,10 @@ public:
   // .text.{name}
   MCSection *SelectSectionForGlobal(const GlobalObject *GO, SectionKind Kind,
                                     const TargetMachine &TM) const override;
+
+  //=--------GASS specific sections-------------------=//
+  MCSection *getConstant0NamedSection(const Function *F) const;
+  MCSection *getNvInfoNamedSection(const Function *F) const;
 };
 
 } // namespace llvm

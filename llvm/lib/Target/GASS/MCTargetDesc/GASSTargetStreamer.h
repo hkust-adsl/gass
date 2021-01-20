@@ -8,6 +8,7 @@ class GASSTargetStreamer : public MCTargetStreamer {
 public:
   GASSTargetStreamer(MCStreamer &S);
 
+  // for ELF header (arch, cuda version)
   virtual void emitAttributes(unsigned SmVersion) = 0;
 };
 } // namespace llvm
