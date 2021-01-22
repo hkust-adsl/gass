@@ -21,6 +21,10 @@ foreach Index = 0-256 in {
   def VGPR#Index : GASSReg<"v"#Index, Index>;
 }
 
+foreach Index = 0-7 in {
+  def PR#Index : GASSReg<"p"#Index, Index>;
+}
+
 // Vector registers
 // Following the practice in AMDGPU (SIRegisterInfo.td)
 // Generates list of dags for register tupless.
@@ -44,6 +48,7 @@ class GASSRegTuples<list<SubRegIndex> Indices, RegisterClass RC,
 
 
 // Register Classes
+def VReg1  : GASSRegClass<[i1], /*TODO: check this*/1, (add (sequence "PR%u", 0, 7))>; 
 def VReg32 : GASSRegClass<[i32,f32,v2f16], 32, (add (sequence "VGPR%u", 0, 255))>;
 
 // def : RegisterWithSubRegs<"", 

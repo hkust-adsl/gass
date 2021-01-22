@@ -10,7 +10,8 @@ def SM70Model : SchedMachineModel {
 // 2. Processor resources
 def SM70UnitALU   : ProcResource<1> { let BufferSize = 0; }
 def SM70UnitLDST  : ProcResource<1> { let BufferSize = 5; }
-def SM70UnitFPALU : ProcResource<1> { let BufferSize = 0; }
+def SM70UnitFP32ALU : ProcResource<1> { let BufferSize = 0; }
+def SM70UnitFP64ALU : ProcResource<1> { let BufferSize = 0; }
 // Other
 
 
@@ -20,7 +21,8 @@ def SM70UnitFPALU : ProcResource<1> { let BufferSize = 0; }
 let SchedModel = SM70Model in {
 
 def : WriteRes<WriteI, [SM70UnitALU]> { let Latency = 4; }
-def : WriteRes<WriteFP32, [SM70UnitFPALU]> { let Latency = 4; }
+def : WriteRes<WriteFP32, [SM70UnitFP32ALU]> { let Latency = 4; }
+def : WriteRes<WriteFP64, [SM70UnitFP64ALU]> { let Latency = 8; }
 def : WriteRes<WriteLD, [SM70UnitLDST]> { let Latency = 20; }
 def : WriteRes<WriteST, [SM70UnitLDST]> { let Latency = 20; }
 

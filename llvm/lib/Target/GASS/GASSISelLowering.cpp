@@ -9,6 +9,7 @@ using namespace llvm;
 GASSTargetLowering::GASSTargetLowering(const TargetMachine &TM,
                                        const GASSSubtarget &STI)
   : TargetLowering(TM), Subtarget(STI) {
+  addRegisterClass(MVT::i1,  &GASS::VReg1RegClass);
   addRegisterClass(MVT::i32, &GASS::VReg32RegClass);
   addRegisterClass(MVT::f32, &GASS::VReg32RegClass);
   addRegisterClass(MVT::i64, &GASS::VReg64RegClass);
@@ -19,6 +20,14 @@ GASSTargetLowering::GASSTargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::ConstantFP, MVT::f64, Legal);
   setOperationAction(ISD::ConstantFP, MVT::f32, Legal);
   setOperationAction(ISD::ConstantFP, MVT::f16, Legal);
+
+  // TODO: What does this mean?
+  // Operations not directly supported by GASS. (NVPTX)
+  for (MVT VT : {MVT::f16, MVT::v2f16, MVT::f32, MVT::f64, MVT::i1, MVT::i8,
+                 MVT::i16, MVT::i32, MVT::i64}) {
+    setOperationAction(ISD::SELECT_CC, VT, Expand);
+    setOperationAction(ISD::BR_CC, VT, Expand);
+  }
 
   // Custom
   setOperationAction(ISD::ADDRSPACECAST, MVT::i32, Custom);

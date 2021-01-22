@@ -3,6 +3,7 @@ def WriteI : SchedWrite;
 
 // Floating points
 def WriteFP32 : SchedWrite;
+def WriteFP64 : SchedWrite;
 
 // LDST
 def WriteLD : SchedWrite;

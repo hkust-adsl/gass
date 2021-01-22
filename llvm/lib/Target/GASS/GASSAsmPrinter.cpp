@@ -15,14 +15,15 @@ namespace {
 // A better name may be "StreamLoweringDriver"?
 // MI -> MCI -> MCStreamer
 class GASSAsmPrinter : public AsmPrinter {
-  const GASSSubtarget *Subtarget;
+  const GASSTargetMachine *GTM = nullptr;
+  const GASSSubtarget *Subtarget = nullptr;
   const GASSTargetObjectFile *GTOF = nullptr;
 public:
   explicit GASSAsmPrinter(TargetMachine &TM,
                           std::unique_ptr<MCStreamer> Streamer)
     : AsmPrinter(TM, std::move(Streamer)) {
-    GASSTargetMachine &GTM = static_cast<GASSTargetMachine &>(TM);
-    Subtarget = GTM.getSubtargetImpl();
+    GTM = static_cast<GASSTargetMachine *>(&TM);
+    Subtarget = GTM->getSubtargetImpl();
 
     GTOF = static_cast<GASSTargetObjectFile*>(TM.getObjFileLowering());
   }
@@ -38,6 +39,9 @@ public:
 
   // Add new sections for .nv.info.{name}, .nv.constant0.{name}
   void emitFunctionBodyEnd() override;
+
+  // Symtab
+  void emitEndOfAsmFile(Module &M) override;
 };
 }
 
@@ -69,8 +73,17 @@ void GASSAsmPrinter::emitFunctionBodyEnd() {
   // .nv.info.{name} section
   MCSection *NVInfoSection = GTOF->getNvInfoNamedSection(&MF->getFunction());
   OutStreamer->SwitchSection(NVInfoSection); // Empty
+  // TODO: complete this
+  // OutStreamer->emitBytes(GTOF->getNvInfoNamedSectionData(&MF));
+}
 
-
+// symtab
+void GASSAsmPrinter::emitEndOfAsmFile(Module &M) {
+  for (const Function &F : M) {
+    // TODO: change this to .nv.info.{name}
+    MCSymbol *Name = GTM->getSymbol(&F);
+    OutStreamer->emitSymbolAttribute(Name, MCSA_Global);
+  }
 }
 
 
