@@ -25,6 +25,12 @@ foreach Index = 0-7 in {
   def PR#Index : GASSReg<"p"#Index, Index>;
 }
 
+// Zero registers
+def PT   : GASSReg<"PT", 0x7>;
+def NPT  : GASSReg<"!PT", 0xf>;
+def RZ32 : GASSReg<"RZ", 0xff>;
+def RZ64 : GASSReg<"RZ", 0xff>;
+
 // Vector registers
 // Following the practice in AMDGPU (SIRegisterInfo.td)
 // Generates list of dags for register tupless.

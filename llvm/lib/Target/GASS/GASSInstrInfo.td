@@ -67,6 +67,41 @@ defm IADD3 : IADD3, Sched<[WriteINT]>;
 def : Pat<(i32 (add i32:$src0, i32:$src1)),
           (IADD3rri VReg32:$src0, VReg32:$src1, PatLeaf<(i32 0)>)>;
 
+// 2-operand IADD, 
+// This is IADD3 with default value
+multiclass IADD {
+  def rr : GASSInst<(outs VReg32:$dst),
+                    (ins VReg32:$src0, VReg32:$src1),
+                    0x210,
+                    "IADD3 \t$dst, $src0, $src1, RZ;",
+                    [(set i32:$dst, (add i32:$src0, i32:$src1))]>;
+  
+  def ri : GASSInst<(outs VReg32:$dst),
+                    (ins VReg32:$src0, i32imm:$src1),
+                    0x810,
+                    "IADD3 \t$dst, $src0, $src1, RZ;",
+                    [(set i32:$dst, (add i32:$src0, imm:$src1))]>;
+}
+defm IADD : IADD, Sched<[WriteINT]>;
+
+// lhs/rhs ADDX (ADDCARRY)
+// This is (real) IADD3 with defalut value
+multiclass IADDX {
+  def rr : GASSInst<(outs VReg32:$dst, VReg1:$carryout),
+                    (ins VReg32:$src0, VReg32:$src1, VReg1:$carryin),
+                    0x210,
+                    "IADD3.X \t$dst, $carryout, $src0, $src1, RZ, $carryin",
+                    [/*TODO*/]>;
+
+  def ri : GASSInst<(outs VReg32:$dst, VReg1:$carryout),
+                    (ins VReg32:$src0, i32imm:$src1, VReg1:$carryin),
+                    0x810,
+                    "IADD3.X \t$dst, $carryout, $src0, $src1, RZ, $carryin",
+                    [/*TODO*/]>;
+}
+defm IADDX : IADDX, Sched<[WriteINT]>;
+
+
 // i64 add (pseudo instruction)
 multiclass IADD64 {
   def rr : GASSInst<(outs VReg64:$dst),
@@ -134,7 +169,11 @@ multiclass IMAD<bit IsSigned> {
 
   // def _WIDErri : ;
 
-  // def _WIDErir : ;
+  def _WIDErir : GASSInst<(outs VReg64:$dst),
+                          (ins VReg32:$src0, i32imm:$src1, VReg64:$src2),
+                          0x825,
+                          "IMAD.WIDE \t$dst, $src0, $src1, $src2;",
+                          []>;
 
   // TODO: fill this.
   // def _HIrrr : ;

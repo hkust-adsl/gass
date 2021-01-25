@@ -24,6 +24,8 @@ public:
                         const DebugLoc &DL,
                         int *BytesAdded = nullptr) const override;
 
+  bool expandPostRAPseudo(MachineInstr &MI) const override;
+
   static bool isLoad(const MachineInstr &MI);
   static bool isStore(const MachineInstr &MI);
 
