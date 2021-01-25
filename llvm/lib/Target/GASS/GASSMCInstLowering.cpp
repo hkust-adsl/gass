@@ -1,10 +1,14 @@
 #include "GASS.h"
+#include "GASSMCInstLowering.h"
 #include "llvm/CodeGen/MachineInstr.h"
+#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/MC/MCInst.h"
 
 using namespace llvm;
 
-static void lowerToMCFlags(const MachineInstr &MI, MCInst &MCI) {
+#define DEBUG_TYPE "gass-mc-lowering"
+
+void GASSMCInstLower::lowerToMCFlags(const MachineInstr &MI, MCInst &MCI) {
   // 1. decode
   // uint16_t flags; // 3+3+6+4 
   // Wait Mask (6 bits) :: Read Barrier Idx (3 bits) :: 
@@ -28,7 +32,8 @@ static void lowerToMCFlags(const MachineInstr &MI, MCInst &MCI) {
   MCI.setFlags(MCFlags);
 }
 
-static void lowerToMCOperand(const MachineOperand &MO, MCOperand &MCOp) {
+void GASSMCInstLower::lowerToMCOperand(const MachineOperand &MO, 
+                                       MCOperand &MCOp) {
   switch (MO.getType()) {
   default:
     llvm_unreachable("unknown operand type");
@@ -38,10 +43,15 @@ static void lowerToMCOperand(const MachineOperand &MO, MCOperand &MCOp) {
   case MachineOperand::MO_Immediate:
     MCOp = MCOperand::createImm(MO.getImm());
     break;
+  case MachineOperand::MO_MachineBasicBlock:
+    // Following the practice in NVPTX & AArch64
+    MCOp = MCOperand::createExpr(MCSymbolRefExpr::create(
+      MO.getMBB()->getSymbol(), Ctx));
+    break;
   }
 }
 
-void llvm::LowerToMCInst(const MachineInstr *MI, MCInst &Inst) {
+void GASSMCInstLower::LowerToMCInst(const MachineInstr *MI, MCInst &Inst) {
   Inst.setOpcode(MI->getOpcode());
 
   for (unsigned i=0; i != MI->getNumOperands(); ++i) {

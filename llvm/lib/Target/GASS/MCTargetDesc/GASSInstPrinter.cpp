@@ -1,5 +1,7 @@
+#include "GASS.h"
 #include "GASSInstPrinter.h"
 #include "llvm/MC/MCInst.h"
+#include "llvm/MC/MCExpr.h"
 #include "llvm/Support/FormattedStream.h"
 
 using namespace llvm;
@@ -22,6 +24,7 @@ void GASSInstPrinter::printInst(const MCInst *MI, uint64_t Address,
                                 StringRef Annot, const MCSubtargetInfo &STI,
                                 raw_ostream &OS) {
   // Auto-generated
+  MI->dump();
   printInstruction(MI, Address, OS);
   printAnnotation(OS, Annot); // What's this?
 }
@@ -34,7 +37,8 @@ void GASSInstPrinter::printOperand(const MCInst *MI,
   } else if (Op.isImm()) {
     O << formatImm(Op.getImm());
   } else {
-    O << "/*INV_OP*/";
+    assert(Op.isExpr() && "unknown operand kind in printOperand");
+    Op.getExpr()->print(O, &MAI);
   }
 }
 
@@ -45,10 +49,30 @@ void GASSInstPrinter::printRegOperand(unsigned RegNo, raw_ostream &O) {
   O << RegName;
 }
 
+
+//=-------------------------------=//
+// Custom print function (tablegen'erated)
 void GASSInstPrinter::printConstantMem(const MCInst *MI, 
                                        unsigned OpNo, raw_ostream &O) {
   const MCOperand &Op = MI->getOperand(OpNo);
   // example: c[0x0][0x160]
   unsigned value = Op.getImm();
   O << "c[0x0][" << format_hex(value, 3) << "]";
+}
+
+void GASSInstPrinter::printCmpMode(const MCInst *MI, 
+                                   unsigned OpNo, raw_ostream &O) {
+  const MCOperand &Op = MI->getOperand(OpNo);
+
+  unsigned Value = Op.getImm();
+  switch (Value) {
+  default:  llvm_unreachable("Invalid Cmp");
+  case GASS::GASSCC::CondCode::LT: O << ".LT";  return;
+  case GASS::GASSCC::CondCode::EQ: O << ".EQ";  return;
+  case GASS::GASSCC::CondCode::LE: O << ".LE";  return;
+  case GASS::GASSCC::CondCode::GT: O << ".GT";  return;
+  case GASS::GASSCC::CondCode::NE: O << ".NE";  return;
+  case GASS::GASSCC::CondCode::GE: O << ".GE";  return;
+  case GASS::GASSCC::CondCode::LO: O << ".LO";  return;
+  }
 }

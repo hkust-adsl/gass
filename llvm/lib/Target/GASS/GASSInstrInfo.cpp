@@ -6,6 +6,146 @@ using namespace llvm;
 #define GET_INSTRINFO_CTOR_DTOR
 #include "GASSGenInstrInfo.inc"
 
+//=----------------------------------------------------------------------=//
+// branch analysis
+//=----------------------------------------------------------------------=//
+/// analyzeBranch - Analyze the branching code at the end of MBB, returning
+/// true if it cannot be understood (e.g. it's a switch dispatch or isn't
+/// implemented for a target).  Upon success, this returns false and returns
+/// with the following information in various cases:
+///
+/// 1. If this block ends with no branches (it just falls through to its succ)
+///    just return false, leaving TBB/FBB null.
+/// 2. If this block ends with only an unconditional branch, it sets TBB to be
+///    the destination block.
+/// 3. If this block ends with an conditional branch and it falls through to
+///    an successor block, it sets TBB to be the branch destination block and a
+///    list of operands that evaluate the condition. These
+///    operands can be passed to other TargetInstrInfo methods to create new
+///    branches.
+/// 4. If this block ends with an conditional branch and an unconditional
+///    block, it returns the 'true' destination in TBB, the 'false' destination
+///    in FBB, and a list of operands that evaluate the condition. These
+///    operands can be passed to other TargetInstrInfo methods to create new
+///    branches.
+///
+/// Note that removeBranch and insertBranch must be implemented to support
+/// cases where this method returns success.
+///
+bool GASSInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
+                                  MachineBasicBlock *&TBB,
+                                  MachineBasicBlock *&FBB,
+                                  SmallVectorImpl<MachineOperand> &Cond,
+                                  bool AllowModify) const {
+  // If the block has no terminators, it just falls into the block after it.
+  MachineBasicBlock::iterator I = MBB.end();
+  if (I == MBB.begin() || !isUnpredicatedTerminator(*--I))
+    return false;
+
+  // Get the last instruction in the block.
+  MachineInstr &LastInst = *I;
+
+  // If there is only one terminator instruction, process it.
+  if (I == MBB.begin() || !isUnpredicatedTerminator(*--I)) {
+    if (LastInst.getOpcode() == GASS::BRA) {
+      TBB = LastInst.getOperand(0).getMBB();
+      return false;
+    } else if (LastInst.getOpcode() == GASS::CBRA) {
+      // Block ends with fall-through condbranch.
+      TBB = LastInst.getOperand(1).getMBB();
+      Cond.push_back(LastInst.getOperand(0));
+      return false;
+    }
+    // Otherwise, don't know what this is.
+    return true;
+  }
+
+  // Get the instruction before it if it's a terminator.
+  MachineInstr &SecondLastInst = *I;
+
+  // If there are three terminators, we don't know what sort of block this is.
+  if (I != MBB.begin() && isUnpredicatedTerminator(*--I))
+    return true;
+
+  // If the block ends with CBRA and BRA, handle it.
+  if (SecondLastInst.getOpcode() == GASS::CBRA &&
+      LastInst.getOpcode() == GASS::BRA) {
+    TBB = SecondLastInst.getOperand(1).getMBB();
+    Cond.push_back(SecondLastInst.getOperand(0));
+    FBB = LastInst.getOperand(0).getMBB();
+    return false;
+  }
+
+  // If the block ends with two GASS::BRAs, handle it.  The second one is not
+  // executed, so remove it.
+  if (SecondLastInst.getOpcode() == GASS::BRA &&
+      LastInst.getOpcode() == GASS::BRA) {
+    TBB = SecondLastInst.getOperand(0).getMBB();
+    I = LastInst;
+    if (AllowModify)
+      I->eraseFromParent();
+    return false;
+  }
+
+  // Otherwise, can't handle this.
+  return true;
+}
+
+unsigned GASSInstrInfo::removeBranch(MachineBasicBlock &MBB,
+                                     int *BytesRemoved) const {
+  assert(!BytesRemoved && "code size not handled");
+  MachineBasicBlock::iterator I = MBB.end();
+  if (I == MBB.begin())
+    return 0;
+  --I;
+  if (I->getOpcode() != GASS::BRA && I->getOpcode() != GASS::CBRA)
+    return 0;
+
+  // Remove the branch.
+  I->eraseFromParent();
+
+  I = MBB.end();
+
+  if (I == MBB.begin())
+    return 1;
+  --I;
+  if (I->getOpcode() != GASS::CBRA)
+    return 1;
+
+  // Remove the branch.
+  I->eraseFromParent();
+  return 2;
+}
+
+unsigned GASSInstrInfo::insertBranch(MachineBasicBlock &MBB,
+                                     MachineBasicBlock *TBB,
+                                     MachineBasicBlock *FBB,
+                                     ArrayRef<MachineOperand> Cond,
+                                     const DebugLoc &DL,
+                                     int *BytesAdded) const {
+  assert(!BytesAdded && "code size not handled");
+
+  // Shouldn't be a fall through.
+  assert(TBB && "insertBranch must not be told to insert a fallthrough");
+  assert((Cond.size() == 1 || Cond.size() == 0) &&
+         "GASS branch conditions have two components!");
+
+  // One-way branch.
+  if (!FBB) {
+    if (Cond.empty()) // Unconditional branch
+      BuildMI(&MBB, DL, get(GASS::BRA)).addMBB(TBB);
+    else // Conditional branch
+      BuildMI(&MBB, DL, get(GASS::CBRA)).addReg(Cond[0].getReg())
+          .addMBB(TBB);
+    return 1;
+  }
+
+  // Two-way Conditional Branch.
+  BuildMI(&MBB, DL, get(GASS::CBRA)).addReg(Cond[0].getReg()).addMBB(TBB);
+  BuildMI(&MBB, DL, get(GASS::BRA)).addMBB(FBB);
+  return 2;
+}
+
 bool GASSInstrInfo::isLoad(const MachineInstr &MI) {
   switch (MI.getOpcode()) {
   default:

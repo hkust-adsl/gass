@@ -32,9 +32,8 @@ GASSMCCodeEmitter::getMachineOpValue(const MCInst &MI, const MCOperand &MO,
     Op = Ctx.getRegisterInfo()->getEncodingValue(MO.getReg());
   else if (MO.isImm()) { 
     Op = MO.getImm();
-  }
-  else 
-    llvm_unreachable("Unhandled expression");
+  } else 
+    llvm_unreachable("Unhandled MachineOperand type");
 
   return;    
 }

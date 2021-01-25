@@ -117,10 +117,15 @@ bool GASSStallSetting::runOnMachineFunction(MachineFunction &MF) {
         }
       }
 
+      // (Optional) Debug
+      LLVM_DEBUG(MI.dump());
+      LLVM_DEBUG(dbgs() << "[Stalls: " << Stalls << "]\n");
+
       // 4. Encode Stall info
       GII->encodeStallCycles(MI, Stalls);
     } // for each MI
   }
+
 
   return true;
 }

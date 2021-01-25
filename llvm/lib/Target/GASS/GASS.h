@@ -40,6 +40,33 @@ enum AddressSpace : unsigned {
   PARAM = 4, // Remove this?
   LOCAL = 5
 };
+
+// SETCC
+namespace GASSCC {
+enum CondCode {
+  EQ = 0,
+  NE = 1,
+  LT = 2,
+  LE = 3,
+  GT = 4,
+  GE = 5,
+
+  EQU = 10,
+  NEU = 11,
+  LTU = 12,
+  LEU = 13,
+  GTU = 14,
+  GEU = 15,
+  NUM = 16,
+  NaN = 17,
+  
+  LO,
+  LS,
+  HI,
+  HS,
+};
+} // namespace GASSCC
+
 } // namespace GASS
 
 } // namespace llvm

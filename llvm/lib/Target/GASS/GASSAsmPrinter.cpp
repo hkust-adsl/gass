@@ -1,5 +1,6 @@
 #include "GASS.h"
 #include "GASSTargetMachine.h"
+#include "GASSMCInstLowering.h"
 #include "TargetInfo/GASSTargetInfo.h"
 #include "MCTargetDesc/GASSTargetStreamer.h"
 #include "llvm/CodeGen/AsmPrinter.h"
@@ -15,13 +16,14 @@ namespace {
 // A better name may be "StreamLoweringDriver"?
 // MI -> MCI -> MCStreamer
 class GASSAsmPrinter : public AsmPrinter {
+  GASSMCInstLower MCInstLowering;
   const GASSTargetMachine *GTM = nullptr;
   const GASSSubtarget *Subtarget = nullptr;
   const GASSTargetObjectFile *GTOF = nullptr;
 public:
   explicit GASSAsmPrinter(TargetMachine &TM,
                           std::unique_ptr<MCStreamer> Streamer)
-    : AsmPrinter(TM, std::move(Streamer)) {
+    : AsmPrinter(TM, std::move(Streamer)), MCInstLowering(OutContext, *this) {
     GTM = static_cast<GASSTargetMachine *>(&TM);
     Subtarget = GTM->getSubtargetImpl();
 
@@ -47,7 +49,7 @@ public:
 
 void GASSAsmPrinter::emitInstruction(const MachineInstr *MI) {
   MCInst Inst;
-  LowerToMCInst(MI, Inst);
+  MCInstLowering.LowerToMCInst(MI, Inst);
   EmitToStreamer(*OutStreamer, Inst);
 }
 

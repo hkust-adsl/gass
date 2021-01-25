@@ -20,7 +20,7 @@ def SM70UnitFP64ALU : ProcResource<1> { let BufferSize = 0; }
 // 4. Map processor resources to SchedWrites
 let SchedModel = SM70Model in {
 
-def : WriteRes<WriteI, [SM70UnitALU]> { let Latency = 4; }
+def : WriteRes<WriteINT, [SM70UnitALU]> { let Latency = 4; }
 def : WriteRes<WriteFP32, [SM70UnitFP32ALU]> { let Latency = 4; }
 def : WriteRes<WriteFP64, [SM70UnitFP64ALU]> { let Latency = 8; }
 def : WriteRes<WriteLD, [SM70UnitLDST]> { let Latency = 20; }
@@ -29,7 +29,7 @@ def : WriteRes<WriteST, [SM70UnitLDST]> { let Latency = 20; }
 // Refine Basic Model
 // 1. InstRW is used to refine scheduling info, override the target defaults
 // Miscellaneous
-def : InstRW<[WriteI], (instrs COPY)>;
+def : InstRW<[WriteINT], (instrs COPY)>;
 // 2. WriteSequence (?)
 }
 

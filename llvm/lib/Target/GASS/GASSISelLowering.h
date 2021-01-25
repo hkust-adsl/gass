@@ -59,7 +59,17 @@ public:
                       SelectionDAG &DAG) const override;
 
 private:
+  // Custom lowering
   SDValue lowerAddrSpaceCast(SDValue Op, SelectionDAG &DAG) const;
+  SDValue lowerADD64(SDValue Op, SelectionDAG &DAG) const;
+
+private:
+  // utility functions
+  SDValue JoinIntegers(SDValue Lo, SDValue Hi, SelectionDAG &DAG) const;
+  void SplitInteger(SDValue Op, EVT LoVT, EVT HiVT, SDValue &Lo, SDValue &Hi,
+                    SelectionDAG &DAG) const;
+  void SplitInteger(SDValue Op, SDValue &Lo, SDValue &Hi, 
+                    SelectionDAG &DAG) const;
 };
 
 } // namespace llvm

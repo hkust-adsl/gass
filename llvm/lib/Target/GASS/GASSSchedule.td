@@ -1,5 +1,5 @@
 // 3. SchedWrite(s) (& SchedRead(s))?
-def WriteI : SchedWrite; 
+def WriteINT : SchedWrite; 
 
 // Floating points
 def WriteFP32 : SchedWrite;

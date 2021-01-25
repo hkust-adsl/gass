@@ -19,62 +19,178 @@ def constantmem : Operand<i32> {
 
 def brtarget : Operand<OtherVT>;
 
+def CmpMode : Operand<i32> {
+  let PrintMethod = "printCmpMode";
+  let EncoderMethod = "encodeCmpMode";
+}
+
+// Thest must match the enum in GASS.h
+def CmpEQ   : PatLeaf<(i32 0)>;
+def CmpNE   : PatLeaf<(i32 1)>;
+def CmpLT   : PatLeaf<(i32 2)>;
+def CmpLE   : PatLeaf<(i32 3)>;
+def CmpGT   : PatLeaf<(i32 4)>;
+def CmpGE   : PatLeaf<(i32 5)>;
+def CmpEQU  : PatLeaf<(i32 10)>;
+def CmpNEU  : PatLeaf<(i32 11)>;
+def CmpLTU  : PatLeaf<(i32 12)>;
+def CmpLEU  : PatLeaf<(i32 13)>;
+def CmpGTU  : PatLeaf<(i32 14)>;
+def CmpGEU  : PatLeaf<(i32 15)>;
+def CmpNUM  : PatLeaf<(i32 16)>;
+def CmpNAN  : PatLeaf<(i32 17)>;
+
 //=---------------------------------=//
 // Integer
 //=---------------------------------=//
 // IADD3, IMUL, IMAD, SHF, LOP3
-// multiclass IADD3 {
-//   // 0x210
-//   def rrr : ;
+multiclass IADD3 {
+  def rrr : GASSInst<(outs VReg32:$dst),
+                     (ins VReg32:$src0, VReg32:$src1, VReg32:$src2),
+                     0x210,
+                     "IADD3 \t$dst, $src0, $src1, $src2;",
+                     [(set i32:$dst, (add (add i32:$src0, i32:$src1), 
+                                          i32:$src2))]>;
 
-//   def rri : ;
+  def rri : GASSInst<(outs VReg32:$dst),
+                     (ins VReg32:$src0, VReg32:$src1, i32imm:$src2),
+                     0x410,
+                     "IADD3 \t$dst, $src0, $src1, $src2;",
+                     [(set i32:$dst, (add (add i32:$src0, i32:$src1),
+                                          imm:$src2))]>;
 
-//   def rrc : ;
+  // Consider this
+  // def _Xrrr : ;
+}
+defm IADD3 : IADD3, Sched<[WriteINT]>;
+// Support 2-source add (TODO)
+def : Pat<(i32 (add i32:$src0, i32:$src1)),
+          (IADD3rri VReg32:$src0, VReg32:$src1, PatLeaf<(i32 0)>)>;
 
-//   // Consider this
-//   def _Xrrr : ;
-// }
-// defm IADD3 : IADD3, Sched<[WriteINT]>;
+// i64 add (pseudo instruction)
+multiclass IADD64 {
+  def rr : GASSInst<(outs VReg64:$dst),
+                     (ins VReg64:$src0, VReg64:$src1),
+                     0x0, "",
+                     [(set i64:$dst, (add i64:$src0, i64:$src1))]> {
+    let isPseudo = true;
+  }
 
-// // IMUL
-// // TODO
+  // def ri : ;
+}
+defm IADD64 : IADD64, Sched<[WriteINT]>;
 
-// // IMAD
-// multiclass IMAD<bit IsSigned> {
-//   def rrr : ;
+// IMUL
+// Pseudo instruction
+let isPseudo = true in {
+multiclass IMUL {
+  def rr : GASSInst<(outs VReg32:$dst),
+                    (ins VReg32:$src0, VReg32:$src1),
+                    0x0, "", 
+                    [(set i32:$dst, (mul i32:$src0, i32:$src1))]>;
 
-//   def rri : ;
+  def _WIDErr : GASSInst<(outs VReg64:$dst),
+                         (ins VReg32:$src0, VReg32:$src1),
+                         0x0, "",
+                         []>;
 
-//   def rir : ;
+  def _WIDEri : GASSInst<(outs VReg64:$dst),
+                         (ins VReg32:$src0, i32imm:$src1),
+                         0x0, "",
+                         []>;
+}
+} // isPseudo = true
+defm IMUL : IMUL, Sched<[WriteINT]>;
 
-//   def rrc : ;
+// IMAD
+multiclass IMAD<bit IsSigned> {
+  def rrr : GASSInst<(outs VReg32:$dst),
+                     (ins VReg32:$src0, VReg32:$src1, VReg32:$src2),
+                     0x224,
+                     "IMAD \t$dst, $src0, $src1, $src2;",
+                     [(set i32:$dst, (add (mul i32:$src0, i32:$src1), 
+                                          i32:$src2))]>;
 
-//   def rcr : ;
+  def rri : GASSInst<(outs VReg32:$dst),
+                     (ins VReg32:$src0, VReg32:$src1, i32imm:$src2),
+                     0x424,
+                     "IMAD \t$dst, $src0, $src1, $src2;",
+                     [(set i32:$dst, (add (mul i32:$src0, i32:$src1),
+                                          imm:$src2))]>;
 
-//   def _WIDErrr : ;
+  def rir : GASSInst<(outs VReg32:$dst),
+                     (ins VReg32:$src0, i32imm:$src1, VReg32:$src2),
+                     0x824,
+                     "IMAD \t$dst, $src0, $src1, $src2;",
+                     [(set i32:$dst, (add (mul i32:$src0, imm:$src1),
+                                          i32:$src2))]>;
 
-//   def _WIDErri : ;
+  def _WIDErrr : GASSInst<(outs VReg64:$dst),
+                          (ins VReg32:$src0, VReg32:$src1, VReg64:$src2),
+                          0x225,
+                          "IMAD.WIDE \t$dst, $src0, $src1, $src2;",
+                          // Does this work?
+                          []>;
 
-//   def _WIDErir : ;
+  // def _WIDErri : ;
 
-//   def _WIDErrc : ;
+  // def _WIDErir : ;
 
-//   def _WIDErcr : ;
-
-//   // TODO: fill this.
-//   // def _HIrrr : ;
-// }
-// defm IMAD_S32 : IMAD<true>, Sched<[WriteFP32]>;
+  // TODO: fill this.
+  // def _HIrrr : ;
+}
+defm IMAD_S32 : IMAD<true>, Sched<[WriteFP32]>;
 // defm IMAD_U32 : IMAD<false>, Sched<[WriteFP32]>;
 
-// // SHF
-// multiclass SHF {
-//   def _Lrrr : ;
+// SHF
+multiclass SHF<bit IsSigned> {
+  def _Lrrr : GASSInst<(outs VReg32:$dst),
+                       (ins VReg32:$src0, VReg32:$src1, VReg32:$src2),
+                       0x219,
+                       "SHF.L \t$dst, $src0, $src1, $src2;",
+                       []>;
 
-//   def _Rrrr : ;
-// }
-// defm SHF_S32 : IMAD<true>, Sched<[WriteINT]>;
-// defm SHF_U32 : IMAD<false>, Sched<[WriteINT]>;
+  def _Lrri : GASSInst<(outs VReg32:$dst),
+                       (ins VReg32:$src0, VReg32:$src1, i32imm:$src2),
+                       0x419,
+                       "SHF.L \t$dst, $src0, $src1, $src2;",
+                       []>;
+
+  // def _Rrrr : GASSInst<(outs VReg32:$dst),
+  //                      (ins);
+}
+defm SHF_S32 : IMAD<true>, Sched<[WriteINT]>;
+defm SHF_U32 : IMAD<false>, Sched<[WriteINT]>;
+
+// Pseudo instruction
+multiclass SHL64 {
+  def rr : GASSInst<(outs VReg64:$dst),
+                     (ins VReg64:$src0, VReg64:$src1),
+                     0x0, "",
+                     [(set i64:$dst, (shl i64:$src0, i64:$src1))]> {
+    let isPseudo = true;
+  }
+
+  def ri : GASSInst<(outs VReg64:$dst),
+                    (ins VReg64:$src0, i64imm:$src1),
+                    0x0, "",
+                    [(set i64:$dst, (shl i64:$src0, (i64 imm:$src1)))]> {
+    let isPseudo = true;
+  }
+}
+defm SHL64 : SHL64, Sched<[WriteINT]>;
+
+//=-------------------------------------------------------------------------==//
+// convert "sign/zero-extend, then shift left by an imm" to mul.wide
+//=-------------------------------------------------------------------------==//
+def SHL2MUL32 : SDNodeXForm<imm, [{
+  const APInt &v = N->getAPIntValue();
+  APInt temp(32, 1);
+  return CurDAG->getTargetConstant(temp.shl(v), SDLoc(N), MVT::i32);
+}]>;
+
+def : Pat<(shl (sext i32:$a), (i64 imm:$b)),
+               (IMUL_WIDEri VReg32:$a, (SHL2MUL32 node:$b))>;
 
 // // LOP3
 // multiclass LOP3 {
@@ -199,7 +315,36 @@ defm HMUL2 : HMUL2<VReg32, 0x232>, Sched<[WriteFP32]>;
 // setp
 //=---------------------------------=//
 // ISETP, FSETP, PSETP
-// class SETP : GASSInst<(outs), >;
+// eg, ISETP.LT.AND.S32 P0, PT, $src0, $src1, $srcp;
+multiclass SETP<string OpcStr, RegisterClass RC, Operand ImmCls,
+                bits<12> rrEnc, bits<12> riEnc> {
+  def rr : GASSInst<(outs VReg1:$dst), // TODO: 2 dsts
+                    (ins RC:$src0, RC:$src1, CmpMode:$cmp),
+                    rrEnc,
+                    !strconcat(OpcStr, ".$cmp \t$dst, $src0, $src1;"),
+                    []>;
+
+  def ri : GASSInst<(outs VReg1:$dst),
+                    (ins RC:$src0, ImmCls:$src1, CmpMode:$cmp),
+                    riEnc,
+                    !strconcat(OpcStr, "$cmp \t$dst, $src0, $src1"),
+                    []>;
+}
+defm ISETP : SETP<"ISETP", VReg32, i32imm, 0x20c, 0x40c>, Sched<[WriteINT]>;
+
+// Patterns
+def : Pat<(i1 (seteq i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpEQ)>;
+def : Pat<(i1 (seteq i32:$a, imm:$b)), (ISETPri VReg32:$a, i32imm:$b, CmpEQ)>;
+def : Pat<(i1 (setne i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpNE)>;
+def : Pat<(i1 (setne i32:$a, i32:$b)), (ISETPri VReg32:$a, i32imm:$b, CmpNE)>;
+def : Pat<(i1 (setlt i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpLT)>;
+def : Pat<(i1 (setlt i32:$a, imm:$b)), (ISETPri VReg32:$a, i32imm:$b, CmpLT)>;
+def : Pat<(i1 (setle i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpLE)>;
+def : Pat<(i1 (setle i32:$a, imm:$b)), (ISETPri VReg32:$a, i32imm:$b, CmpLE)>;
+def : Pat<(i1 (setgt i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpGT)>;
+def : Pat<(i1 (setgt i32:$a, imm:$b)), (ISETPri VReg32:$a, i32imm:$b, CmpGT)>;
+def : Pat<(i1 (setge i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpGE)>;
+def : Pat<(i1 (setge i32:$a, imm:$b)), (ISETPri VReg32:$a, i32imm:$b, CmpGE)>;
 
 
 //=---------------------------------=//
@@ -391,7 +536,9 @@ class READ_SREG_R32<string RegName, Intrinsic IntOp>
   : GASSInst<(outs VReg32:$dst), (ins), 
              0x919, 
              "S2R \t$dst, "#RegName#";",
-             [(set VReg32:$dst, (IntOp))]>, Sched<[WriteLD]>;
+             [(set VReg32:$dst, (IntOp))]>, Sched<[WriteLD]> {
+  let isFixLat = false;
+}
 
 def READ_TID_X : READ_SREG_R32<"tid.x", int_nvvm_read_ptx_sreg_tid_x>;
 def READ_TID_Y : READ_SREG_R32<"tid.y", int_nvvm_read_ptx_sreg_tid_y>;

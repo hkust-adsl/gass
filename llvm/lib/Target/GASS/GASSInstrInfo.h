@@ -12,6 +12,18 @@ class GASSSubtarget;
 
 class GASSInstrInfo : public GASSGenInstrInfo {
 public:
+  // Branch analyzsis.
+  bool analyzeBranch(MachineBasicBlock &MBB, MachineBasicBlock *&TBB,
+                     MachineBasicBlock *&FBB,
+                     SmallVectorImpl<MachineOperand> &Cond,
+                     bool AllowModify) const override;
+  unsigned removeBranch(MachineBasicBlock &MBB,
+                        int *BytesRemoved = nullptr) const override;
+  unsigned insertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
+                        MachineBasicBlock *FBB, ArrayRef<MachineOperand> Cond,
+                        const DebugLoc &DL,
+                        int *BytesAdded = nullptr) const override;
+
   static bool isLoad(const MachineInstr &MI);
   static bool isStore(const MachineInstr &MI);
 
