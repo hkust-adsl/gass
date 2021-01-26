@@ -182,42 +182,53 @@ defm IMAD_S32 : IMAD<true>, Sched<[WriteFP32]>;
 // defm IMAD_U32 : IMAD<false>, Sched<[WriteFP32]>;
 
 // SHF
-multiclass SHF<bit IsSigned> {
-  def _Lrrr : GASSInst<(outs VReg32:$dst),
+// ins:
+//   Lo32bits, shiftAmount, Hi32Bits, l/r, lo/hi, type
+multiclass SHF {
+  def rrr : GASSInst<(outs VReg32:$dst),
                        (ins VReg32:$src0, VReg32:$src1, VReg32:$src2),
                        0x219,
-                       "SHF.L \t$dst, $src0, $src1, $src2;",
+                       "SHF \t$dst, $src0, $src1, $src2;",
                        []>;
 
-  def _Lrri : GASSInst<(outs VReg32:$dst),
+  def rri : GASSInst<(outs VReg32:$dst),
                        (ins VReg32:$src0, VReg32:$src1, i32imm:$src2),
                        0x419,
-                       "SHF.L \t$dst, $src0, $src1, $src2;",
+                       "SHF \t$dst, $src0, $src1, $src2;",
                        []>;
 
-  // def _Rrrr : GASSInst<(outs VReg32:$dst),
-  //                      (ins);
+  def rir : GASSInst<(outs VReg32:$dst),
+                     (ins VReg32:$src0, VReg32:$src1, i32imm:$src2),
+                     0x819,
+                     "SHF \t$dst, $src0, $src1, $src2;",
+                     []>;
 }
-defm SHF_S32 : IMAD<true>, Sched<[WriteINT]>;
-defm SHF_U32 : IMAD<false>, Sched<[WriteINT]>;
+defm SHF : SHF, Sched<[WriteINT]>;
 
+//==------------------------------------------------------------------------==//
 // Pseudo instruction
+//==------------------------------------------------------------------------==//
 multiclass SHL64 {
   def rr : GASSInst<(outs VReg64:$dst),
-                     (ins VReg64:$src0, VReg64:$src1),
-                     0x0, "",
-                     [(set i64:$dst, (shl i64:$src0, i64:$src1))]> {
-    let isPseudo = true;
-  }
+                          (ins VReg64:$src0, VReg64:$src1), 
+                          0x0, 
+                          "SHL.64 \t$dst, $src0, $src1; // FIXME FIXME Pseudo",
+                          [(set i64:$dst, (shl i64:$src0, i64:$src1))]>;
 
   def ri : GASSInst<(outs VReg64:$dst),
-                    (ins VReg64:$src0, i64imm:$src1),
-                    0x0, "",
-                    [(set i64:$dst, (shl i64:$src0, (i64 imm:$src1)))]> {
-    let isPseudo = true;
-  }
+                          (ins VReg64:$src0, i64imm:$src1),
+                          0x0, 
+                          "SHL.64 \t$dst, $src0, $src1; // FIXME FIXME Pseudo",
+                          [(set i64:$dst, (shl i64:$src0, (i64 imm:$src1)))]>;
 }
 defm SHL64 : SHL64, Sched<[WriteINT]>;
+
+// SignExtend
+// i32->i64
+class SEXT : GASSPseudoInst<(outs VReg64:$dst),
+                            (ins VReg32:$src0),
+                            [(set i64:$dst, (sext i32:$src0))]>;
+def SEXT : SEXT, Sched<[WriteINT]>;
 
 //=-------------------------------------------------------------------------==//
 // convert "sign/zero-extend, then shift left by an imm" to mul.wide
@@ -360,7 +371,7 @@ multiclass SETP<string OpcStr, RegisterClass RC, Operand ImmCls,
   def rr : GASSInst<(outs VReg1:$dst), // TODO: 2 dsts
                     (ins RC:$src0, RC:$src1, CmpMode:$cmp),
                     rrEnc,
-                    !strconcat(OpcStr, ".$cmp \t$dst, $src0, $src1;"),
+                    !strconcat(OpcStr, "$cmp \t$dst, $src0, $src1;"),
                     []>;
 
   def ri : GASSInst<(outs VReg1:$dst),

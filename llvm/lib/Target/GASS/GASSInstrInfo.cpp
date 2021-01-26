@@ -149,59 +149,57 @@ unsigned GASSInstrInfo::insertBranch(MachineBasicBlock &MBB,
 }
 
 // Expand pseudo instrucitons
-// IMUL, IADD64, 
+// IMUL, IADD64, SEXT
 bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   unsigned Opc = MI.getOpcode();
-  if (Opc != GASS::IADD64rr &&
-      Opc != GASS::IMULrr &&
-      Opc != GASS::IMUL_WIDErr &&
-      Opc != GASS::IMUL_WIDEri)
-    return false;
 
   MachineBasicBlock &MBB = *MI.getParent();
   auto &Subtarget = MBB.getParent()->getSubtarget<GASSSubtarget>();
   auto TRI = Subtarget.getRegisterInfo();
   DebugLoc DL = MI.getDebugLoc();
 
-  if (Opc == GASS::IADD64rr) {
-    // IADD64rr -> IADD32 + IADD32.x
-    Register Dst = MI.getOperand(0).getReg();
-    Register DstLo = TRI->getSubReg(Dst, GASS::sub0);
-    Register DstHi = TRI->getSubReg(Dst, GASS::sub1);
+  switch (Opc){
+  default: return false;
+  // case GASS::IADD64rr: {
+  //   // IADD64rr -> IADD32 + IADD32.x
+  //   Register Dst = MI.getOperand(0).getReg();
+  //   Register DstLo = TRI->getSubReg(Dst, GASS::sub0);
+  //   Register DstHi = TRI->getSubReg(Dst, GASS::sub1);
 
-    Register LHS = MI.getOperand(1).getReg();
-    Register LHSLo = TRI->getSubReg(LHS, GASS::sub0);
-    Register LHSHi = TRI->getSubReg(LHS, GASS::sub1);
+  //   Register LHS = MI.getOperand(1).getReg();
+  //   Register LHSLo = TRI->getSubReg(LHS, GASS::sub0);
+  //   Register LHSHi = TRI->getSubReg(LHS, GASS::sub1);
 
-    Register RHS = MI.getOperand(2).getReg();
-    Register RHSLo = TRI->getSubReg(RHS, GASS::sub0);
-    Register RHSHi = TRI->getSubReg(RHS, GASS::sub1);
+  //   Register RHS = MI.getOperand(2).getReg();
+  //   Register RHSLo = TRI->getSubReg(RHS, GASS::sub0);
+  //   Register RHSHi = TRI->getSubReg(RHS, GASS::sub1);
 
-    // FIXME: We preserve P6 as carry register 
-    // Chain these two instructions
-    BuildMI(MBB, MI, DL, get(GASS::IADDXrr))
-      .addReg(DstLo, RegState::Define)
-      .addReg(GASS::PR6)
-      .addReg(LHSLo)
-      .addReg(RHSLo)
-      .addReg(GASS::NPT); // !PT
-    BuildMI(MBB, MI, DL, get(GASS::IADDXrr))
-      .addReg(DstHi, RegState::Define)
-      .addReg(GASS::PT)
-      .addReg(LHSHi)
-      .addReg(RHSHi)
-      .addReg(GASS::PR6);
-  } else if (Opc == GASS::IMULrr) {
-    // IMULrr ...; -> IMADrr ..., RZ;
-  } else if (Opc == GASS::IMUL_WIDErr) {
-    // Register Dst = MI.defs().begin()->;
-    // BuildMI(MBB, MI, DL, get(GASS::IMAD_WIDErrr))
-  } else if (Opc == GASS::IMUL_WIDEri) {
+  //   // FIXME: We preserve P6 as carry register 
+  //   // Chain these two instructions
+  //   BuildMI(MBB, MI, DL, get(GASS::IADDXrr))
+  //     .addReg(DstLo, RegState::Define)
+  //     .addReg(GASS::PR6)
+  //     .addReg(LHSLo)
+  //     .addReg(RHSLo)
+  //     .addReg(GASS::NPT); // !PT
+  //   BuildMI(MBB, MI, DL, get(GASS::IADDXrr))
+  //     .addReg(DstHi, RegState::Define)
+  //     .addReg(GASS::PT)
+  //     .addReg(LHSHi)
+  //     .addReg(RHSHi)
+  //     .addReg(GASS::PR6);
+  // } break;
+  case GASS::IMULrr: { /* TODO */ }
+    break;
+  case GASS::IMUL_WIDErr: {/* TODO */}
+    break;
+  case GASS::IMUL_WIDEri: {
     Register Dst = MI.getOperand(0).getReg();
     BuildMI(MBB, MI, DL, get(GASS::IMAD_S32_WIDErir), Dst)
       .add(MI.getOperand(1))
       .add(MI.getOperand(2))
       .addReg(GASS::RZ64);
+  } break;
   }
 
   MI.eraseFromParent();

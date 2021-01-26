@@ -18,6 +18,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeGASSTarget() {
   RegisterTargetMachine<GASSTargetMachine> X(getTheGASSTarget());
   auto PR = PassRegistry::getPassRegistry();
   initializeGASSStallSettingPass(*PR);
+  initializeGASSExpandPreRAPseudoPass(*PR);
 }
 
 GASSTargetMachine::GASSTargetMachine(const Target &T, const Triple &TT,
@@ -81,6 +82,7 @@ void GASSPassConfig::addIRPasses() {
 
 bool GASSPassConfig::addInstSelector() {
   addPass(new GASSDAGToDAGISel(getGASSTargetMachine()));
+  addPass(createGASSExpandPreRAPseudoPass());
   return false;
 }
 

@@ -17,9 +17,11 @@ void LowerToMCInst(const MachineInstr *MI, MCInst &Inst);
 FunctionPass *createGASSAddrSpacePass();
 FunctionPass *createGASSBarrierSettingPass();
 FunctionPass *createGASSStallSettingPass(); 
+FunctionPass *createGASSExpandPreRAPseudoPass();
 
 void initializeGASSBarrierSettingPass(PassRegistry &);
 void initializeGASSStallSettingPass(PassRegistry&);
+void initializeGASSExpandPreRAPseudoPass(PassRegistry&);
 
 
 namespace GASS {
@@ -66,6 +68,25 @@ enum CondCode {
   HS,
 };
 } // namespace GASSCC
+
+namespace SHF_FLAGS {
+enum LR {
+  L,
+  R
+};
+
+enum LOHI {
+  LO,
+  HI
+};
+
+enum TYPE {
+  S32,
+  U32,
+  S64,
+  U64
+};
+} // namespace SHF_FLAGS
 
 } // namespace GASS
 

@@ -28,6 +28,11 @@ class GASSInst<dag outs, dag ins, bits<12> opcode,
   let TSFlags{0} = isFixLat;
 }
 
+class GASSPseudoInst<dag outs, dag ins, list<dag> pattern>
+  : GASSInst<outs, ins, 0x0, "", pattern> {
+  let isPseudo = true;
+}
+
 class GASSInstLdst<dag outs, dag ins, bits<12> opcode, string asmstr, 
                    list<dag> pattern, int width>
   : GASSInst<outs, ins, opcode, asmstr, pattern> {
