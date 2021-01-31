@@ -116,7 +116,7 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
           .add(RHSSub0)
           .addReg(GASS::NPT);
         BuildMI(MBB, MI, DL, TII->get(GASS::IADDXrr), DstSub1)
-          .addReg(GASS::PT)
+          .addReg(GASS::PT, RegState::Define)
           .add(LHSSub1)
           .add(RHSSub1)
           .addReg(CarryReg, RegState::Kill);

@@ -8,6 +8,27 @@ using namespace llvm;
 #define GET_INSTRINFO_CTOR_DTOR
 #include "GASSGenInstrInfo.inc"
 
+// See NVPTXInstrInfo::copyPhysReg()
+void GASSInstrInfo::copyPhysReg(MachineBasicBlock &MBB, 
+                                MachineBasicBlock::iterator I,
+                                const DebugLoc &DL, MCRegister DestReg, 
+                                MCRegister SrcReg, bool KillSrc) const {
+  unsigned Op;
+
+  if (GASS::VReg32RegClass.contains(SrcReg) &&
+      GASS::VReg32RegClass.contains(DestReg)) {
+    Op = GASS::MOV32r;
+  } else if (GASS::VReg64RegClass.contains(SrcReg) &&
+             GASS::VReg64RegClass.contains(DestReg)) {
+    Op = GASS::MOV64r;
+  } else {
+    llvm_unreachable("Bad phys reg copy");
+  }
+
+  BuildMI(MBB, I, DL, get(Op), DestReg)
+      .addReg(SrcReg, getKillRegState(KillSrc));
+}
+
 //=----------------------------------------------------------------------=//
 // branch analysis
 //=----------------------------------------------------------------------=//

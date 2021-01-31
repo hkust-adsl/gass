@@ -12,6 +12,19 @@ class GASSSubtarget;
 
 class GASSInstrInfo : public GASSGenInstrInfo {
 public:
+  /// Emit instructions to copy a pair of physical registers.
+  ///
+  /// This function should support copies within any legal register class as
+  /// well as any cross-class copies created during instruction selection.
+  ///
+  /// The source and destination registers may overlap, which may require a
+  /// careful implementation when multiple copy instructions are required for
+  /// large registers. See for example the ARM target.
+  void copyPhysReg(MachineBasicBlock &MBB,
+                   MachineBasicBlock::iterator MI, const DebugLoc &DL,
+                   MCRegister DestReg, MCRegister SrcReg,
+                   bool KillSrc) const override;
+
   // Branch analyzsis.
   bool analyzeBranch(MachineBasicBlock &MBB, MachineBasicBlock *&TBB,
                      MachineBasicBlock *&FBB,

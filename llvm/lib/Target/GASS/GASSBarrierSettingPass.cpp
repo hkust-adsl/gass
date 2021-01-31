@@ -153,14 +153,28 @@ private:
   }
 };
 
-// Simpler abstraction?
-class LiveBarMatrix {
-public:
-  enum InterferenceKind {
-    IK_Free = 0,
+class LiveBarGraph {
+  struct Edge {
+    Barrier *Dst;
+    unsigned Cost = 0;
   };
+  std::vector<Barrier*> Nodes;
+  std::map<Barrier*, std::set<Edge>> Edges;
+public:
+  LiveBarGraph(std::vector<Barrier*> &Bars) {}
+  unsigned getMaxDegree() const {
+    unsigned MaxDegree = 0;
+    for (auto iter = Edges.begin(); iter != Edges.end(); ++iter) {
+      MaxDegree = std::max(MaxDegree, unsigned(iter->second.size()));
+    }
+    return MaxDegree;
+  }
 
+  void mergeBarriers() {
+    //
+  }
 
+  
 };
 } // anonymous 
 

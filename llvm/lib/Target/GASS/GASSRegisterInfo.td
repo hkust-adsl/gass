@@ -29,7 +29,11 @@ foreach Index = 0-7 in {
 def PT   : GASSReg<"PT", 0x7>;
 def NPT  : GASSReg<"!PT", 0xf>;
 def RZ32 : GASSReg<"RZ", 0xff>;
-def RZ64 : GASSReg<"RZ", 0xff>;
+def RZ32_1 : GASSReg<"RZ32_1", 0xff>; // requred by RZ64, should never be used.
+def RZ64 : GASSReg<"RZ", 0xff> {
+  let SubRegIndices = [sub0, sub1];
+  let SubRegs = [RZ32, RZ32_1];
+}
 
 // Vector registers
 // Following the practice in AMDGPU (SIRegisterInfo.td)
@@ -68,11 +72,13 @@ class GASSRegTuples<list<SubRegIndex> Indices, RegisterClass RC,
 
 
 // Register Classes
-def VReg1  : GASSRegClass<[i1], /*TODO: check this*/1, (add (sequence "PR%u", 0, 7))>; 
-def VReg32 : GASSRegClass<[i32,f32,v2f16], 32, (add (sequence "VGPR%u", 0, 255))>;
+def VReg1  : GASSRegClass<[i1], 1, (add (sequence "PR%u", 0, 7), 
+                                        PT, NPT)>; 
+def VReg32 : GASSRegClass<[i32,f32,v2f16], 32, (add (sequence "VGPR%u", 0, 255), 
+                                                    RZ32)>;
 
 // def : RegisterWithSubRegs<"", 
 //                           [VREG0, VREG1], [VREG2, VREG3], ...>;
 def VReg64Tuple : GASSRegTuples<[sub0, sub1], VReg32, 255, 2, 2, "R">;
 
-def VReg64 : GASSRegClass<[i64, f64], 64, (add VReg64Tuple)>;
+def VReg64 : GASSRegClass<[i64, f64], 64, (add VReg64Tuple, RZ64)>;

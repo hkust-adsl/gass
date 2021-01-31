@@ -24,6 +24,12 @@ def CmpMode : Operand<i32> {
   let EncoderMethod = "encodeCmpMode";
 }
 
+// .xor .or .and
+def BoolMode : Operand<i32> {
+  let PrintMethod = "printBoolMode";
+  let EncoderMethod = "encodeBoolMode";
+}
+
 // Thest must match the enum in GASS.h
 def CmpEQ   : PatLeaf<(i32 0)>;
 def CmpNE   : PatLeaf<(i32 1)>;
@@ -100,7 +106,6 @@ multiclass IADDX {
                     [/*TODO*/]>;
 }
 defm IADDX : IADDX, Sched<[WriteINT]>;
-
 
 // i64 add (pseudo instruction)
 multiclass IADD64 {
@@ -204,6 +209,55 @@ multiclass SHF {
                      []>;
 }
 defm SHF : SHF, Sched<[WriteINT]>;
+
+// LOP3
+//   LOP3 $dst, $src1, $src2, $src3, $immLut;
+multiclass LOP3 {
+  def rrr : GASSInst<(outs VReg32:$dst),
+                     (ins VReg32:$src0, VReg32:$src1, VReg32:$src2, 
+                          i8imm:$immLut),
+                     0x212,
+                     "LOP3.LUT $dst, $src0, $src1, $src2, $immLut;",
+                     []>;
+
+  def rri : GASSInst<(outs VReg32:$dst),
+                     (ins VReg32:$src0, VReg32:$src1, i32imm:$src2,
+                          i8imm:$immLut),
+                     0x412,
+                     "LOP3.LUT $dst, $src0, $src1, $src2, $immLut;",
+                     []>;
+
+  def rir : GASSInst<(outs VReg32:$dst),
+                     (ins VReg32:$src0, i32imm:$src1, VReg32:$src2,
+                          i8imm:$immLut),
+                     0x812,
+                     "LOP3.LUT $dst, $src0, $src1, $src2, $immLut;",
+                     []>;
+
+  // def rrc : ;
+}
+defm LOP3 : LOP3, Sched<[WriteINT]>;
+
+// TODO: combine xor/or/and/not
+//==------------------------------------------------------------------------==//
+// xor/or/and/not (all pseudo)
+//==------------------------------------------------------------------------==//
+multiclass BITWISE<SDNode OpNode> {
+  def rr : GASSPseudoInst<(outs VReg32:$dst),
+                          (ins VReg32:$src0, VReg32:$src1),
+                          [(set i32:$dst, (OpNode i32:$src0, i32:$src1))]>,
+           Sched<[WriteINT]>;
+
+  def ri : GASSPseudoInst<(outs VReg32:$dst),
+                          (ins VReg32:$src0, VReg32:$src1),
+                          [(set i32:$dst, (OpNode i32:$src0, imm:$src1))]>,
+           Sched<[WriteINT]>;
+}
+
+defm OR  : BITWISE<or>;
+defm XOR : BITWISE<xor>;
+defm AND : BITWISE<and>;
+
 
 //==------------------------------------------------------------------------==//
 // Pseudo instruction
@@ -331,6 +385,20 @@ defm DMUL : MUL<"DMUL", VReg64, f64imm, f64, 0x228, 0x828> ,
 defm DADD : ADD<"DADD", VReg64, f64imm, f64, 0x229, 0x429> , 
             Sched<[WriteFP64]>;
 
+// Patterns for fma
+def : Pat<(f32 (fadd (fmul f32:$a, f32:$b), f32:$c)),
+          (FFMArrr VReg32:$a, VReg32:$b, VReg32:$c)>;
+def : Pat<(f32 (fadd (fmul f32:$a, f32:$b), fpimm:$c)),
+          (FFMArri VReg32:$a, VReg32:$b, fpimm:$c)>;
+def : Pat<(f32 (fadd (fmul f32:$a, fpimm:$b), f32:$c)),
+          (FFMArir VReg32:$a, fpimm:$b, VReg32:$c)>;
+def : Pat<(f64 (fadd (fmul f64:$a, f64:$b), f64:$c)),
+          (DFMArrr VReg64:$a, VReg64:$b, VReg64:$c)>;
+def : Pat<(f64 (fadd (fmul f64:$a, f64:$b), fpimm:$c)),
+          (DFMArri VReg64:$a, VReg64:$b, fpimm:$c)>;
+def : Pat<(f64 (fadd (fmul f64:$a, fpimm:$b), f64:$c)),
+          (DFMArir VReg64:$a, fpimm:$b, VReg64:$c)>;
+
 // half prevision
 multiclass HFMA2<RegisterClass RC, bits<12> rrrEnc> {
   def rr : GASSInst<(outs RC:$dst), 
@@ -368,7 +436,7 @@ defm HMUL2 : HMUL2<VReg32, 0x232>, Sched<[WriteFP32]>;
 // eg, ISETP.LT.AND.S32 P0, PT, $src0, $src1, $srcp;
 multiclass SETP<string OpcStr, RegisterClass RC, Operand ImmCls,
                 bits<12> rrEnc, bits<12> riEnc> {
-  def rr : GASSInst<(outs VReg1:$dst), // TODO: 2 dsts
+  def rr : GASSInst<(outs VReg1:$dst), // TODO: 2 dsts (no?)
                     (ins RC:$src0, RC:$src1, CmpMode:$cmp),
                     rrEnc,
                     !strconcat(OpcStr, "$cmp \t$dst, $src0, $src1;"),
@@ -384,17 +452,17 @@ defm ISETP : SETP<"ISETP", VReg32, i32imm, 0x20c, 0x40c>, Sched<[WriteINT]>;
 
 // Patterns
 def : Pat<(i1 (seteq i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpEQ)>;
-def : Pat<(i1 (seteq i32:$a, imm:$b)), (ISETPri VReg32:$a, i32imm:$b, CmpEQ)>;
+def : Pat<(i1 (seteq i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpEQ)>;
 def : Pat<(i1 (setne i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpNE)>;
-def : Pat<(i1 (setne i32:$a, i32:$b)), (ISETPri VReg32:$a, i32imm:$b, CmpNE)>;
+def : Pat<(i1 (setne i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpNE)>;
 def : Pat<(i1 (setlt i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpLT)>;
-def : Pat<(i1 (setlt i32:$a, imm:$b)), (ISETPri VReg32:$a, i32imm:$b, CmpLT)>;
+def : Pat<(i1 (setlt i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpLT)>;
 def : Pat<(i1 (setle i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpLE)>;
-def : Pat<(i1 (setle i32:$a, imm:$b)), (ISETPri VReg32:$a, i32imm:$b, CmpLE)>;
+def : Pat<(i1 (setle i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpLE)>;
 def : Pat<(i1 (setgt i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpGT)>;
-def : Pat<(i1 (setgt i32:$a, imm:$b)), (ISETPri VReg32:$a, i32imm:$b, CmpGT)>;
+def : Pat<(i1 (setgt i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpGT)>;
 def : Pat<(i1 (setge i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpGE)>;
-def : Pat<(i1 (setge i32:$a, imm:$b)), (ISETPri VReg32:$a, i32imm:$b, CmpGE)>;
+def : Pat<(i1 (setge i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpGE)>;
 
 
 //=---------------------------------=//
@@ -444,7 +512,13 @@ multiclass MOV<RegisterClass RC, int Width> {
                    []>;
 
   def i : GASSInst<(outs RC:$dst),
-                   (ins RC:$src),
+                   (ins i32imm:$src),
+                   0x202,
+                   "MOV."#Width#" \t$dst, $src;",
+                   []>;
+  
+  def f : GASSInst<(outs RC:$dst),
+                   (ins f32imm:$src),
                    0x202,
                    "MOV."#Width#" \t$dst, $src;",
                    []>;
@@ -458,6 +532,10 @@ multiclass MOV<RegisterClass RC, int Width> {
 
 defm MOV32 : MOV<VReg32, 32>, Sched<[WriteLD]>;
 defm MOV64 : MOV<VReg64, 64>, Sched<[WriteLD]>; // Really need to support this?
+
+// TODO: this can't be right?
+def : Pat<(i32 (imm:$src0)),   (MOV32i imm:$src0)>;
+def : Pat<(f32 (fpimm:$src0)), (MOV32f fpimm:$src0)>;
 
 //=---------------------------------=//
 // load/store instructions
@@ -534,11 +612,12 @@ defm STG64 : STG<VReg64, 64>, Sched<[WriteST]>;
 // BRA, CBRA (condition branch), BAR,
 // TODO: BSSY, BSYNC, WARPSYNC (?)
 let isTerminator = true, isBranch = true in {
-  def BRA : GASSInst<(outs), 
-                     (ins brtarget:$target), 
-                     0x947, 
-                     "BRA \t$target;", 
-                     [(br bb:$target)]>, Sched<[]>;
+  let isBarrier = true in 
+    def BRA : GASSInst<(outs), 
+                      (ins brtarget:$target), 
+                      0x947, 
+                      "BRA \t$target;", 
+                      [(br bb:$target)]>, Sched<[]>;
 
   def CBRA : GASSInst<(outs), 
                       (ins VReg1:$a, brtarget:$target),

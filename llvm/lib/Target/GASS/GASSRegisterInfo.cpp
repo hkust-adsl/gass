@@ -19,8 +19,19 @@ GASSRegisterInfo::getCalleeSavedRegs(const MachineFunction *) const {
   return CalleeSavedRegs;
 }
 
+// A reserved register:
+//  * is not allocatable
+//  * is considered always live
+//  * is ignored by liveness tracking
 BitVector GASSRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   BitVector Reserved(getNumRegs()); // What's this?
+
+  // Constant registers
+  Reserved.set(GASS::RZ32);
+  Reserved.set(GASS::RZ64);
+  Reserved.set(GASS::PT);
+  Reserved.set(GASS::NPT);
+  
   return Reserved;
 }
 
