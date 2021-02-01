@@ -232,18 +232,43 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
 // Query instr type
 //=----------------------------------------------=//
 bool GASSInstrInfo::isLoad(const MachineInstr &MI) {
+  return isLDG(MI) | isLDS(MI) | isLDC(MI);
+}
+
+bool GASSInstrInfo::isStore(const MachineInstr &MI) {
+  return isSTG(MI) | isSTS(MI);
+}
+
+bool GASSInstrInfo::isLDG(const MachineInstr &MI) {
   switch (MI.getOpcode()) {
-  default:
-    break;
-  case GASS::LDC32c: case GASS::LDC64c:
+  default: return false;
   case GASS::LDG32r: case GASS::LDG32ri:
   case GASS::LDG64r: case GASS::LDG64ri:
+    return true;
+  }
+}
+
+bool GASSInstrInfo::isLDS(const MachineInstr &MI) {
+  // TODO: fill this.
+  switch (MI.getOpcode()) {
+  default: break;
+  case GASS::READ_TID_X: case GASS::READ_TID_Y: case GASS::READ_TID_Z:
+  case GASS::READ_CTAID_X: case GASS::READ_CTAID_Y: case GASS::READ_CTAID_Z:
+  case GASS::READ_LANEID: case GASS::READ_WARPID:
     return true;
   }
   return false;
 }
 
-bool GASSInstrInfo::isStore(const MachineInstr &MI) {
+bool GASSInstrInfo::isLDC(const MachineInstr &MI) {
+  switch (MI.getOpcode()) {
+  default: break;
+  case GASS::LDC32c: case GASS::LDC64c:
+    return true;
+  }
+}
+
+bool GASSInstrInfo::isSTG(const MachineInstr &MI) {
   switch (MI.getOpcode()) {
   default:
     break;
@@ -251,6 +276,11 @@ bool GASSInstrInfo::isStore(const MachineInstr &MI) {
   case GASS::STG64r: case GASS::STG64ri:
     return true;
   }
+  return false;
+}
+
+bool GASSInstrInfo::isSTS(const MachineInstr &MI) {
+  // TODO: fill this.
   return false;
 }
 
@@ -297,7 +327,7 @@ void GASSInstrInfo::encodeBarrierMask(MachineInstr &MI, unsigned BarMask) {
 }
 
 void GASSInstrInfo::encodeStallCycles(MachineInstr &MI, unsigned Stalls) {
-  assert(Stalls < 16 && "Stall cycles should be smaller than 16");
+  // assert(Stalls < 16 && "Stall cycles should be smaller than 16");
   uint16_t Flags = MI.getFlags();
   Flags &= ~(0b1111);
   Flags |= Stalls;

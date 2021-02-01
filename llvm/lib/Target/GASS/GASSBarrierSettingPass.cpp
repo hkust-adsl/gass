@@ -26,6 +26,7 @@
 #include <map>
 #include <set>
 #include <vector>
+#include <algorithm>
 
 using namespace llvm;
 
@@ -38,7 +39,8 @@ enum BarrierType {
   RAW_G,
   RAW_C,
   WAR_S,
-  WAR_G
+  WAR_G,
+  WAR_MEM,
 };
 
 constexpr unsigned kNumBarriers = 6;
@@ -78,19 +80,39 @@ public:
 
 private:
   // helper functions for merging and allocating barriers
-  void coalesceLds(std::vector<Barrier> &Barriers);
   unsigned countBarriers(std::vector<Barrier> &Barriers);
-  void mergeBarriers(std::vector<Barrier> &Barriers);
   void allocatePhysBarriers(std::vector<Barrier> &Barriers);
 };
 
 char GASSBarrierSetting::ID = 0;
 
 class Barrier {
+  // Cache LIS, GII
+  const LiveIntervals *LIS = nullptr;
+  const GASSInstrInfo *GII = nullptr;
 public:
-  Barrier(BarrierType BT, MachineOperand *Src, MachineOperand *Dst, 
-          SlotIndex SISrc, SlotIndex SIDst)
-    : BT(BT), Src(Src), Dst(Dst), LBR(SISrc, SIDst) {
+  Barrier(MachineInstr &MI, SlotIndex SIStart, SlotIndex SIEnd, bool IsMemOp,
+          const LiveIntervals *LIS, const GASSInstrInfo *GII)
+    : End(SIEnd), LBR(SIStart, SIEnd), LIS(LIS), GII(GII) {
+    Starts.push_back(SIStart);
+
+    if (IsMemOp) BT = WAR_MEM;
+    else {
+      if (GII->isLDG(MI)) {
+        BT = RAW_G;
+      } else if (GII->isLDS(MI)) {
+        BT = RAW_S;
+      } else if (GII->isLDC(MI)) {
+        BT = RAW_C;
+      } else if (GII->isSTS(MI)) {
+        BT = WAR_S;
+      } else if (GII->isSTG(MI)) {
+        BT = WAR_G;
+      } else {
+        llvm_unreachable("Invalid MI for barrier");
+      }
+    }
+
     if (BT == RAW_S || BT == RAW_G || BT == RAW_C)
       IsRead = true;
     else
@@ -99,17 +121,45 @@ public:
     // 
   }
 
+  // Merge two barriers
+  void merge(const Barrier &Other) {
+    assert(IsRead == Other.isRead() && "Cannot merge RAW & WAR barriers");
+    if (BT == RAW_S && Other.getBarrierType() == RAW_S) {
+      // Since LDSs are executed in order, we only need one start point
+      assert(Starts.size() == 1 && Other.getStarts().size() == 1);
+      Starts[0] = std::min(Starts[0], Other.getStarts()[0]);
+    } // TODO: merge can be different depending on Barrier Type
+    else {
+      Starts.insert(Starts.end(), 
+                    Other.getStarts().begin(), Other.getStarts().end());
+      std::sort(Starts.begin(), Starts.end());
+    }
+
+    End = std::min(End, Other.getEnd());
+
+    // Update LiveBarRange
+    LBR = LiveBarRange(Starts[0], End);
+  }
+
+  bool overlaps(const Barrier &Other) {
+    return LBR.overlaps(Other.getLiveBarRange());
+  }
+
+  // accessors
+  bool isRead() const { return IsRead; }
+  BarrierType getBarrierType() const { return BT; }
   void encodeBarrierInfo(const GASSInstrInfo *GII) const {
-    MachineInstr *SrcInstr = Src->getParent();
-    MachineInstr *DstInstr = Dst->getParent();
-
     // MachineInstr has a field named flags (uint16_t)
-    if (IsRead)
-      GII->encodeReadBarrier(*SrcInstr, PhysBarIdx);
-    else 
-      GII->encodeWriteBarrier(*SrcInstr, PhysBarIdx);
+    for (SlotIndex SIStart : Starts) {
+      MachineInstr *StartInstr = LIS->getInstructionFromIndex(SIStart);
+      if (IsRead)
+        GII->encodeReadBarrier(*StartInstr, PhysBarIdx);
+      else 
+        GII->encodeWriteBarrier(*StartInstr, PhysBarIdx);
+    }
 
-    GII->encodeBarrierMask(*DstInstr, PhysBarIdx);
+    MachineInstr *EndInstr = LIS->getInstructionFromIndex(End);
+    GII->encodeBarrierMask(*EndInstr, PhysBarIdx);
   }
 
   const LiveBarRange& getLiveBarRange() const {
@@ -126,10 +176,13 @@ public:
   }
 
   void dump() const {
-    dbgs() << *Src << " (line " << LBR.beginIndex() << ") -> "
-            << *Dst << " (line " << LBR.endIndex() << ") "
+    dbgs() << "(line " << LBR.beginIndex() << ") -> "
+           << "(line " << LBR.endIndex() << ") "
             << " \t[PhysBarIdx: " << PhysBarIdx << ", " << getBTStr() << "]\n";
   }
+
+  const std::vector<SlotIndex>& getStarts() const { return Starts; }
+  SlotIndex getEnd() const { return End; }
 
 private:
   BarrierType BT;
@@ -137,8 +190,8 @@ private:
   bool IsRead = false;
   bool IsPhysical = false;
   unsigned PhysBarIdx = 0;
-  MachineOperand *Src = nullptr;
-  MachineOperand *Dst = nullptr;
+  std::vector<SlotIndex> Starts;
+  SlotIndex End;
   LiveBarRange LBR;
 
   // helper function
@@ -157,11 +210,39 @@ class LiveBarGraph {
   struct Edge {
     Barrier *Dst;
     unsigned Cost = 0;
+    Edge(Barrier *Dst, unsigned Cost) : Dst(Dst), Cost(Cost) {}
+    bool operator<(const Edge& Other) const {
+      return Dst < Other.Dst;
+    }
   };
   std::vector<Barrier*> Nodes;
   std::map<Barrier*, std::set<Edge>> Edges;
 public:
-  LiveBarGraph(std::vector<Barrier*> &Bars) {}
+  // Build Interference graph with raw barriers
+  LiveBarGraph(std::vector<Barrier> &Bars) {
+    for (Barrier &CurBar : Bars) {
+      for (Barrier* GraphNode : Nodes) {
+        // Add interference edge
+        if (CurBar.overlaps(*GraphNode)) {
+          unsigned Cost = /* TODO */ 0;
+          // Add new edge for current node
+          if (Edges.find(&CurBar) == Edges.end())
+            Edges[&CurBar] = std::set<Edge>{{GraphNode, Cost}};
+          else
+            Edges[&CurBar].emplace(GraphNode, Cost);
+
+          // Add new edge for the other node
+          if (Edges.find(GraphNode) == Edges.end())
+            Edges[GraphNode] = std::set<Edge>{{&CurBar, Cost}};
+          else 
+            Edges[GraphNode].emplace(&CurBar, Cost);
+        }
+      }
+      // Record node.
+      Nodes.push_back(&CurBar);
+    }
+  }
+
   unsigned getMaxDegree() const {
     unsigned MaxDegree = 0;
     for (auto iter = Edges.begin(); iter != Edges.end(); ++iter) {
@@ -171,12 +252,83 @@ public:
   }
 
   void mergeBarriers() {
-    //
+    // 1. find the barrier pair to merge
+    // TODO: fill this.
+    llvm_unreachable("pick barrier pair to merge not implemented");
+    Barrier *Node = nullptr;
+    Barrier *Other = nullptr; // The node to be removed
+    std::tie(Node, Other) = pickBarrierPairToMerge();
+
+    // 2. update the graph (a, b)
+    //   a. delete note (other)
+    Nodes.erase(std::remove(Nodes.begin(), Nodes.end(), Other), Nodes.end());
+    //   b. delete edges
+    std::set<Barrier*> OtherWorkSet;
+    for (Edge const&e : Edges[Other]) {
+      OtherWorkSet.insert(e.Dst);
+      // remove edges from Other's work set
+      std::set<Edge> &WorkSetEdge = Edges[e.Dst];
+      for (auto iter = WorkSetEdge.begin(); iter != WorkSetEdge.end(); ) {
+        if (iter->Dst == Other)
+          iter = WorkSetEdge.erase(iter);
+        else 
+          ++iter;
+      }
+    }
+    Edges.erase(Other);
+
+    // 3. merge!
+    Node->merge(*Other);
+
+    // 4. update edges
+    //   e.g., if we merge two LDSs, some edges may no longer exist
+    // remove then add Node-linked edges
+    std::set<Barrier*> WorkSet(OtherWorkSet);
+    for (Edge const &e : Edges[Node]) {
+      WorkSet.insert(e.Dst);
+      // detach existing edges
+      std::set<Edge> &WorkSetEdge = Edges[e.Dst];
+      for (auto iter = WorkSetEdge.begin(); iter != WorkSetEdge.end(); ++iter) {
+        if (iter->Dst == Node)
+          iter = WorkSetEdge.erase(iter);
+        else
+          ++iter;
+      }
+    }
+    Edges.erase(Node);
+    // add back
+    for (Barrier *Bar : WorkSet) {
+      if (!Node->overlaps(*Bar)) 
+        continue; // No longer overlaps
+
+      unsigned Cost = 0; // TODO: update cost;
+
+      if (Edges.find(Node) == Edges.end()) 
+        Edges[Node] = std::set<Edge>{{Bar, Cost}};
+      else
+        Edges[Node].emplace(Bar, Cost);
+
+      if (Edges.find(Bar) == Edges.end())
+        Edges[Bar] = std::set<Edge>{{Node, Cost}};
+      else
+        Edges[Bar].emplace(Node, Cost);
+    }
   }
 
-  
+  // Main interface to choose barrier pair to merge
+  std::pair<Barrier*, Barrier*> pickBarrierPairToMerge() {
+    llvm_unreachable("Not implemented");
+  }
+
+  // return an equivalent vector of barriers
+  std::vector<Barrier> getResult() const {
+    std::vector<Barrier> Result;
+    for (Barrier *Bar : Nodes)
+      Result.push_back(*Bar);
+    return Result;
+  }
 };
-} // anonymous 
+} // anonymous namespace
 
 namespace llvm {
   void initializeLiveIntervalsPass(PassRegistry&);
@@ -214,25 +366,41 @@ void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
   for (auto iter = MBB.begin(); iter != MBB.end(); ++iter) {
     MachineInstr &MI = *iter;
 
+    // TODO: get rid of this.
     // Provide default flag encoding
     GII->initializeFlagsEncoding(MI);
+
     // Check RAW dependency
     if (GII->isLoad(MI)) {
-      MachineOperand *BSrc = MI.defs().begin();
-      SlotIndex SISrc = LIS->getInstructionIndex(MI);
-      for (MachineOperand &BDst : MRI->use_operands(BSrc->getReg())) {
-        // Create Barrier
-        SlotIndex SIDst = LIS->getInstructionIndex(*BDst.getParent());
-        Barriers.emplace_back(/*TODO*/RAW_G, BSrc, &BDst, SISrc, SIDst);
+      for (auto probe = iter; probe != MBB.end(); ++probe) {
+        for (MachineOperand const &Use : probe->explicit_uses()) {
+          if (Use.isReg()) {
+            // TODO: we should cache this
+            for (MachineOperand const &Def : MI.defs()) {
+              if (Def.isReg()) {
+                if (GRI->regsOverlap(Use.getReg(), Def.getReg())) {
+                  SlotIndex Start = LIS->getInstructionIndex(MI);
+                  SlotIndex End = LIS->getInstructionIndex(*probe);
+                  // TODO: maybe we can record which operand to wait on.
+                  Barriers.emplace_back(MI, Start, End, false, LIS, GII);
+                  // Triple break
+                  goto CreateWARForMemOperand;
+                }
+              }
+            }
+          } // We only care about reg
+        }
       }
+      CreateWARForMemOperand: {}
       // Create WAR for MemOperand
     } else if (GII->isStore(MI)) {
       // Create WAR for store instructions
+      // TODO TODO TODO: fill this
     }
 
     // Check WAR dependency
     if (MachineOperand *BSrc = GII->getMemOperandReg(MI)) {
-      SlotIndex SISrc = LIS->getInstructionIndex(MI);
+      SlotIndex SIStart = LIS->getInstructionIndex(MI);
 
       // if current instr writes to it, we don't need to care about that
       auto war_iter = iter;
@@ -241,8 +409,8 @@ void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
         for (MachineOperand &Def : war_iter->defs()) {
           if (Def.isReg()) {
             if (GRI->regsOverlap(BSrc->getReg(), Def.getReg())) {
-              SlotIndex SIDst = LIS->getInstructionIndex(*war_iter);
-              Barriers.emplace_back(WAR_G, BSrc, &Def, SISrc, SIDst);
+              SlotIndex SIEnd = LIS->getInstructionIndex(*war_iter);
+              Barriers.emplace_back(MI, SIStart, SIEnd, true, LIS, GII);
               goto TheEnd; // double break
             }
           }
@@ -252,33 +420,30 @@ void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
     }
   }
 
-  // 1. Coalesce smem 
-  coalesceLds(Barriers);
-
+  // 1. Build interference graph
+  LiveBarGraph TheGraph(Barriers);
   // 2. Merge if necessary
-  while (countBarriers(Barriers) > kNumBarriers)
-    mergeBarriers(Barriers);
+  while (TheGraph.getMaxDegree() > kNumBarriers)
+    TheGraph.mergeBarriers();
+  // 3. Revert Graph back to linear barriers
+  std::vector<Barrier> NewBarriers = TheGraph.getResult();
 
   // 3. Allocate physical Barriers
-  allocatePhysBarriers(Barriers);
+  allocatePhysBarriers(NewBarriers);
 
   // 3.1 print allocated result (debug info)
-  for (const Barrier &Bar : Barriers) {
+  for (const Barrier &Bar : NewBarriers) {
     LLVM_DEBUG(Bar.dump());
   }
 
   // 4. Encoding Barrier info
-  for (const Barrier &Bar : Barriers)
+  for (const Barrier &Bar : NewBarriers)
     Bar.encodeBarrierInfo(GII);
 }
 
 //=-----------------------------------------------=//
 // Private helper functions
 //=-----------------------------------------------=//
-void GASSBarrierSetting::coalesceLds(std::vector<Barrier> &Barriers) {
-  // 
-}
-
 unsigned GASSBarrierSetting::countBarriers(std::vector<Barrier> &Barriers) {
   unsigned NumBars = 0;
   // Scan the MBB & count number of activate barriers at each point
@@ -293,11 +458,6 @@ unsigned GASSBarrierSetting::countBarriers(std::vector<Barrier> &Barriers) {
     NumBars = std::max(NumBars, CurNumBars);
   }
   return NumBars;
-}
-
-void GASSBarrierSetting::mergeBarriers(std::vector<Barrier> &Barriers){
-  // TODO: fill this.
-  llvm_unreachable("mergeBarriers() has not been implemented");
 }
 
 void GASSBarrierSetting::allocatePhysBarriers(std::vector<Barrier> &Barriers) {

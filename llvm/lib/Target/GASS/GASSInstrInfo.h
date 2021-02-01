@@ -39,8 +39,14 @@ public:
 
   bool expandPostRAPseudo(MachineInstr &MI) const override;
 
+  // Query instr type
   static bool isLoad(const MachineInstr &MI);
   static bool isStore(const MachineInstr &MI);
+  static bool isLDG(const MachineInstr &MI);
+  static bool isLDS(const MachineInstr &MI);
+  static bool isLDC(const MachineInstr &MI);
+  static bool isSTG(const MachineInstr &MI);
+  static bool isSTS(const MachineInstr &MI);
 
   // return register of memory operand register (MemOperandReg)
   // return nullptr if this MI has no MemOperandReg

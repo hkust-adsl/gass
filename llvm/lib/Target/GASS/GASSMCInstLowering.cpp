@@ -57,6 +57,7 @@ void GASSMCInstLower::LowerToMCInst(const MachineInstr *MI, MCInst &Inst) {
   for (unsigned i=0; i != MI->getNumOperands(); ++i) {
     const MachineOperand &MO = MI->getOperand(i);
     MCOperand MCOp;
+    MO.dump();
     lowerToMCOperand(MO, MCOp);
     Inst.addOperand(MCOp);
   }

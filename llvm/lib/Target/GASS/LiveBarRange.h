@@ -47,12 +47,12 @@ public:
   bool overlaps(const LiveBarRange &Other) const;
   bool overlaps(SlotIndex S, SlotIndex E) const;
   
-  // if complete covers
-  bool covers(const LiveBarRange &Other) const;
-  bool covers(SlotIndex S, SlotIndex E) const;
+  // // if complete covers
+  // bool covers(const LiveBarRange &Other) const;
+  // bool covers(SlotIndex S, SlotIndex E) const;
 
   bool expireAt(SlotIndex Index) const {
-    return Index >= end;
+    return Index >= end || Index < start;
   }
   bool liveAt(SlotIndex Index) const {
     return start <= Index && Index < end;

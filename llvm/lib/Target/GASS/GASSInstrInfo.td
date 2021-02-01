@@ -585,6 +585,8 @@ multiclass LDG<RegisterClass RC, int Width> {
 defm LDG32 : LDG<VReg32, 32>, Sched<[WriteLD]>;
 defm LDG64 : LDG<VReg64, 64>, Sched<[WriteLD]>;
 
+// LDS
+
 
 multiclass STG<RegisterClass RC, int Width> {
   def r : GASSInstLdstGlobal<(outs),
