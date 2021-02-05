@@ -87,6 +87,7 @@ bool GASSPassConfig::addInstSelector() {
   return false;
 }
 
+// NVGPU specific passes
 void GASSPassConfig::addPreEmitPass() {
   addPass(createGASSBarrierSettingPass());
   addPass(createGASSStallSettingPass());

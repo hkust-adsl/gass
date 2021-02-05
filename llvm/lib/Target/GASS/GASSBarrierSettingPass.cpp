@@ -31,8 +31,25 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "gass-barrier-setting"
-
 #define GASS_BARRIERSETTING_NAME "Setting Instruction Wait Barriers"
+
+enum PickBarAlg {
+  PB_ALG_ORDERED,
+  PB_ALG_ESTCOST,
+  PB_ALG_MAXDEGREE,
+};
+
+static cl::opt<PickBarAlg> PickBarPairAlg(
+  "gass-pick-bar-pair-alg",
+  cl::Hidden,
+  cl::desc("Algorithm to pick wait barrier pair to merge"),
+  cl::values(
+    clEnumValN(PB_ALG_ORDERED, "ordered", "first merge ldc then lds then ldg"),
+    clEnumValN(PB_ALG_ORDERED, "est-cost", 
+               "pick barriers pair with min merge cost"),
+    clEnumValN(PB_ALG_MAXDEGREE, "max-degree", 
+               "pick barrier pair with max degree in the interference graph")),
+  cl::init(PB_ALG_ORDERED));
 
 enum BarrierType {
   RAW_S,
@@ -207,14 +224,32 @@ private:
 };
 
 class LiveBarGraph {
+  enum InterferenceType {
+    IFTY_RAW_C,
+    IFTY_RAW_S,
+    IFTY_RAW_G,
+    IFTY_RAW_L,
+    IFTY_RAW, // General
+    IFTY_WAR_S,
+    IFTY_WAR_G,
+    IFTY_WAR_L,
+    IFTY_WAR, // General
+    IFTY_DEFAULT
+  };
+
   struct Edge {
     Barrier *Dst;
     unsigned Cost = 0;
+    InterferenceType IFTY = IFTY_DEFAULT;
+    // inteference type
     Edge(Barrier *Dst, unsigned Cost) : Dst(Dst), Cost(Cost) {}
+
+    // Required by std::set
     bool operator<(const Edge& Other) const {
       return Dst < Other.Dst;
     }
   };
+
   std::vector<Barrier*> Nodes;
   std::map<Barrier*, std::set<Edge>> Edges;
 public:
@@ -253,8 +288,6 @@ public:
 
   void mergeBarriers() {
     // 1. find the barrier pair to merge
-    // TODO: fill this.
-    llvm_unreachable("pick barrier pair to merge not implemented");
     Barrier *Node = nullptr;
     Barrier *Other = nullptr; // The node to be removed
     std::tie(Node, Other) = pickBarrierPairToMerge();
@@ -278,6 +311,7 @@ public:
     Edges.erase(Other);
 
     // 3. merge!
+    LLVM_DEBUG(dbgs() << "Merge two barriers\n");
     Node->merge(*Other);
 
     // 4. update edges
@@ -317,7 +351,21 @@ public:
 
   // Main interface to choose barrier pair to merge
   std::pair<Barrier*, Barrier*> pickBarrierPairToMerge() {
-    llvm_unreachable("Not implemented");
+    std::set<Barrier*> Candidates;
+    for (auto iter = Edges.begin(); iter != Edges.end(); ++iter) 
+      if (iter->second.size() > kNumBarriers)
+        Candidates.insert(iter->first);
+
+    // different strategies
+    switch (PickBarPairAlg) {
+    default: llvm_unreachable("Invalid algorithm");
+    case PB_ALG_ORDERED:
+      return pickBarrierPairToMergeOrdered(Candidates);
+    case PB_ALG_ESTCOST:
+      return pickBarrierPairToMergeEstCost(Candidates);
+    case PB_ALG_MAXDEGREE:
+      return pickBarrierPairToMergeMaxDegree(Candidates);
+    }
   }
 
   // return an equivalent vector of barriers
@@ -327,8 +375,66 @@ public:
       Result.push_back(*Bar);
     return Result;
   }
+
+private:
+  std::pair<Barrier*, Barrier*> 
+  pickBarrierPairToMergeOrdered(std::set<Barrier*> &Candiates);
+  std::pair<Barrier*, Barrier*> 
+  pickBarrierPairToMergeEstCost(std::set<Barrier*> &Candidates);
+  std::pair<Barrier*, Barrier*> 
+  pickBarrierPairToMergeMaxDegree(std::set<Barrier*> &Candidates);
 };
 } // anonymous namespace
+
+//=------------------------------------------------------------------------=//
+// pick barrier pair algorithm
+//=------------------------------------------------------------------------=//
+std::pair<Barrier*, Barrier*> 
+LiveBarGraph::pickBarrierPairToMergeOrdered(std::set<Barrier*> &Candidates) {
+  // First merge LDC, then LDS, then LDG
+  for (Barrier *Candidate : Candidates) {
+    if (Candidate->getBarrierType() == RAW_C) {
+      for (Edge const &E : Edges[Candidate]) {
+        if (E.Dst->getBarrierType() == RAW_C)
+          return {Candidate, E.Dst};
+      }
+    }
+  }
+
+  // No RAW_C interference, try LDS
+  for (Barrier *Candidate : Candidates) {
+    if (Candidate->getBarrierType() == RAW_S) {
+      for (Edge const &E : Edges[Candidate]) {
+        if (E.Dst->getBarrierType() == RAW_S)
+          return {Candidate, E.Dst};
+      }
+    }
+  }
+
+  // NO RAW_S interference, try LDG
+  for (Barrier *Candidate : Candidates) {
+    if (Candidate->getBarrierType() == RAW_G) {
+      for (Edge const &E : Edges[Candidate]) {
+        if (E.Dst->getBarrierType() == RAW_G)
+          return {Candidate, E.Dst};
+      }
+    }
+  }
+
+
+  llvm_unreachable("Should have returned");
+}
+
+std::pair<Barrier*, Barrier*> 
+LiveBarGraph::pickBarrierPairToMergeEstCost(std::set<Barrier*> &Candiates) {
+  llvm_unreachable("Not implemented");
+}
+
+std::pair<Barrier*, Barrier*> 
+LiveBarGraph::pickBarrierPairToMergeMaxDegree(std::set<Barrier*> &Candidates) {
+  llvm_unreachable("Not implemented");
+}
+// End of pick barrier pair alogrithm
 
 namespace llvm {
   void initializeLiveIntervalsPass(PassRegistry&);
@@ -352,6 +458,8 @@ bool GASSBarrierSetting::runOnMachineFunction(MachineFunction &MF) {
   for (MachineBasicBlock &MBB : MF) {
     runOnMachineBasicBlock(MBB);
   }
+
+  MF.dump();
 
   return true;
 }
