@@ -77,6 +77,7 @@ void GASSPassConfig::addIRPasses() {
   // LSR and other generic IR passes
   TargetPassConfig::addIRPasses();
 
+  addPass(createGASSCodeGenPreparePass());
   addPass(createLoadStoreVectorizerPass());
 }
 

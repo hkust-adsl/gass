@@ -12,12 +12,11 @@ tablegen(LLVM GASSGenDAGISel.inc -gen-dag-isel)
 
 add_public_tablegen_target(GASSCommonTableGen)
 
-# TODO: MCCodeEmitter.inc
-
 add_llvm_target(GASSCodeGen
   GASSAddAddrSpace.cpp
   GASSAsmPrinter.cpp
   GASSBarrierSettingPass.cpp
+  GASSCodeGenPrepare.cpp
   GASSExpandPreRAPseudo.cpp
   GASSFrameLowering.cpp
   GASSInstrInfo.cpp
@@ -38,6 +37,7 @@ add_llvm_target(GASSCodeGen
   SelectionDAG
   Support
   Vectorize
+  TransformUtils
 
   ADD_TO_COMPONENT
   GASS

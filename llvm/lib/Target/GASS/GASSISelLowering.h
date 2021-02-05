@@ -58,6 +58,11 @@ public:
                       const SmallVectorImpl<SDValue> &OutVals, const SDLoc &dl,
                       SelectionDAG &DAG) const override;
 
+  // GASS always uses 32-bit shift amounts
+  MVT getScalarShiftAmountTy(const DataLayout &, EVT) const override {
+    return MVT::i32;
+  }
+
 private:
   // Custom lowering
   SDValue lowerAddrSpaceCast(SDValue Op, SelectionDAG &DAG) const;

@@ -1,5 +1,6 @@
 #include "GASS.h"
 #include "GASSInstPrinter.h"
+#include "llvm/ADT/APFloat.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/Support/FormattedStream.h"
@@ -35,6 +36,8 @@ void GASSInstPrinter::printOperand(const MCInst *MI,
     printRegOperand(Op.getReg(), O);
   } else if (Op.isImm()) {
     O << formatImm(Op.getImm());
+  } else if (Op.isFPImm()) {
+    APFloat(Op.getFPImm()).print(O);
   } else {
     assert(Op.isExpr() && "unknown operand kind in printOperand");
     Op.getExpr()->print(O, &MAI);

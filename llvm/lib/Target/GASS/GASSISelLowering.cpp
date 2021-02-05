@@ -111,7 +111,7 @@ SDValue GASSTargetLowering::LowerFormalArguments(
     Type *Ty = ArgsType[i];
     EVT ObjectVT = getValueType(DL, Ty);
     SDValue ParamNode = DAG.getNode(GASSISD::LDC, dl, ObjectVT, 
-                                    DAG.getConstant(CBankOff, dl, ObjectVT)); 
+                                    DAG.getConstant(CBankOff, dl, MVT::i32)); 
     InVals.push_back(ParamNode);
 
     // Move forward CBankOff

@@ -238,17 +238,48 @@ multiclass LOP3 {
 }
 defm LOP3 : LOP3, Sched<[WriteINT]>;
 
+multiclass SELECT<string OpcStr, ValueType VT, Operand ImmCls, ValueType ImmVT,
+                  bits<12> rrEnc, bits<12> riEnc> {
+  def rr : GASSInst<(outs VReg32:$dst),
+                    (ins VReg32:$src0, VReg32:$src1, VReg1:$p),
+                    rrEnc,
+                    !strconcat(OpcStr, " \t$dst, $src0, $src1, $p;"),
+                    [(set VT:$dst, (select i1:$p, VT:$src0, VT:$src1))]>;
+
+  def ri : GASSInst<(outs VReg32:$dst),
+                    (ins VReg32:$src0, ImmCls:$src1, VReg1:$p),
+                    riEnc,
+                    !strconcat(OpcStr, " \t$dst, $src0, $src1, $p;"),
+                    [(set VT:$dst, (select i1:$p, VT:$src0, ImmVT:$src1))]>;
+
+  // def rc : ;
+}
+
+// TODO: confirm riEnc
+defm SEL  : SELECT<"SEL", i32, i32imm, imm, 0x207, 0x807>, Sched<[WriteINT]>;
+defm FSEL : SELECT<"FSEL", f32, f32imm, fpimm, 0x208, 0x808>, Sched<[WriteINT]>;
+
 // TODO: combine xor/or/and/not
 //==------------------------------------------------------------------------==//
 // xor/or/and/not (all pseudo)
 //==------------------------------------------------------------------------==//
 multiclass BITWISE<SDNode OpNode> {
-  def rr : GASSPseudoInst<(outs VReg32:$dst),
+  def 1rr : GASSPseudoInst<(outs VReg1:$dst),
+                          (ins VReg1:$src0, VReg1:$src1),
+                          [(set i1:$dst, (OpNode i1:$src0, i1:$src1))]>,
+           Sched<[WriteINT]>;
+
+  def 1ri : GASSPseudoInst<(outs VReg1:$dst),
+                          (ins VReg1:$src0, VReg1:$src1),
+                          [(set i1:$dst, (OpNode i1:$src0, imm:$src1))]>,
+           Sched<[WriteINT]>;
+
+  def 32rr : GASSPseudoInst<(outs VReg32:$dst),
                           (ins VReg32:$src0, VReg32:$src1),
                           [(set i32:$dst, (OpNode i32:$src0, i32:$src1))]>,
            Sched<[WriteINT]>;
 
-  def ri : GASSPseudoInst<(outs VReg32:$dst),
+  def 32ri : GASSPseudoInst<(outs VReg32:$dst),
                           (ins VReg32:$src0, VReg32:$src1),
                           [(set i32:$dst, (OpNode i32:$src0, imm:$src1))]>,
            Sched<[WriteINT]>;
@@ -262,20 +293,27 @@ defm AND : BITWISE<and>;
 //==------------------------------------------------------------------------==//
 // Pseudo instruction
 //==------------------------------------------------------------------------==//
-multiclass SHL64 {
-  def rr : GASSInst<(outs VReg64:$dst),
-                          (ins VReg64:$src0, VReg64:$src1), 
-                          0x0, 
-                          "SHL.64 \t$dst, $src0, $src1; // FIXME FIXME Pseudo",
-                          [(set i64:$dst, (shl i64:$src0, i64:$src1))]>;
-
-  def ri : GASSInst<(outs VReg64:$dst),
-                          (ins VReg64:$src0, i64imm:$src1),
-                          0x0, 
-                          "SHL.64 \t$dst, $src0, $src1; // FIXME FIXME Pseudo",
-                          [(set i64:$dst, (shl i64:$src0, (i64 imm:$src1)))]>;
+// SHL/SHR are shf
+// The shift amount is always 32 bits
+multiclass SHIFT<SDNode OpNode> {
+  def 64rr : GASSPseudoInst<(outs VReg64:$dst),
+                            (ins VReg64:$src0, VReg32:$src1),
+                            [(set i64:$dst, (OpNode i64:$src0, i32:$src1))]>;
+  def 64ri : GASSPseudoInst<(outs VReg64:$dst),
+                            (ins VReg64:$src0, i32imm:$src1),
+                            [(set i64:$dst, (OpNode i64:$src0, 
+                                                    (i32 imm:$src1)))]>;
+  def 32rr : GASSPseudoInst<(outs VReg32:$dst),
+                            (ins VReg32:$src0, VReg32:$src1),
+                            [(set i32:$dst, (OpNode i32:$src0, i32:$src1))]>;
+  def 32ri : GASSPseudoInst<(outs VReg32:$dst),
+                            (ins VReg32:$src0, i32imm:$src1),
+                            [(set i32:$dst, (OpNode i32:$src0,
+                                                    (i32 imm:$src1)))]>;
 }
-defm SHL64 : SHL64, Sched<[WriteINT]>;
+defm SHL : SHIFT<shl>, Sched<[WriteINT]>;
+defm SRA : SHIFT<sra>, Sched<[WriteINT]>;
+defm SRL : SHIFT<srl>, Sched<[WriteINT]>;
 
 // SignExtend
 // i32->i64
@@ -504,7 +542,7 @@ def : Pat<(i1 (setge i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpGE)>;
 //=---------------------------------=//
 // mov
 //=---------------------------------=//
-multiclass MOV<RegisterClass RC, int Width> {
+multiclass MOV<RegisterClass RC, int Width, Operand ImmCls, Operand FpImmCls> {
   def r : GASSInst<(outs RC:$dst),
                    (ins RC:$src),
                    0x202,
@@ -512,13 +550,13 @@ multiclass MOV<RegisterClass RC, int Width> {
                    []>;
 
   def i : GASSInst<(outs RC:$dst),
-                   (ins i32imm:$src),
+                   (ins ImmCls:$src),
                    0x202,
                    "MOV."#Width#" \t$dst, $src;",
                    []>;
   
   def f : GASSInst<(outs RC:$dst),
-                   (ins f32imm:$src),
+                   (ins FpImmCls:$src),
                    0x202,
                    "MOV."#Width#" \t$dst, $src;",
                    []>;
@@ -530,12 +568,13 @@ multiclass MOV<RegisterClass RC, int Width> {
                    []>;
 }
 
-defm MOV32 : MOV<VReg32, 32>, Sched<[WriteLD]>;
-defm MOV64 : MOV<VReg64, 64>, Sched<[WriteLD]>; // Really need to support this?
+defm MOV32 : MOV<VReg32, 32, i32imm, f32imm>, Sched<[WriteINT]>;
+defm MOV64 : MOV<VReg64, 64, i64imm, f64imm>, Sched<[WriteINT]>; // Really need to support this?
 
 // TODO: this can't be right?
 def : Pat<(i32 (imm:$src0)),   (MOV32i imm:$src0)>;
 def : Pat<(f32 (fpimm:$src0)), (MOV32f fpimm:$src0)>;
+def : Pat<(i64 (imm:$src0)),   (MOV64i imm:$src0)>;
 
 //=---------------------------------=//
 // load/store instructions

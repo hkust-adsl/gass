@@ -327,7 +327,7 @@ void GASSInstrInfo::encodeBarrierMask(MachineInstr &MI, unsigned BarMask) {
 }
 
 void GASSInstrInfo::encodeStallCycles(MachineInstr &MI, unsigned Stalls) {
-  // assert(Stalls < 16 && "Stall cycles should be smaller than 16");
+  assert(Stalls < 16 && "Stall cycles should be smaller than 16");
   uint16_t Flags = MI.getFlags();
   Flags &= ~(0b1111);
   Flags |= Stalls;

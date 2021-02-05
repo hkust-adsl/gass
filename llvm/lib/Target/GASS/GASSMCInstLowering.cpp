@@ -1,5 +1,7 @@
 #include "GASS.h"
 #include "GASSMCInstLowering.h"
+#include "llvm/ADT/APFloat.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/MC/MCInst.h"
@@ -43,6 +45,13 @@ void GASSMCInstLower::lowerToMCOperand(const MachineOperand &MO,
   case MachineOperand::MO_Immediate:
     MCOp = MCOperand::createImm(MO.getImm());
     break;
+  case MachineOperand::MO_FPImmediate: {
+    APFloat Val = MO.getFPImm()->getValueAPF();
+    bool ignored;
+    Val.convert(APFloat::IEEEdouble(), APFloat::rmTowardZero, &ignored);
+    MCOp = MCOperand::createFPImm(Val.convertToDouble());
+    break;
+  }
   case MachineOperand::MO_MachineBasicBlock:
     // Following the practice in NVPTX & AArch64
     MCOp = MCOperand::createExpr(MCSymbolRefExpr::create(
@@ -57,7 +66,6 @@ void GASSMCInstLower::LowerToMCInst(const MachineInstr *MI, MCInst &Inst) {
   for (unsigned i=0; i != MI->getNumOperands(); ++i) {
     const MachineOperand &MO = MI->getOperand(i);
     MCOperand MCOp;
-    MO.dump();
     lowerToMCOperand(MO, MCOp);
     Inst.addOperand(MCOp);
   }
