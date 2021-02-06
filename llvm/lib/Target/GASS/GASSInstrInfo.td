@@ -30,6 +30,20 @@ def BoolMode : Operand<i32> {
   let EncoderMethod = "encodeBoolMode";
 }
 
+// funnel shift flags
+// SHF.{R|L}.{S32|U32}.{(HI)?}
+def ShiftDir : Operand<i1> {
+  let PrintMethod = "printShiftDir";
+}
+
+def ShiftType : Operand<i1> {
+  let PrintMethod = "printShiftType";
+}
+
+def ShiftLoc : Operand<i1> {
+  let PrintMethod = "printShiftLoc";
+}
+
 // Thest must match the enum in GASS.h
 def CmpEQ   : PatLeaf<(i32 0)>;
 def CmpNE   : PatLeaf<(i32 1)>;
@@ -188,24 +202,27 @@ defm IMAD_S32 : IMAD<true>, Sched<[WriteFP32]>;
 
 // SHF
 // ins:
-//   Lo32bits, shiftAmount, Hi32Bits, l/r, lo/hi, type
+//   Lo32bits, shiftAmount, Hi32Bits, l/r, type, lo/hi
 multiclass SHF {
   def rrr : GASSInst<(outs VReg32:$dst),
-                       (ins VReg32:$src0, VReg32:$src1, VReg32:$src2),
+                       (ins VReg32:$src0, VReg32:$src1, VReg32:$src2,
+                            ShiftDir:$dir, ShiftType:$ty, ShiftLoc:$hi),
                        0x219,
-                       "SHF \t$dst, $src0, $src1, $src2;",
+                       "SHF$dir$ty$hi \t$dst, $src0, $src1, $src2;",
                        []>;
 
   def rri : GASSInst<(outs VReg32:$dst),
-                       (ins VReg32:$src0, VReg32:$src1, i32imm:$src2),
+                       (ins VReg32:$src0, VReg32:$src1, i32imm:$src2,
+                            ShiftDir:$dir, ShiftType:$ty, ShiftLoc:$hi),
                        0x419,
-                       "SHF \t$dst, $src0, $src1, $src2;",
+                       "SHF$dir$ty$hi \t$dst, $src0, $src1, $src2;",
                        []>;
 
   def rir : GASSInst<(outs VReg32:$dst),
-                     (ins VReg32:$src0, VReg32:$src1, i32imm:$src2),
+                     (ins VReg32:$src0, VReg32:$src1, i32imm:$src2,
+                          ShiftDir:$dir, ShiftType:$ty, ShiftLoc:$hi),
                      0x819,
-                     "SHF \t$dst, $src0, $src1, $src2;",
+                     "SHF$dir$ty$hi \t$dst, $src0, $src1, $src2;",
                      []>;
 }
 defm SHF : SHF, Sched<[WriteINT]>;

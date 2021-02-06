@@ -146,13 +146,13 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
         
         BuildMI(MBB, MI, DL, TII->get(TargetOpcode::COPY), DstSub0)
           .add(Src);
-        // FIXME FIXME FIXME
         BuildMI(MBB, MI, DL, TII->get(GASS::SHFrir), DstSub1)
           .addReg(GASS::RZ32)
           .addImm(31)
-          .add(Src);
-          // .addImm(GASS::SHF_FLAGS::R)
-          // .addImm(GASS::SHF_FLAGS::HI);
+          .add(Src)
+          .addImm(GASS::SHF_FLAGS::R)
+          .addImm(GASS::SHF_FLAGS::S32)
+          .addImm(GASS::SHF_FLAGS::HI);
         BuildMI(MBB, MI, DL, TII->get(TargetOpcode::REG_SEQUENCE), NewDst)
           .addReg(DstSub0)
           .addImm(GASS::sub0)

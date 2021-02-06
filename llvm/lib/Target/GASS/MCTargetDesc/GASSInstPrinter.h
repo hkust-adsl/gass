@@ -32,6 +32,11 @@ private:
   void printRegOperand(unsigned RegNo, raw_ostream &O);
   void printConstantMem(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printCmpMode(const MCInst *MI, unsigned OpNo, raw_ostream &O);
+
+  // funnel shift (shf)
+  void printShiftDir(const MCInst *MI, unsigned OpNo, raw_ostream &O);
+  void printShiftType(const MCInst *MI, unsigned OpNo, raw_ostream &O);
+  void printShiftLoc(const MCInst *MI, unsigned OpNo, raw_ostream &O);
 };
 }
 

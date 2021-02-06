@@ -181,35 +181,6 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
 
   switch (Opc){
   default: return false;
-  // case GASS::IADD64rr: {
-  //   // IADD64rr -> IADD32 + IADD32.x
-  //   Register Dst = MI.getOperand(0).getReg();
-  //   Register DstLo = TRI->getSubReg(Dst, GASS::sub0);
-  //   Register DstHi = TRI->getSubReg(Dst, GASS::sub1);
-
-  //   Register LHS = MI.getOperand(1).getReg();
-  //   Register LHSLo = TRI->getSubReg(LHS, GASS::sub0);
-  //   Register LHSHi = TRI->getSubReg(LHS, GASS::sub1);
-
-  //   Register RHS = MI.getOperand(2).getReg();
-  //   Register RHSLo = TRI->getSubReg(RHS, GASS::sub0);
-  //   Register RHSHi = TRI->getSubReg(RHS, GASS::sub1);
-
-  //   // FIXME: We preserve P6 as carry register 
-  //   // Chain these two instructions
-  //   BuildMI(MBB, MI, DL, get(GASS::IADDXrr))
-  //     .addReg(DstLo, RegState::Define)
-  //     .addReg(GASS::PR6)
-  //     .addReg(LHSLo)
-  //     .addReg(RHSLo)
-  //     .addReg(GASS::NPT); // !PT
-  //   BuildMI(MBB, MI, DL, get(GASS::IADDXrr))
-  //     .addReg(DstHi, RegState::Define)
-  //     .addReg(GASS::PT)
-  //     .addReg(LHSHi)
-  //     .addReg(RHSHi)
-  //     .addReg(GASS::PR6);
-  // } break;
   case GASS::IMULrr: { /* TODO */ }
     break;
   case GASS::IMUL_WIDErr: {/* TODO */}
@@ -220,6 +191,20 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       .add(MI.getOperand(1))
       .add(MI.getOperand(2))
       .addReg(GASS::RZ64);
+  } break;
+  case GASS::OR1rr: case GASS::OR1ri: case GASS::OR32rr: case GASS::OR32ri:
+  case GASS::XOR1rr: case GASS::XOR1ri: case GASS::XOR32rr: case GASS::XOR32ri:
+  case GASS::AND1rr: case GASS::AND1ri: case GASS::AND32rr: case GASS::AND32ri:
+  {
+    // TODO
+  } break;
+  case GASS::SHL32rr: case GASS::SHL32ri: 
+  case GASS::SHL64rr: case GASS::SHL64ri:
+  case GASS::SRA32rr: case GASS::SRA32ri: 
+  case GASS::SRA64rr: case GASS::SRA64ri:
+  case GASS::SRL32rr: case GASS::SRL32ri: 
+  case GASS::SRL64rr: case GASS::SRL64ri: {
+    // TODO:
   } break;
   }
 

@@ -78,3 +78,41 @@ void GASSInstPrinter::printCmpMode(const MCInst *MI,
   case GASS::GASSCC::CondCode::LO: O << ".LO";  return;
   }
 }
+
+void GASSInstPrinter::printShiftDir(const MCInst *MI, 
+                                    unsigned OpNo, raw_ostream &O) {
+  const MCOperand &Op = MI->getOperand(OpNo);
+  assert(Op.isImm());
+  unsigned Value = Op.getImm();
+  switch (Value) {
+  default: llvm_unreachable("Invalid shift dir");
+  case GASS::SHF_FLAGS::R: O << ".R"; return;
+  case GASS::SHF_FLAGS::L: O << ".L"; return;
+  }
+}
+
+void GASSInstPrinter::printShiftType(const MCInst *MI,
+                                     unsigned OpNo, raw_ostream &O) {
+  const MCOperand &Op = MI->getOperand(OpNo);
+  assert(Op.isImm());
+  unsigned Value = Op.getImm();
+  switch (Value) {
+  default: llvm_unreachable("Invalid shift type");
+  case GASS::SHF_FLAGS::U32: O << ".U32"; return;
+  case GASS::SHF_FLAGS::S32: O << ".S32"; return;  
+  case GASS::SHF_FLAGS::U64: O << ".U64"; return;
+  case GASS::SHF_FLAGS::S64: O << ".S64"; return;
+  }
+}
+
+void GASSInstPrinter::printShiftLoc(const MCInst *MI,
+                                    unsigned OpNo, raw_ostream &O) {
+  const MCOperand &Op = MI->getOperand(OpNo);
+  assert(Op.isImm());
+  unsigned Value = Op.getImm();
+  switch (Value) {
+  default: llvm_unreachable("Invalid shift loc");
+  case GASS::SHF_FLAGS::LO: return; // print nothing
+  case GASS::SHF_FLAGS::HI: O << ".HI"; return;
+  }
+}
