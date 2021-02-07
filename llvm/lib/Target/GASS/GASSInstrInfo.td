@@ -640,6 +640,7 @@ multiclass LDG<RegisterClass RC, int Width> {
 
 defm LDG32 : LDG<VReg32, 32>, Sched<[WriteLD]>;
 defm LDG64 : LDG<VReg64, 64>, Sched<[WriteLD]>;
+defm LDG128 : LDG<VReg128, 128>, Sched<[WriteLD]>;
 
 // LDS
 
@@ -662,6 +663,7 @@ multiclass STG<RegisterClass RC, int Width> {
 
 defm STG32 : STG<VReg32, 32>, Sched<[WriteST]>;
 defm STG64 : STG<VReg64, 64>, Sched<[WriteST]>;
+defm STG128 : STG<VReg128, 128>, Sched<[WriteST]>;
 
 
 //=---------------------------------=//

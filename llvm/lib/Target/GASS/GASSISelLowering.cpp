@@ -14,6 +14,7 @@ GASSTargetLowering::GASSTargetLowering(const TargetMachine &TM,
   addRegisterClass(MVT::f32, &GASS::VReg32RegClass);
   addRegisterClass(MVT::i64, &GASS::VReg64RegClass);
   addRegisterClass(MVT::f64, &GASS::VReg64RegClass);
+  addRegisterClass(MVT::v4f32, &GASS::VReg128RegClass);
   
   // ConstantFP are legal in GASS (*Must*, otherwise will be expanded to 
   //                                                   load<ConstantPool>)
@@ -39,6 +40,13 @@ GASSTargetLowering::GASSTargetLowering(const TargetMachine &TM,
   // Remove addrspacecast instr
   setOperationAction(ISD::ADDRSPACECAST, MVT::i32, Custom);
   setOperationAction(ISD::ADDRSPACECAST, MVT::i64, Custom);
+
+  // Vector operations (required)
+  // setOperationAction(ISD::BUILD_VECTOR, MVT::v4f32, Expand);
+  // setOperationAction(ISD::EXTRACT_VECTOR_ELT, MVT::v4f32, Legal);
+  // setOperationAction(ISD::INSERT_VECTOR_ELT, MVT::v4f32, Legal);
+  // setOperationAction(ISD::VECTOR_SHUFFLE, MVT::v4f32, Legal);
+  // setOperationAction(ISD::CONCAT_VECTORS, MVT::v4f32, Legal);
 
   computeRegisterProperties(Subtarget.getRegisterInfo());
 }
@@ -128,6 +136,7 @@ GASSTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
     llvm_unreachable("Custom lowering not defined for operation");
   case ISD::ADDRSPACECAST: return lowerAddrSpaceCast(Op, DAG);
   case ISD::ADD: return lowerADD64(Op, DAG);
+  case ISD::CONCAT_VECTORS: return lowerCONCAT_VECTORS(Op, DAG);
   }
 }
 
@@ -146,6 +155,29 @@ GASSTargetLowering::lowerAddrSpaceCast(SDValue Op, SelectionDAG &DAG) const {
   return Op;
 }
 
+// By default CONCAT_VECTORS is lowered by ExpandVectorBuildThroughStack()
+// (see LegalizeDAG.cpp). This is slow and uses local memory.
+// We use extract/insert/build vector just as what LegalizeOp() does in llvm 2.5
+SDValue
+GASSTargetLowering::lowerCONCAT_VECTORS(SDValue Op, SelectionDAG &DAG) const {
+  outs() << "lowering concat_vectors\n";
+  SmallVector<SDValue, 8> Args;
+
+  EVT VT = Op.getValueType();
+  if (VT == MVT::v4i16 || VT == MVT::v4f16) {
+    SDLoc SL(Op);
+    SDValue Lo = DAG.getNode(ISD::BITCAST, SL, MVT::i32, Op.getOperand(0));
+    SDValue Hi = DAG.getNode(ISD::BITCAST, SL, MVT::i32, Op.getOperand(1));
+
+    SDValue BV = DAG.getBuildVector(MVT::v2i32, SL, { Lo, Hi });
+    return DAG.getNode(ISD::BITCAST, SL, VT, BV);
+  }
+
+  for (const SDUse &U : Op->ops())
+    DAG.ExtractVectorElements(U.get(), Args);
+
+  return DAG.getBuildVector(Op.getValueType(), SDLoc(Op), Args);
+}
 //=--------------------------------------=//
 // Custom i64 lowering
 //=--------------------------------------=//

@@ -45,6 +45,43 @@ void GASSDAGToDAGISel::Select(SDNode *N) {
     if (tryStore(N))
       return;
     break;
+  case ISD::EXTRACT_VECTOR_ELT:
+    if (tryEXTRACT_VECTOR_ELT(N))
+      return;
+    break;
+  case ISD::BUILD_VECTOR: {
+    SDLoc DL(N);
+    EVT VT = N->getValueType(0);
+    unsigned NumVectorElts = VT.getVectorNumElements();
+    unsigned RegClassID;
+
+    switch(NumVectorElts) {
+    case 2: RegClassID = GASS::VReg64RegClassID; break;
+    case 4: RegClassID = GASS::VReg128RegClassID; break;
+    default: llvm_unreachable("Do not know how to lower this BUILD_VECTOR");
+    }
+
+    SDNode *RegSeq = nullptr;
+    SmallVector<SDValue, 4*2> Ops;
+    Ops.push_back(CurDAG->getTargetConstant(RegClassID, DL, MVT::i32));
+    for (unsigned i = 0; i < NumVectorElts; ++i) {
+      unsigned Sub = 0;
+      switch (i) {
+      default: llvm_unreachable("error");
+      case 0: Sub = GASS::sub0; break;
+      case 1: Sub = GASS::sub1; break;
+      case 2: Sub = GASS::sub2; break;
+      case 3: Sub = GASS::sub3; break;
+      }
+      Ops.push_back(N->getOperand(i));
+      Ops.push_back(CurDAG->getTargetConstant(Sub, DL, MVT::i32));
+    }
+    RegSeq = CurDAG->getMachineNode(TargetOpcode::REG_SEQUENCE, DL, 
+                                    N->getVTList(), Ops);
+
+    ReplaceNode(N, RegSeq);
+    return;
+  } break;
   case GASSISD::LDC:
     if (tryLDC(N))
       return;
@@ -55,6 +92,8 @@ void GASSDAGToDAGISel::Select(SDNode *N) {
   // Tablegen'erated
   SelectCode(N);
 }
+
+// Other helpers
 
 // helpers for load/store
 /// Return true if matches
@@ -106,6 +145,7 @@ bool GASSDAGToDAGISel::tryLoad(SDNode *N) {
   SDValue Chain = N->getOperand(0);
   SDValue N1 = N->getOperand(1);
   MVT::SimpleValueType TargetVT = LD->getSimpleValueType(0).SimpleTy;
+  unsigned ValueWidth = N->getValueSizeInBits(0);
   // Machine-DAG
   SDValue Addr;
   SDValue Base, Offset;
@@ -113,14 +153,23 @@ bool GASSDAGToDAGISel::tryLoad(SDNode *N) {
   if (AddrSpace == GASS::GENERIC) {
     llvm_unreachable("GENERIC load not implemented");
   } else if (AddrSpace == GASS::GLOBAL) {
-    // FIXME FIXME FIXME 
     // Load width
     if (selectDirectAddr(N1, Addr)) {
-      Opcode = GASS::LDG32r;
+      switch (ValueWidth) {
+      default: llvm_unreachable("Invalid ld width");
+      case 32: Opcode = GASS::LDG32r; break;
+      case 64: Opcode = GASS::LDG64r; break;
+      case 128: Opcode = GASS::LDG128r; break;
+      }
       SDValue Ops[] = {N1, Chain};
       GASSLD = CurDAG->getMachineNode(Opcode, dl, TargetVT, MVT::Other, Ops);
     } else if (selectADDRri(N1, Base, Offset)) {
-      Opcode = GASS::LDG32ri;
+      switch (ValueWidth) {
+      default: llvm_unreachable("Invalid ld width");
+      case 32: Opcode = GASS::LDG32ri; break;
+      case 64: Opcode = GASS::LDG64ri; break;
+      case 128: Opcode = GASS::LDG128ri; break;
+      }
       SDValue Ops[] = {Base, Offset, Chain};
       GASSLD = CurDAG->getMachineNode(Opcode, dl, TargetVT, MVT::Other, Ops);
     } else
@@ -182,6 +231,7 @@ bool GASSDAGToDAGISel::tryStore(SDNode *N) {
   // Create the machine instruction DAG
   SDValue Chain = ST->getChain(); // Dependency. (Same as value?)
   SDValue Value = PlainStore->getValue(); // Value it reads (store).
+  unsigned ValueWidth = Value.getValueSizeInBits();
   SDValue BasePtr = ST->getBasePtr(); // Ptr.
   SDValue Addr;
   SDValue Base, Offset;
@@ -190,12 +240,22 @@ bool GASSDAGToDAGISel::tryStore(SDNode *N) {
     llvm_unreachable("GENERIC Store not implemented");
   } else if (AddrSpace == GASS::GLOBAL) {
     if (selectDirectAddr(BasePtr, Addr)) {
-      Opcode = GASS::STG32r;
+      switch (ValueWidth) {
+      default: llvm_unreachable("Invalid ld width");
+      case 32: Opcode = GASS::STG32r; break;
+      case 64: Opcode = GASS::STG64r; break;
+      case 128: Opcode = GASS::STG128r; break;
+      }
       SDValue Ops[] = {Value,
                        BasePtr, Chain}; // Should we pass chain as op?
       GASSST = CurDAG->getMachineNode(Opcode, dl, MVT::Other, Ops);
     } else if (selectADDRri(BasePtr, Base, Offset)) {
-      Opcode = GASS::STG32ri;
+      switch (ValueWidth) {
+      default: llvm_unreachable("Invalid ld width");
+      case 32: Opcode = GASS::STG32ri; break;
+      case 64: Opcode = GASS::STG64ri; break;
+      case 128: Opcode = GASS::STG128ri; break;
+      }
       SDValue Ops[] = {Value, Base, Offset, Chain};
       GASSST = CurDAG->getMachineNode(Opcode, dl, MVT::Other, Ops);
     } else 
@@ -208,5 +268,40 @@ bool GASSDAGToDAGISel::tryStore(SDNode *N) {
   }
 
   ReplaceNode(N, GASSST);
+  return true;
+}
+
+bool GASSDAGToDAGISel::tryEXTRACT_VECTOR_ELT(SDNode *N) {
+  // Replace extract_vector_elt with extract_subreg
+  SDLoc DL(N);
+  SDNode *ExtraSubReg = nullptr;
+
+  SDValue Vector = N->getOperand(0);
+  SDValue Idx = N->getOperand(1);
+
+  MVT VectorTy = Vector.getSimpleValueType();
+  // FIXME: we should support more types
+  assert(VectorTy == MVT::v2f32 || VectorTy == MVT::v2i32 ||
+         VectorTy == MVT::v4f32 || VectorTy == MVT::v4f32);
+  assert(isa<ConstantSDNode>(Idx));
+  unsigned IdxValue = dyn_cast<ConstantSDNode>(Idx)->getSExtValue();
+  unsigned SubRegValue = 0;
+  switch (IdxValue) {
+  default: llvm_unreachable("error");
+  case 0: SubRegValue = GASS::sub0; break;
+  case 1: SubRegValue = GASS::sub1; break;
+  case 2: SubRegValue = GASS::sub2; break;
+  case 3: SubRegValue = GASS::sub3; break;
+  }
+
+  SDValue SubReg = CurDAG->getTargetConstant(SubRegValue, DL, MVT::i32);
+
+  MVT ResultTy = N->getSimpleValueType(0);
+
+  SDValue Ops[] = {Vector, SubReg};
+  ExtraSubReg = CurDAG->getMachineNode(TargetOpcode::EXTRACT_SUBREG,
+                                       DL, ResultTy, Ops);
+  
+  ReplaceNode(N, ExtraSubReg);
   return true;
 }

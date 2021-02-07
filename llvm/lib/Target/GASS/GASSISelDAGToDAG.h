@@ -20,11 +20,13 @@ private:
   bool tryLoad(SDNode *N);
   bool tryStore(SDNode *N);
   bool tryLDC(SDNode *N);
+  bool tryEXTRACT_VECTOR_ELT(SDNode *N);
 
 private:
   // other helper functions 
   bool selectDirectAddr(SDValue Value, SDValue &Addr);
   bool selectADDRri(SDValue Value, SDValue &Base, SDValue &Offset);
+  void selectBuildVector(SDNode *N, unsigned RegClassID);
 };
 } // namespace llvm
 
