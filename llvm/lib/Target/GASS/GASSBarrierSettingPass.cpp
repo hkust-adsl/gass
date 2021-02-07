@@ -214,11 +214,13 @@ private:
   // helper function
   std::string const getBTStr() const {
   switch (BT) {
+  default: llvm_unreachable("Invalid barrier type");
   case RAW_C : return "RAW_C";
   case RAW_S : return "RAW_S";
   case RAW_G : return "RAW_G";
   case WAR_G : return "WAR_G";
   case WAR_S : return "WAR_S";
+  case WAR_MEM : return "WAR_MEM";
   }
   }
 };
@@ -459,7 +461,7 @@ bool GASSBarrierSetting::runOnMachineFunction(MachineFunction &MF) {
     runOnMachineBasicBlock(MBB);
   }
 
-  MF.dump();
+  // LLVM_DEBUG(MF.dump());
 
   return true;
 }

@@ -56,6 +56,42 @@ void GASSDAGToDAGISel::Select(SDNode *N) {
   SelectCode(N);
 }
 
+// helpers for load/store
+/// Return true if matches
+bool GASSDAGToDAGISel::selectDirectAddr(SDValue Value, SDValue &Addr) {
+  // ld $dst, [$value];
+  //  ==>
+  // $Addr = $value
+  // FIXME FIXME FIXME 
+  // != ISD::ADD is not enough
+  // better be 
+  // Value != ISD::ADD || (Value.getOpcode() == ISD::ADD && ... != Constant...)
+  if (Value.getOpcode() != ISD::ADD) {
+    Addr = Value;
+    return true;
+  }
+  return false;
+}
+
+/// Return true if matches
+bool GASSDAGToDAGISel::selectADDRri(SDValue Value, SDValue &Base, SDValue &Offset) {
+  // $value = add $base, $offset;
+  // ld $dst, [$value];
+  //   ==>
+  // ld $dst, [$base+$offset];
+  if (Value.getOpcode() == ISD::ADD) {
+    if (auto *CN = dyn_cast<ConstantSDNode>(Value.getOperand(1))) {
+      SDValue base = Value.getOperand(0);
+      if (selectDirectAddr(base, Base)) {
+        Offset = CurDAG->getTargetConstant(CN->getSExtValue(), SDLoc(Value), 
+                                           MVT::i32);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 bool GASSDAGToDAGISel::tryLoad(SDNode *N) {
   SDLoc dl(N);
   MemSDNode *LD = cast<MemSDNode>(N);
@@ -66,16 +102,30 @@ bool GASSDAGToDAGISel::tryLoad(SDNode *N) {
 
   unsigned AddrSpace = getCodeAddrSpace(LD);
 
+  // IR-DAG
   SDValue Chain = N->getOperand(0);
-  SDValue Ptr = N->getOperand(1);
+  SDValue N1 = N->getOperand(1);
   MVT::SimpleValueType TargetVT = LD->getSimpleValueType(0).SimpleTy;
+  // Machine-DAG
+  SDValue Addr;
+  SDValue Base, Offset;
 
   if (AddrSpace == GASS::GENERIC) {
     llvm_unreachable("GENERIC load not implemented");
   } else if (AddrSpace == GASS::GLOBAL) {
-    Opcode = GASS::LDG32r;
-    SDValue Ops[] = {Ptr, Chain};
-    GASSLD = CurDAG->getMachineNode(Opcode, dl, TargetVT, MVT::Other, Ops);
+    // FIXME FIXME FIXME 
+    // Load width
+    if (selectDirectAddr(N1, Addr)) {
+      Opcode = GASS::LDG32r;
+      SDValue Ops[] = {N1, Chain};
+      GASSLD = CurDAG->getMachineNode(Opcode, dl, TargetVT, MVT::Other, Ops);
+    } else if (selectADDRri(N1, Base, Offset)) {
+      Opcode = GASS::LDG32ri;
+      SDValue Ops[] = {Base, Offset, Chain};
+      GASSLD = CurDAG->getMachineNode(Opcode, dl, TargetVT, MVT::Other, Ops);
+    } else
+      llvm_unreachable("shouldn't be here");
+
   } else if (AddrSpace == GASS::SHARED) {
     llvm_unreachable("SHARED load not implemented");
   } else if (AddrSpace == GASS::LOCAL) {
@@ -134,15 +184,23 @@ bool GASSDAGToDAGISel::tryStore(SDNode *N) {
   SDValue Value = PlainStore->getValue(); // Value it reads (store).
   SDValue BasePtr = ST->getBasePtr(); // Ptr.
   SDValue Addr;
-  SDValue Offset, Base;
+  SDValue Base, Offset;
 
   if (AddrSpace == GASS::GENERIC) {
     llvm_unreachable("GENERIC Store not implemented");
   } else if (AddrSpace == GASS::GLOBAL) {
-    Opcode = GASS::STG32r;
-    SDValue Ops[] = {Value,
-                     BasePtr, Chain}; // Should we pass chain as op?
-    GASSST = CurDAG->getMachineNode(Opcode, dl, MVT::Other, Ops);
+    if (selectDirectAddr(BasePtr, Addr)) {
+      Opcode = GASS::STG32r;
+      SDValue Ops[] = {Value,
+                       BasePtr, Chain}; // Should we pass chain as op?
+      GASSST = CurDAG->getMachineNode(Opcode, dl, MVT::Other, Ops);
+    } else if (selectADDRri(BasePtr, Base, Offset)) {
+      Opcode = GASS::STG32ri;
+      SDValue Ops[] = {Value, Base, Offset, Chain};
+      GASSST = CurDAG->getMachineNode(Opcode, dl, MVT::Other, Ops);
+    } else 
+      llvm_unreachable("shouldn't be here");
+
   } else if (AddrSpace == GASS::SHARED) {
     llvm_unreachable("SHARED Store not implemented");
   } else if (AddrSpace == GASS::LOCAL) {
