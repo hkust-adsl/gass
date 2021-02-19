@@ -114,12 +114,14 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
           .addReg(CarryReg, RegState::Define)
           .add(LHSSub0)
           .add(RHSSub0)
-          .addReg(GASS::NPT);
+          .addReg(GASS::NPT)
+          .addReg(GASS::PT); // PredMask
         BuildMI(MBB, MI, DL, TII->get(GASS::IADDXrr), DstSub1)
           .addReg(GASS::PT, RegState::Define)
           .add(LHSSub1)
           .add(RHSSub1)
-          .addReg(CarryReg, RegState::Kill);
+          .addReg(CarryReg, RegState::Kill)
+          .addReg(GASS::PT);
 
         // Merge result
         BuildMI(MBB, MI, DL, TII->get(TargetOpcode::REG_SEQUENCE), NewDst)
@@ -152,7 +154,8 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
           .add(Src)
           .addImm(GASS::SHF_FLAGS::R)
           .addImm(GASS::SHF_FLAGS::S32)
-          .addImm(GASS::SHF_FLAGS::HI);
+          .addImm(GASS::SHF_FLAGS::HI)
+          .addReg(GASS::PT); // PredMask
         BuildMI(MBB, MI, DL, TII->get(TargetOpcode::REG_SEQUENCE), NewDst)
           .addReg(DstSub0)
           .addImm(GASS::sub0)

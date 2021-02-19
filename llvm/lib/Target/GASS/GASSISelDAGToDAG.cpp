@@ -113,7 +113,8 @@ bool GASSDAGToDAGISel::selectDirectAddr(SDValue Value, SDValue &Addr) {
 }
 
 /// Return true if matches
-bool GASSDAGToDAGISel::selectADDRri(SDValue Value, SDValue &Base, SDValue &Offset) {
+bool GASSDAGToDAGISel::selectADDRri(SDValue Value, SDValue &Base, 
+                                    SDValue &Offset) {
   // $value = add $base, $offset;
   // ld $dst, [$value];
   //   ==>
@@ -149,6 +150,7 @@ bool GASSDAGToDAGISel::tryLoad(SDNode *N) {
   // Machine-DAG
   SDValue Addr;
   SDValue Base, Offset;
+  SDValue PredMask = CurDAG->getRegister(GASS::PT, MVT::i1);
 
   if (AddrSpace == GASS::GENERIC) {
     llvm_unreachable("GENERIC load not implemented");
@@ -161,7 +163,7 @@ bool GASSDAGToDAGISel::tryLoad(SDNode *N) {
       case 64: Opcode = GASS::LDG64r; break;
       case 128: Opcode = GASS::LDG128r; break;
       }
-      SDValue Ops[] = {N1, Chain};
+      SDValue Ops[] = {N1, PredMask, Chain};
       GASSLD = CurDAG->getMachineNode(Opcode, dl, TargetVT, MVT::Other, Ops);
     } else if (selectADDRri(N1, Base, Offset)) {
       switch (ValueWidth) {
@@ -170,7 +172,7 @@ bool GASSDAGToDAGISel::tryLoad(SDNode *N) {
       case 64: Opcode = GASS::LDG64ri; break;
       case 128: Opcode = GASS::LDG128ri; break;
       }
-      SDValue Ops[] = {Base, Offset, Chain};
+      SDValue Ops[] = {Base, Offset, PredMask, Chain};
       GASSLD = CurDAG->getMachineNode(Opcode, dl, TargetVT, MVT::Other, Ops);
     } else
       llvm_unreachable("shouldn't be here");
@@ -204,10 +206,12 @@ bool GASSDAGToDAGISel::tryLDC(SDNode *N) {
   case 32: 
     Opcode = GASS::LDC32c;
     Ops.push_back(CurDAG->getTargetConstant(OffsetVal, dl, MVT::i32));
+    Ops.push_back(CurDAG->getRegister(GASS::PT, MVT::i1));
     break;
   case 64: 
     Opcode = GASS::LDC64c;
     Ops.push_back(CurDAG->getTargetConstant(OffsetVal, dl, MVT::i64));
+    Ops.push_back(CurDAG->getRegister(GASS::PT, MVT::i1));
     break;
   }
 
@@ -235,6 +239,7 @@ bool GASSDAGToDAGISel::tryStore(SDNode *N) {
   SDValue BasePtr = ST->getBasePtr(); // Ptr.
   SDValue Addr;
   SDValue Base, Offset;
+  SDValue PredMask = CurDAG->getRegister(GASS::PT, MVT::i1);
 
   if (AddrSpace == GASS::GENERIC) {
     llvm_unreachable("GENERIC Store not implemented");
@@ -247,7 +252,7 @@ bool GASSDAGToDAGISel::tryStore(SDNode *N) {
       case 128: Opcode = GASS::STG128r; break;
       }
       SDValue Ops[] = {Value,
-                       BasePtr, Chain}; // Should we pass chain as op?
+                       BasePtr, PredMask, Chain}; // Should we pass chain as op?
       GASSST = CurDAG->getMachineNode(Opcode, dl, MVT::Other, Ops);
     } else if (selectADDRri(BasePtr, Base, Offset)) {
       switch (ValueWidth) {
@@ -256,7 +261,7 @@ bool GASSDAGToDAGISel::tryStore(SDNode *N) {
       case 64: Opcode = GASS::STG64ri; break;
       case 128: Opcode = GASS::STG128ri; break;
       }
-      SDValue Ops[] = {Value, Base, Offset, Chain};
+      SDValue Ops[] = {Value, Base, Offset, PredMask, Chain};
       GASSST = CurDAG->getMachineNode(Opcode, dl, MVT::Other, Ops);
     } else 
       llvm_unreachable("shouldn't be here");

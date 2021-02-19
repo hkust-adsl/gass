@@ -3,6 +3,7 @@
 #include "GASSTargetTransformInfo.h"
 #include "GASSISelDAGToDAG.h"
 #include "TargetInfo/GASSTargetInfo.h"
+#include "llvm/Analysis/CFGPrinter.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/InitializePasses.h"
@@ -58,6 +59,15 @@ public:
 
   void addIRPasses() override;
   bool addInstSelector() override;
+  bool addILPOpts() override;
+
+  //=---------------------------------------=//
+  // Debug, to delete
+  // Print cfg
+  void addMachineLateOptimization() override;
+  //=--------------------------------------=//
+
+  void addPreSched2() override;
 
   // Set instruction control info
   void addPreEmitPass() override;
@@ -85,6 +95,35 @@ bool GASSPassConfig::addInstSelector() {
   addPass(new GASSDAGToDAGISel(getGASSTargetMachine()));
   addPass(createGASSExpandPreRAPseudoPass());
   return false;
+}
+
+bool GASSPassConfig::addILPOpts() {
+  // TODO: doesn't seem to work. should delete this.
+  addPass(&EarlyIfConverterID);
+
+  return false;
+}
+
+void GASSPassConfig::addMachineLateOptimization() {
+  // Branch folding must be run after regalloc and prolog/epilog insertion.
+  addPass(&BranchFolderPassID);
+
+  // Tail duplication.
+  // Note that duplicating tail just increases code size and degrades
+  // performance for targets that require Structured Control Flow.
+  // In addition it can also make CFG irreducible. Thus we disable it.
+  if (!TM->requiresStructuredCFG())
+    addPass(&TailDuplicateID);
+
+  // Copy propagation.
+  addPass(&MachineCopyPropagationID);
+}
+
+void GASSPassConfig::addPreSched2() {
+  // addPass(createIfConverter([](const MachineFunction &MF) {
+  //   return true;
+  // }));
+  addPass(createGASSIfConversionPass());
 }
 
 // NVGPU specific passes

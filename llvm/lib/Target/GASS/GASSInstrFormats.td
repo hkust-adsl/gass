@@ -1,15 +1,21 @@
-class GASSInst<dag outs, dag ins, bits<12> opcode, 
+def pred : PredicateOperand<i1, (ops VReg1), (ops PT)> {
+  let PrintMethod = "printPredicateOperand";
+}
+
+class GASSInst<dag oops, dag iops, bits<12> opcode, 
                string asmstr, list<dag> pattern> : Instruction {
   let Namespace = "GASS";
 
   bits<128> Inst;
 
-  dag OutOperandList = outs;
-  dag InOperandList = ins;
-  let AsmString = asmstr;
+  // dag PredMask = (ins VReg1:$pmask);
+
+  dag OutOperandList = oops;
+  dag InOperandList = !con(iops, (ins pred:$pmask));
+  let AsmString = !strconcat("${pmask}\t", asmstr);
   let Pattern = pattern;
 
-  bits<4> PredMask = 7;
+  bits<4> pmask = 7;
   bits<8> Dst  = 0;
   bits<8> Src0 = 0;
   bits<8> Src1 = 0;
@@ -18,7 +24,7 @@ class GASSInst<dag outs, dag ins, bits<12> opcode,
   let Inst{103-96} = Src1;
   let Inst{95-88}  = Src0;
   let Inst{87-80}  = Dst;
-  let Inst{79-76}  = PredMask;
+  let Inst{79-76}  = pmask;
   let Inst{75-64}  = opcode;
   let Inst{7-0}    = Src2;
 
@@ -26,6 +32,9 @@ class GASSInst<dag outs, dag ins, bits<12> opcode,
   // Need to sync with TsflagsMask in 'GASSInstrInfo.h'
   bit isFixLat = true;
   let TSFlags{0} = isFixLat;
+
+  // Almost all GASS instructions 
+  let isPredicable = true;
 }
 
 class GASSPseudoInst<dag outs, dag ins, list<dag> pattern>
@@ -69,4 +78,5 @@ class GASSInstLdstGlobal<dag outs, dag ins, bits<12> opcode, string asmstr,
   let Inst{16-15} = 1; // 0->.CONSTANT; 2->.STRONG; 3->.WEEK
   let Inst{14-13} = 3; // 0->.CTA; 2->.GPU; 3->.SYS
 
+  // Load/Store instructions 
 }

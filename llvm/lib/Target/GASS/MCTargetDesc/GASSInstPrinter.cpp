@@ -1,9 +1,11 @@
 #include "GASS.h"
 #include "GASSInstPrinter.h"
+#include "GASSMCTargetDesc.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 
@@ -77,6 +79,17 @@ void GASSInstPrinter::printCmpMode(const MCInst *MI,
   case GASS::GASSCC::CondCode::GE: O << ".GE";  return;
   case GASS::GASSCC::CondCode::LO: O << ".LO";  return;
   }
+}
+
+void GASSInstPrinter::printPredicateOperand(const MCInst *MI, unsigned OpNo,
+                                            raw_ostream &O) {
+  const MCOperand &Op = MI->getOperand(OpNo);
+  assert(Op.isReg());
+  // don't print @PT
+  if (Op.getReg() == GASS::PT) 
+    return;
+  O << "@";
+  printRegOperand(Op.getReg(), O);
 }
 
 void GASSInstPrinter::printShiftDir(const MCInst *MI, 

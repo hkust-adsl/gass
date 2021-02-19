@@ -28,6 +28,8 @@
 /gass-example
 # local files
 /other
+llvm/cmake-build-debug
+xcode-project/
 
 #==============================================================================#
 # Explicit files to ignore (only matches one).

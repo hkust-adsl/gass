@@ -36,6 +36,26 @@ public:
                         MachineBasicBlock *FBB, ArrayRef<MachineOperand> Cond,
                         const DebugLoc &DL,
                         int *BytesAdded = nullptr) const override;
+  bool
+  reverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const override;
+
+  /// Returns true on success.
+  bool PredicateInstruction(MachineInstr &MI, 
+                            ArrayRef<MachineOperand> Pred) const override;
+  
+  // required by ifconverter
+  // TODO: update heuristic.
+  bool isProfitableToDupForIfCvt(MachineBasicBlock &MBB,
+                                 unsigned NumInstrs,
+                                 BranchProbability Probability) const override {
+    return true;
+  }
+
+  bool isProfitableToIfCvt(MachineBasicBlock &MBB, unsigned NumCycles,
+                           unsigned ExtraPredCycles, 
+                           BranchProbability Probability) const override {
+    return true;
+  }
 
   bool expandPostRAPseudo(MachineInstr &MI) const override;
 

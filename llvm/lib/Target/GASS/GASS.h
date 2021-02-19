@@ -16,14 +16,19 @@ void LowerToMCInst(const MachineInstr *MI, MCInst &Inst);
 
 FunctionPass *createGASSAddrSpacePass();
 FunctionPass *createGASSCodeGenPreparePass();
+FunctionPass *createGASSMachineFunctionCFGPrinterPass();
 FunctionPass *createGASSBarrierSettingPass();
 FunctionPass *createGASSStallSettingPass(); 
 FunctionPass *createGASSExpandPreRAPseudoPass();
+FunctionPass *createGASSIfConversionPass();
+
 
 void initializeGASSBarrierSettingPass(PassRegistry &);
 void initializeGASSStallSettingPass(PassRegistry&);
 void initializeGASSExpandPreRAPseudoPass(PassRegistry&);
 void initializeGASSCodeGenPreparePass(PassRegistry&);
+void initializeGASSMachineFunctionCFGPrinterPass(PassRegistry&);
+void initializeGASSIfConversionPass(PassRegistry&);
 
 
 namespace GASS {

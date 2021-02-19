@@ -2,6 +2,7 @@
 #define LLVM_LIB_TARGET_GASS_MCTARGETDESC_GASSINSTPRINTER_H
 
 #include "llvm/MC/MCInstPrinter.h"
+#include "llvm/Support/raw_ostream.h"
 
 namespace llvm {
 
@@ -32,6 +33,7 @@ private:
   void printRegOperand(unsigned RegNo, raw_ostream &O);
   void printConstantMem(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printCmpMode(const MCInst *MI, unsigned OpNo, raw_ostream &O);
+  void printPredicateOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);
 
   // funnel shift (shf)
   void printShiftDir(const MCInst *MI, unsigned OpNo, raw_ostream &O);

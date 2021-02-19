@@ -2,6 +2,7 @@
 #include "GASSRegisterInfo.h"
 #include "GASSSubtarget.h"
 #include "MCTargetDesc/GASSMCTargetDesc.h"
+#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 
@@ -112,6 +113,35 @@ bool GASSInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
 
   // Otherwise, can't handle this.
   return true;
+}
+
+// Note: return false on success
+bool
+GASSInstrInfo::reverseBranchCondition(
+    SmallVectorImpl<MachineOperand> &Cond) const {
+  // TODO: fill this.
+  if (Cond.size() != 1)
+    return true;
+
+  return true;
+}
+
+// returns true on success
+bool GASSInstrInfo::PredicateInstruction(MachineInstr &MI, 
+                                         ArrayRef<MachineOperand> Pred) const {
+  assert(MI.isPredicable() && "Expect predicable instruction");
+  assert(Pred.size() == 1);
+  assert(Pred[0].isReg());
+
+  int PIdx = MI.findFirstPredOperandIdx();
+
+  if (PIdx != -1) {
+    MachineOperand &PMO = MI.getOperand(PIdx);
+    MI.getOperand(PIdx).setReg(Pred[0].getReg());
+    return true;
+  }
+
+  return false;
 }
 
 unsigned GASSInstrInfo::removeBranch(MachineBasicBlock &MBB,
