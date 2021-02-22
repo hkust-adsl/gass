@@ -405,17 +405,33 @@ bool GASSDAGToDAGISel::tryEXTRACT_VECTOR_ELT(SDNode *N) {
   return true;
 }
 
-static unsigned getOpcode3Op(SDValue Src0, SDValue Src1, SDValue Src2,
+static unsigned getOpcode3Op(SDValue &Src0, SDValue &Src1, SDValue &Src2,
+                             SelectionDAG *CurDAG,
                              unsigned Oprrr, unsigned Oprri, 
                              unsigned Oprir, unsigned Oprii) {
   if (!isa<ConstantSDNode>(Src1) && !isa<ConstantSDNode>(Src2))
     return Oprrr;
-  else if (!isa<ConstantSDNode>(Src1) && isa<ConstantSDNode>(Src2))
+  else if (!isa<ConstantSDNode>(Src1) && isa<ConstantSDNode>(Src2)) {
+    SDLoc DL(Src2);
+    Src2 = CurDAG->getTargetConstant(cast<ConstantSDNode>(Src2)->getZExtValue(), 
+                                     DL, MVT::i32);
     return Oprri;
-  else if (isa<ConstantSDNode>(Src1) && !isa<ConstantSDNode>(Src2))
+  }
+  else if (isa<ConstantSDNode>(Src1) && !isa<ConstantSDNode>(Src2)) {
+    SDLoc DL(Src1);
+    Src1 = CurDAG->getTargetConstant(cast<ConstantSDNode>(Src1)->getZExtValue(), 
+                                     DL, MVT::i32);
     return Oprir;
-  else if (isa<ConstantSDNode>(Src1) && isa<ConstantSDNode>(Src2))
+  }
+  else if (isa<ConstantSDNode>(Src1) && isa<ConstantSDNode>(Src2)) {
+    SDLoc DL1(Src1);
+    SDLoc DL2(Src2);
+    Src1 = CurDAG->getTargetConstant(cast<ConstantSDNode>(Src1)->getZExtValue(),
+                                     DL1, MVT::i32);
+    Src2 = CurDAG->getTargetConstant(cast<ConstantSDNode>(Src2)->getZExtValue(), 
+                                     DL2, MVT::i32);
     return Oprii;
+  }
   else
     llvm_unreachable("Invalid opcode pattern");
 }
@@ -464,10 +480,10 @@ bool GASSDAGToDAGISel::trySHFL(SDNode *N) {
   // src0, src1, src2, ShflMode
   // var,  LaneMask, Width, 
   // Do we need chain?
-  SDValue Ops[] = {Val, LaneMask, Width, ShflMode, PredMask, Chain};
-  Opcode = getOpcode3Op(Val, LaneMask, Width,
+    Opcode = getOpcode3Op(Val, LaneMask, Width, CurDAG,
                         GASS::SHFLrrr, GASS::SHFLrri, 
                         GASS::SHFLrir, GASS::SHFLrii);
+  SDValue Ops[] = {Val, LaneMask, Width, ShflMode, PredMask, Chain};
   GASSSHFL = CurDAG->getMachineNode(Opcode, DL, TargetVT, MVT::Other, Ops);
   ReplaceNode(N, GASSSHFL);
   return true;
