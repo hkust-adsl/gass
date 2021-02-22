@@ -4,6 +4,7 @@
 #include "llvm/ADT/APFloat.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCExpr.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -78,6 +79,20 @@ void GASSInstPrinter::printCmpMode(const MCInst *MI,
   case GASS::GASSCC::CondCode::NE: O << ".NE";  return;
   case GASS::GASSCC::CondCode::GE: O << ".GE";  return;
   case GASS::GASSCC::CondCode::LO: O << ".LO";  return;
+  }
+}
+
+void GASSInstPrinter::printShflMode(const MCInst *MI, 
+                                    unsigned OpNo, raw_ostream &O) {
+  const MCOperand &Op = MI->getOperand(OpNo);
+
+  unsigned Value = Op.getImm();
+  switch (Value) {
+  default: llvm_unreachable("Invalid shfl mode");
+  case GASS::ShflMode::IDX: O << ".IDX"; return;
+  case GASS::ShflMode::UP: O << ".UP"; return;
+  case GASS::ShflMode::DOWN: O << ".DOWN"; return;
+  case GASS::ShflMode::BFLY: O << ".BFLY"; return;
   }
 }
 

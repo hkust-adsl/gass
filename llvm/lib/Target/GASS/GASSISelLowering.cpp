@@ -1,6 +1,10 @@
 #include "GASSISelLowering.h"
+#include "GASS.h"
 #include "GASSSubtarget.h"
 #include "GASSTargetMachine.h"
+#include "llvm/CodeGen/ISDOpcodes.h"
+#include "llvm/CodeGen/SelectionDAGNodes.h"
+#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 
@@ -41,6 +45,9 @@ GASSTargetLowering::GASSTargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::ADDRSPACECAST, MVT::i32, Custom);
   setOperationAction(ISD::ADDRSPACECAST, MVT::i64, Custom);
 
+  setOperationAction(ISD::GlobalAddress, MVT::i64, Custom);
+  setOperationAction(ISD::GlobalAddress, MVT::i32, Custom);
+
   // Vector operations (required)
   // setOperationAction(ISD::BUILD_VECTOR, MVT::v4f32, Expand);
   // setOperationAction(ISD::EXTRACT_VECTOR_ELT, MVT::v4f32, Legal);
@@ -54,6 +61,7 @@ GASSTargetLowering::GASSTargetLowering(const TargetMachine &TM,
 const char *GASSTargetLowering::getTargetNodeName(unsigned Opcode) const {
   switch (Opcode) {
   default: return "Unknown Node Name";
+  case GASSISD::Wrapper: return "GASSISD::Wrapper";
   case GASSISD::EXIT: return "GASSISD::EXIT";
   case GASSISD::MOV:  return "GASSISD::MOV";
   case GASSISD::LDC:  return "GASSISD::LDC";
@@ -75,7 +83,8 @@ SDValue GASSTargetLowering::PerformDAGCombine(SDNode *N,
 SDValue
 GASSTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
                               SmallVectorImpl<SDValue> &InVals) const {
-  // TODO: fill this.
+  // TODO: fill this.  
+  llvm_unreachable("GASSTargetLowering::LowerCall() not implemented");
   return SDValue();
 }
 
@@ -137,6 +146,7 @@ GASSTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   case ISD::ADDRSPACECAST: return lowerAddrSpaceCast(Op, DAG);
   case ISD::ADD: return lowerADD64(Op, DAG);
   case ISD::CONCAT_VECTORS: return lowerCONCAT_VECTORS(Op, DAG);
+  case ISD::GlobalAddress: return lowerGlobalAddress(Op, DAG);
   }
 }
 
@@ -153,6 +163,23 @@ GASSTargetLowering::lowerAddrSpaceCast(SDValue Op, SelectionDAG &DAG) const {
   Op = DAG.getNode(ISD::TRUNCATE, dl, DstVT, Src);
 
   return Op;
+}
+
+// Follow the practice in RISCV
+SDValue GASSTargetLowering::lowerGlobalAddress(SDValue Op, 
+                                               SelectionDAG &DAG) const {
+  SDLoc DL(Op);
+  GlobalAddressSDNode *GAN = cast<GlobalAddressSDNode>(Op);
+  MVT PtrVT = getPointerTy(DAG.getDataLayout(), GAN->getAddressSpace());
+  int64_t Offset = GAN->getOffset();
+
+  SDValue Addr = getAddr(GAN, DAG);
+
+  if (Offset != 0)
+    return DAG.getNode(ISD::ADD, DL, PtrVT, Addr,
+                       DAG.getConstant(Offset, DL, PtrVT));
+
+  return Addr;
 }
 
 // By default CONCAT_VECTORS is lowered by ExpandVectorBuildThroughStack()
@@ -259,4 +286,18 @@ SDValue GASSTargetLowering::lowerADD64(SDValue Op, SelectionDAG &DAG) const {
   Hi = Next.getValue(0);
 
   return JoinIntegers(Lo, Hi, DAG);
+}
+
+/// @param N The GAN Node.
+SDValue GASSTargetLowering::getAddr(GlobalAddressSDNode *GAN, 
+                                    SelectionDAG &DAG) const {
+  assert(GAN->getAddressSpace() == GASS::SHARED && "Can only handle smem");
+
+  const GlobalValue *GV = GAN->getGlobal();
+  assert(isa<GlobalVariable>(*GV));
+
+  
+  SDLoc DL(GAN);
+  // FIXME: this seems wrong?
+  return DAG.getTargetConstant(0, DL, MVT::i32);
 }

@@ -1,5 +1,9 @@
 #include "GASS.h"
 #include "GASSISelDAGToDAG.h"
+#include "llvm/CodeGen/SelectionDAGNodes.h"
+#include "llvm/IR/IntrinsicsNVPTX.h"
+#include "llvm/CodeGen/ISDOpcodes.h"
+#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 
@@ -86,6 +90,32 @@ void GASSDAGToDAGISel::Select(SDNode *N) {
     if (tryLDC(N))
       return;
     break;
+  case ISD::INTRINSIC_W_CHAIN: {
+    unsigned IntNo = cast<ConstantSDNode>(N->getOperand(1))->getZExtValue();
+    switch (IntNo) {
+    default: break;
+    case Intrinsic::nvvm_shfl_sync_idx_i32: 
+    case Intrinsic::nvvm_shfl_sync_idx_f32:
+    case Intrinsic::nvvm_shfl_sync_up_i32: 
+    case Intrinsic::nvvm_shfl_sync_up_f32:
+    case Intrinsic::nvvm_shfl_sync_down_i32: 
+    case Intrinsic::nvvm_shfl_sync_down_f32:
+    case Intrinsic::nvvm_shfl_sync_bfly_i32: 
+    case Intrinsic::nvvm_shfl_sync_bfly_f32:
+      if (trySHFL(N))
+        return;
+    }
+    break;
+  }
+  case ISD::INTRINSIC_WO_CHAIN: {
+    unsigned IntNo = cast<ConstantSDNode>(N->getOperand(0))->getZExtValue();
+    switch (IntNo) {
+    default: break;
+    // TODO: fill this
+    }
+    break;
+  }
+
   default:
     break;
   }
@@ -98,21 +128,14 @@ void GASSDAGToDAGISel::Select(SDNode *N) {
 // helpers for load/store
 /// Return true if matches
 bool GASSDAGToDAGISel::selectDirectAddr(SDValue Value, SDValue &Addr) {
-  // ld $dst, [$value];
-  //  ==>
-  // $Addr = $value
-  // FIXME FIXME FIXME 
-  // != ISD::ADD is not enough
-  // better be 
-  // Value != ISD::ADD || (Value.getOpcode() == ISD::ADD && ... != Constant...)
-  if (Value.getOpcode() != ISD::ADD) {
+  if (Value.getOpcode() == ISD::TargetGlobalAddress) {
     Addr = Value;
     return true;
   }
   return false;
 }
 
-/// Return true if matches
+/// Return true if matches (reg+offset)
 bool GASSDAGToDAGISel::selectADDRri(SDValue Value, SDValue &Base, 
                                     SDValue &Offset) {
   // $value = add $base, $offset;
@@ -163,7 +186,7 @@ bool GASSDAGToDAGISel::tryLoad(SDNode *N) {
       case 64: Opcode = GASS::LDG64r; break;
       case 128: Opcode = GASS::LDG128r; break;
       }
-      SDValue Ops[] = {N1, PredMask, Chain};
+      SDValue Ops[] = {Addr, PredMask, Chain};
       GASSLD = CurDAG->getMachineNode(Opcode, dl, TargetVT, MVT::Other, Ops);
     } else if (selectADDRri(N1, Base, Offset)) {
       switch (ValueWidth) {
@@ -174,11 +197,46 @@ bool GASSDAGToDAGISel::tryLoad(SDNode *N) {
       }
       SDValue Ops[] = {Base, Offset, PredMask, Chain};
       GASSLD = CurDAG->getMachineNode(Opcode, dl, TargetVT, MVT::Other, Ops);
-    } else
-      llvm_unreachable("shouldn't be here");
+    } else { // default
+      switch (ValueWidth) {
+      default: llvm_unreachable("Invalid ld width");
+      case 32: Opcode = GASS::LDG32r; break;
+      case 64: Opcode = GASS::LDG64r; break;
+      case 128: Opcode = GASS::LDG128r; break;
+      }
+      SDValue Ops[] = {N1, PredMask, Chain};
+      GASSLD = CurDAG->getMachineNode(Opcode, dl, TargetVT, MVT::Other, Ops);
+    }
 
   } else if (AddrSpace == GASS::SHARED) {
-    llvm_unreachable("SHARED load not implemented");
+    if (selectDirectAddr(N1, Addr)) {
+      switch (ValueWidth) {
+      default: llvm_unreachable("Invalid lds width");
+      case 32: Opcode = GASS::LDS32r; break;
+      case 64: Opcode = GASS::LDS64r; break;
+      case 128: Opcode = GASS::LDS128r; break;
+      }
+      SDValue Ops[] = {Addr, PredMask, Chain};
+      GASSLD = CurDAG->getMachineNode(Opcode, dl, TargetVT, MVT::Other, Ops);
+    } else if (selectADDRri(N1, Base, Offset)) {
+      switch (ValueWidth) {
+      default: llvm_unreachable("Invaild lds width");
+      case 32: Opcode = GASS::LDS32ri; break;
+      case 64: Opcode = GASS::LDS64ri; break;
+      case 128: Opcode = GASS::LDS128ri; break;
+      }
+      SDValue Ops[] = {Base, Offset, PredMask, Chain};
+      GASSLD = CurDAG->getMachineNode(Opcode, dl, TargetVT, MVT::Other, Ops);
+    } else {
+      switch (ValueWidth) {
+      default: llvm_unreachable("Invalid lds width");
+      case 32: Opcode = GASS::LDS32r; break;
+      case 64: Opcode = GASS::LDS64r; break;
+      case 128: Opcode = GASS::LDS128r; break;
+      }
+      SDValue Ops[] = {N1, PredMask, Chain};
+      GASSLD = CurDAG->getMachineNode(Opcode, dl, TargetVT, MVT::Other, Ops);
+    }
   } else if (AddrSpace == GASS::LOCAL) {
     llvm_unreachable("LOCAL load not implemented");
   } else if (AddrSpace == GASS::CONSTANT) {
@@ -246,7 +304,26 @@ bool GASSDAGToDAGISel::tryStore(SDNode *N) {
   } else if (AddrSpace == GASS::GLOBAL) {
     if (selectDirectAddr(BasePtr, Addr)) {
       switch (ValueWidth) {
-      default: llvm_unreachable("Invalid ld width");
+      default: llvm_unreachable("Invalid stg width");
+      case 32: Opcode = GASS::STG32r; break;
+      case 64: Opcode = GASS::STG64r; break;
+      case 128: Opcode = GASS::STG128r; break;
+      }
+      SDValue Ops[] = {Value,
+                       Addr, PredMask, Chain}; // Should we pass chain as op?
+      GASSST = CurDAG->getMachineNode(Opcode, dl, MVT::Other, Ops);
+    } else if (selectADDRri(BasePtr, Base, Offset)) {
+      switch (ValueWidth) {
+      default: llvm_unreachable("Invalid stg width");
+      case 32: Opcode = GASS::STG32ri; break;
+      case 64: Opcode = GASS::STG64ri; break;
+      case 128: Opcode = GASS::STG128ri; break;
+      }
+      SDValue Ops[] = {Value, Base, Offset, PredMask, Chain};
+      GASSST = CurDAG->getMachineNode(Opcode, dl, MVT::Other, Ops);
+    } else {
+      switch (ValueWidth) {
+      default: llvm_unreachable("Invalid stg width");
       case 32: Opcode = GASS::STG32r; break;
       case 64: Opcode = GASS::STG64r; break;
       case 128: Opcode = GASS::STG128r; break;
@@ -254,20 +331,37 @@ bool GASSDAGToDAGISel::tryStore(SDNode *N) {
       SDValue Ops[] = {Value,
                        BasePtr, PredMask, Chain}; // Should we pass chain as op?
       GASSST = CurDAG->getMachineNode(Opcode, dl, MVT::Other, Ops);
+    }
+
+  } else if (AddrSpace == GASS::SHARED) {
+    if (selectDirectAddr(BasePtr, Addr)) {
+      switch (ValueWidth) {
+      default: llvm_unreachable("Invalid sts width");
+      case 32: Opcode = GASS::STS32r; break;
+      case 64: Opcode = GASS::STS64r; break;
+      case 128: Opcode = GASS::STS128r; break;
+      }
+      SDValue Ops[] = {Value, Addr, PredMask, Chain};
+      GASSST = CurDAG->getMachineNode(Opcode, dl, MVT::Other, Ops);
     } else if (selectADDRri(BasePtr, Base, Offset)) {
       switch (ValueWidth) {
-      default: llvm_unreachable("Invalid ld width");
-      case 32: Opcode = GASS::STG32ri; break;
-      case 64: Opcode = GASS::STG64ri; break;
-      case 128: Opcode = GASS::STG128ri; break;
+      default: llvm_unreachable("Invalid sts width");
+      case 32: Opcode = GASS::STS32ri; break;
+      case 64: Opcode = GASS::STS64ri; break;
+      case 128: Opcode = GASS::STS128ri; break;
       }
       SDValue Ops[] = {Value, Base, Offset, PredMask, Chain};
       GASSST = CurDAG->getMachineNode(Opcode, dl, MVT::Other, Ops);
-    } else 
-      llvm_unreachable("shouldn't be here");
-
-  } else if (AddrSpace == GASS::SHARED) {
-    llvm_unreachable("SHARED Store not implemented");
+    } else {
+      switch (ValueWidth) {
+      default: llvm_unreachable("Invalid sts width");
+      case 32: Opcode = GASS::STS32r; break;
+      case 64: Opcode = GASS::STS64r; break;
+      case 128: Opcode = GASS::STS128r; break;
+      }
+      SDValue Ops[] = {Value, BasePtr, PredMask, Chain};
+      GASSST = CurDAG->getMachineNode(Opcode, dl, MVT::Other, Ops);
+    }
   } else if (AddrSpace == GASS::LOCAL) {
     llvm_unreachable("LOCAL Store not implemented");
   }
@@ -308,5 +402,73 @@ bool GASSDAGToDAGISel::tryEXTRACT_VECTOR_ELT(SDNode *N) {
                                        DL, ResultTy, Ops);
   
   ReplaceNode(N, ExtraSubReg);
+  return true;
+}
+
+static unsigned getOpcode3Op(SDValue Src0, SDValue Src1, SDValue Src2,
+                             unsigned Oprrr, unsigned Oprri, 
+                             unsigned Oprir, unsigned Oprii) {
+  if (!isa<ConstantSDNode>(Src1) && !isa<ConstantSDNode>(Src2))
+    return Oprrr;
+  else if (!isa<ConstantSDNode>(Src1) && isa<ConstantSDNode>(Src2))
+    return Oprri;
+  else if (isa<ConstantSDNode>(Src1) && !isa<ConstantSDNode>(Src2))
+    return Oprir;
+  else if (isa<ConstantSDNode>(Src1) && isa<ConstantSDNode>(Src2))
+    return Oprii;
+  else
+    llvm_unreachable("Invalid opcode pattern");
+}
+
+bool GASSDAGToDAGISel::trySHFL(SDNode *N) {
+  // int_nvvm_shfl_sync_idx_i32 =>
+  //   ins: Mask, Val, LaneMask, Width (31)
+  // SHFLrrr
+  //   ins: ShflMode, Val, LaneMask, Width
+  SDLoc DL(N);
+  unsigned Opcode;
+  EVT TargetVT = N->getValueType(0);
+  SDNode *GASSSHFL = nullptr;
+
+  SDValue Chain = N->getOperand(0);
+  unsigned IntNo = cast<ConstantSDNode>(N->getOperand(1))->getZExtValue();
+
+  SDValue Mask = N->getOperand(2); // ignored
+  SDValue Val = N->getOperand(3);
+  SDValue LaneMask = N->getOperand(4);
+  SDValue Width = N->getOperand(5);
+  SDValue ShflMode;
+
+  SDValue PredMask = CurDAG->getRegister(GASS::PT, MVT::i1);
+
+  switch (IntNo) {
+  llvm_unreachable("Invalid shfl intrinsic");
+  case Intrinsic::nvvm_shfl_sync_idx_i32:
+  case Intrinsic::nvvm_shfl_sync_idx_f32:
+    ShflMode = CurDAG->getTargetConstant(GASS::ShflMode::IDX, DL, MVT::i32);
+    break;
+  case Intrinsic::nvvm_shfl_sync_up_i32:
+  case Intrinsic::nvvm_shfl_sync_up_f32:
+    ShflMode = CurDAG->getTargetConstant(GASS::ShflMode::UP, DL, MVT::i32);
+    break;
+  case Intrinsic::nvvm_shfl_sync_down_i32:
+  case Intrinsic::nvvm_shfl_sync_down_f32:
+    ShflMode = CurDAG->getTargetConstant(GASS::ShflMode::DOWN, DL, MVT::i32);
+    break;
+  case Intrinsic::nvvm_shfl_sync_bfly_i32:
+  case Intrinsic::nvvm_shfl_sync_bfly_f32:
+    ShflMode = CurDAG->getTargetConstant(GASS::ShflMode::BFLY, DL, MVT::i32);
+    break;
+  }
+
+  // src0, src1, src2, ShflMode
+  // var,  LaneMask, Width, 
+  // Do we need chain?
+  SDValue Ops[] = {Val, LaneMask, Width, ShflMode, PredMask, Chain};
+  Opcode = getOpcode3Op(Val, LaneMask, Width,
+                        GASS::SHFLrrr, GASS::SHFLrri, 
+                        GASS::SHFLrir, GASS::SHFLrii);
+  GASSSHFL = CurDAG->getMachineNode(Opcode, DL, TargetVT, MVT::Other, Ops);
+  ReplaceNode(N, GASSSHFL);
   return true;
 }

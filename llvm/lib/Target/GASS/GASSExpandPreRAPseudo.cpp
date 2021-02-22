@@ -166,6 +166,10 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
 
         ToDeletInstrs.push_back(&*MII);
       } break;
+      case GASS::ZEXT: {
+        //
+        outs() << "Expanding ZEXT\n";
+      } break;
       }
     }
   }

@@ -44,6 +44,11 @@ def ShiftLoc : Operand<i1> {
   let PrintMethod = "printShiftLoc";
 }
 
+// Shuffle (SHFL) flags
+def ShflMode : Operand<i32> {
+  let PrintMethod = "printShflMode";
+}
+
 // Thest must match the enum in GASS.h
 def CmpEQ   : PatLeaf<(i32 0)>;
 def CmpNE   : PatLeaf<(i32 1)>;
@@ -332,12 +337,17 @@ defm SHL : SHIFT<shl>, Sched<[WriteINT]>;
 defm SRA : SHIFT<sra>, Sched<[WriteINT]>;
 defm SRL : SHIFT<srl>, Sched<[WriteINT]>;
 
-// SignExtend
+// SIGN_EXTEND
 // i32->i64
 class SEXT : GASSPseudoInst<(outs VReg64:$dst),
                             (ins VReg32:$src0),
                             [(set i64:$dst, (sext i32:$src0))]>;
 def SEXT : SEXT, Sched<[WriteINT]>;
+
+class ZEXT : GASSPseudoInst<(outs VReg64:$dst),
+                            (ins VReg32:$src0),
+                            [(set i64:$dst, (zext i32:$src0))]>;
+def ZEXT : ZEXT, Sched<[WriteINT]>;
 
 //=-------------------------------------------------------------------------==//
 // convert "sign/zero-extend, then shift left by an imm" to mul.wide
@@ -643,8 +653,24 @@ defm LDG64 : LDG<VReg64, 64>, Sched<[WriteLD]>;
 defm LDG128 : LDG<VReg128, 128>, Sched<[WriteLD]>;
 
 // LDS
+let mayLoad = true in {
+multiclass LDS<RegisterClass RC, int Width> {
+  def r : GASSInstLdst<(outs RC:$dst), (ins VReg32:$ptr),
+                       0x984, "LDS."#Width#" \t$dst, [$ptr];", [],
+                       Width>;
+
+  def ri: GASSInstLdst<(outs RC:$dst), (ins VReg32:$ptr, i16imm:$offset),
+                       0x984, "LDS."#Width#" \t$dst, [$ptr+$offset];", [],
+                       Width>;
+}
+}
+
+defm LDS32 : LDS<VReg32, 32>, Sched<[WriteLD]>;
+defm LDS64 : LDS<VReg64, 64>, Sched<[WriteLD]>;
+defm LDS128 : LDS<VReg128, 128>, Sched<[WriteLD]>;
 
 
+// STG
 multiclass STG<RegisterClass RC, int Width> {
   def r : GASSInstLdstGlobal<(outs),
                        (ins RC:$src, VReg64:$ptr), // RZ?
@@ -665,6 +691,23 @@ defm STG32 : STG<VReg32, 32>, Sched<[WriteST]>;
 defm STG64 : STG<VReg64, 64>, Sched<[WriteST]>;
 defm STG128 : STG<VReg128, 128>, Sched<[WriteST]>;
 
+multiclass STS<RegisterClass RC, int Width> {
+  def r : GASSInstLdst<(outs), (ins RC:$src, VReg32:$ptr),
+                       0x388,
+                       "STS."#Width#" \t[$ptr], $src;",
+                       [],
+                       Width>;
+  
+  def ri : GASSInstLdst<(outs), (ins RC:$src, VReg32:$ptr, i16imm:$offset),
+                        0x388,
+                        "STS."#Width#" \t[$ptr+$offset], $src;",
+                        [],
+                        Width>;
+}
+
+defm STS32 : STS<VReg32, 32>, Sched<[WriteST]>;
+defm STS64 : STS<VReg64, 64>, Sched<[WriteST]>;
+defm STS128 : STS<VReg128, 128>, Sched<[WriteST]>;
 
 //=---------------------------------=//
 // Control Flow
@@ -695,6 +738,53 @@ def BAR : GASSInst<(outs), (ins),
 // Shuffle
 //=---------------------------------=//
 // SHFL
+// SHFL.BFLY $dst, $src0, $src1, $src2;
+//                 var,   laneMask, width (=31 ususally)
+// Pattern in C++
+let isFixLat = false in {
+multiclass SHFL {
+  def rrr : GASSInst<(outs VReg32:$dst),
+                     (ins VReg32:$src0, VReg32:$src1, VReg32:$src2,
+                          ShflMode:$shfl),
+                     0x389,
+                     "SHFL$shfl $dst, $src0, $src1, $src2;",
+                     []>;
+
+  def rri : GASSInst<(outs VReg32:$dst),
+                    (ins VReg32:$src0, VReg32:$src1, i32imm:$src2,
+                        ShflMode:$shfl),
+                    0x589,
+                    "SHFL$shfl $dst, $src0, $src1, $src2;",
+                    []>;
+
+  def rir : GASSInst<(outs VReg32:$dst),
+                     (ins VReg32:$src0, i32imm:$src1, VReg32:$src2,
+                          ShflMode:$shfl),
+                     0x989,
+                     "SHFL$shfl $dst, $src0, $src1, $src2;",
+                     []>;
+
+
+
+  def rii : GASSInst<(outs VReg32:$dst),
+                     (ins VReg32:$src0, i32imm:$src1, i32imm:$src2,
+                          ShflMode:$shfl),
+                     0xf89,
+                     "SHFL$shfl $dst, $src0, $src1, $src2;",
+                     []>;
+}
+}
+
+defm SHFL : SHFL, Sched<[WriteLD]>;
+
+// def : Pat<(i32 int_nvvm_shfl_sync_idx_i32 ), ()>;
+// def : Pat<(f32 int_nvvm_shfl_sync_idx_f32 ), ()>;
+// def : Pat<(i32 int_nvvm_shfl_sync_up_i32 ), ()>;
+// def : Pat<(f32 int_nvvm_shfl_sync_up_f32 ), ()>;
+// def : Pat<(i32 int_nvvm_shfl_sync_down_i32 ), ()>;
+// def : Pat<(f32 int_nvvm_shfl_sync_down_f32 ), ()>;
+// def : Pat<(i32 int_nvvm_shfl_sync_bfly_i32 ), ()>;
+// def : Pat<(f32 int_nvvm_shfl_sync_bfly_f32 ), ()>;
 
 
 
@@ -757,3 +847,7 @@ def READ_NWARPID : READ_SREG_R32<"nwarpid", int_nvvm_read_ptx_sreg_nwarpid>;
 
 
 // def CS2R : GASSInst<>, Sched<[]>;
+
+// For GlobalAddress
+def SDTWrapper : SDTypeProfile<1, 1, [SDTCisSameAs<0, 1>, SDTCisPtrTy<0>]>;
+def Wrapper    : SDNode<"GASSISD::Wrapper", SDTWrapper>;

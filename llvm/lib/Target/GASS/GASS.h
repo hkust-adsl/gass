@@ -95,6 +95,15 @@ enum TYPE {
 };
 } // namespace SHF_FLAGS
 
+namespace ShflMode {
+enum MODE : unsigned {
+  IDX,
+  UP,
+  DOWN,
+  BFLY
+};
+}
+
 } // namespace GASS
 
 } // namespace llvm

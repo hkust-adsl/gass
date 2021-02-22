@@ -2,6 +2,7 @@
 #define LLVM_LIB_TARGET_GASS_GASSISELLOWERING_H
 
 // #include "llvm/CodeGen/SelectionDAG.h"
+#include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/CodeGen/TargetLowering.h"
 
 namespace llvm {
@@ -10,6 +11,7 @@ class GASSSubtarget;
 namespace GASSISD {
 enum NodeType : unsigned {
   FIRST_NUMBER = ISD::BUILTIN_OP_END,
+  Wrapper,
 
   EXIT,
 
@@ -68,6 +70,7 @@ private:
   SDValue lowerAddrSpaceCast(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerADD64(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerCONCAT_VECTORS(SDValue Op, SelectionDAG &DAG) const;
+  SDValue lowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
 
 private:
   // utility functions
@@ -76,6 +79,7 @@ private:
                     SelectionDAG &DAG) const;
   void SplitInteger(SDValue Op, SDValue &Lo, SDValue &Hi, 
                     SelectionDAG &DAG) const;
+  SDValue getAddr(GlobalAddressSDNode *N, SelectionDAG &DAG) const;
 };
 
 } // namespace llvm
