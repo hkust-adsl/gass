@@ -5,6 +5,7 @@
 #include "llvm/CodeGen/ISDOpcodes.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/TableGen/Record.h"
 
 using namespace llvm;
 
@@ -98,8 +99,22 @@ GASSTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
   return DAG.getNode(GASSISD::EXIT, dl, MVT::Other, Chain);
 }
 
+static unsigned alignTo(unsigned CurOff, unsigned AlignReq) {
+  while (CurOff % AlignReq != 0)
+    CurOff++;
+
+  return CurOff;    
+}
+
 // Ins: ISD::InputArg. Mainly about type (VT)
 // This function is used to construct InVals
+/// @param Chain Chain
+/// @param CallConv
+/// @param isVarArg F.isVarArg() if function takes variable number of args
+/// @param Ins Flags
+/// @param dl
+/// @param DAG
+/// @param InVals Argument values to be set up
 SDValue GASSTargetLowering::LowerFormalArguments(
   SDValue Chain, CallingConv::ID CallConv, bool isVarArg,
   const SmallVectorImpl<ISD::InputArg> &Ins, const SDLoc &dl,
@@ -111,6 +126,8 @@ SDValue GASSTargetLowering::LowerFormalArguments(
 
   const Function *F = &MF.getFunction();
 
+  // Base constant bank offset. This value is target-dependent
+  // For Volta/Turing, it's 0x160
   unsigned CBankOff = Subtarget.getParamBase();
 
   // Cache ArgInfo
@@ -127,12 +144,15 @@ SDValue GASSTargetLowering::LowerFormalArguments(
     // LDC.$Width or MOV?
     Type *Ty = ArgsType[i];
     EVT ObjectVT = getValueType(DL, Ty);
+    unsigned SizeInBytes = ObjectVT.getScalarSizeInBits() / 8;
+    unsigned AlignRequirement = DL.getABITypeAlignment(Ty);
+    CBankOff = alignTo(CBankOff, AlignRequirement);
     SDValue ParamNode = DAG.getNode(GASSISD::LDC, dl, ObjectVT, 
                                     DAG.getConstant(CBankOff, dl, MVT::i32)); 
     InVals.push_back(ParamNode);
 
     // Move forward CBankOff
-    CBankOff += 4;
+    CBankOff += SizeInBytes;
   }
 
   return Chain;
