@@ -299,5 +299,5 @@ SDValue GASSTargetLowering::getAddr(GlobalAddressSDNode *GAN,
   
   SDLoc DL(GAN);
   // FIXME: this seems wrong?
-  return DAG.getTargetConstant(0, DL, MVT::i32);
+  return DAG.getConstant(0, DL, MVT::i32);
 }

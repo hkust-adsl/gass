@@ -60,12 +60,13 @@ public:
 
   void addIRPasses() override;
   bool addInstSelector() override;
-  bool addILPOpts() override;
+  // bool addILPOpts() override;
 
   //=---------------------------------------=//
   // Debug, to delete
   // Print cfg
   void addMachineLateOptimization() override;
+  void addPreRegAlloc() override;
   //=--------------------------------------=//
 
   void addPreSched2() override;
@@ -98,11 +99,15 @@ bool GASSPassConfig::addInstSelector() {
   return false;
 }
 
-bool GASSPassConfig::addILPOpts() {
-  // TODO: doesn't seem to work. should delete this.
-  addPass(&EarlyIfConverterID);
+// bool GASSPassConfig::addILPOpts() {
+//   // TODO: doesn't seem to work. should delete this.
+//   // addPass(&EarlyIfConverterID);
 
-  return false;
+//   return false;
+// }
+
+void GASSPassConfig::addPreRegAlloc() {
+  // addPass(createGASSMachineFunctionCFGPrinterPass());
 }
 
 void GASSPassConfig::addMachineLateOptimization() {
@@ -124,7 +129,8 @@ void GASSPassConfig::addPreSched2() {
   // addPass(createIfConverter([](const MachineFunction &MF) {
   //   return true;
   // }));
-  addPass(createGASSIfConversionPass());
+  // addPass(createGASSIfConversionPass());
+  // addPass(createGASSMachineFunctionCFGPrinterPass());
 }
 
 // NVGPU specific passes

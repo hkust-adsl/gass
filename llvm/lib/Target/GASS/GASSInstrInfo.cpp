@@ -27,7 +27,8 @@ void GASSInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
   }
 
   BuildMI(MBB, I, DL, get(Op), DestReg)
-      .addReg(SrcReg, getKillRegState(KillSrc));
+      .addReg(SrcReg, getKillRegState(KillSrc))
+      .addReg(GASS::PT);
 }
 
 //=----------------------------------------------------------------------=//

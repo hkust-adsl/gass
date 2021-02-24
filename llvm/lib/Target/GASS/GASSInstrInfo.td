@@ -139,6 +139,18 @@ multiclass IADD64 {
 }
 defm IADD64 : IADD64, Sched<[WriteINT]>;
 
+multiclass SUB {
+  def rr : GASSPseudoInst<(outs VReg32:$dst),
+                          (ins VReg32:$src0, VReg32:$src1),
+                          [(set i32:$dst, (sub i32:$src0, i32:$src1))]>;
+
+  def ri : GASSPseudoInst<(outs VReg32:$dst),
+                          (ins VReg32:$src0, i32imm:$src1),
+                          [(set i32:$dst, (sub i32:$src0, imm:$src1))]>;
+}
+
+defm SUB : SUB, Sched<[WriteINT]>;
+
 // IMUL
 // Pseudo instruction
 let isPseudo = true in {
@@ -529,6 +541,11 @@ def : Pat<(i1 (setgt i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpGT)>;
 def : Pat<(i1 (setge i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpGE)>;
 def : Pat<(i1 (setge i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpGE)>;
 
+// i1 compares
+def : Pat<(setne i1:$a, i1:$b), (XOR1rr VReg1:$a, VReg1:$b)>;
+def : Pat<(setne i1:$a, imm:$b), (XOR1ri VReg1:$a, imm:$b)>;
+// def Pat<(set)
+
 
 //=---------------------------------=//
 // Conversion
@@ -716,17 +733,17 @@ defm STS128 : STS<VReg128, 128>, Sched<[WriteST]>;
 // TODO: BSSY, BSYNC, WARPSYNC (?)
 let isTerminator = true, isBranch = true in {
   let isBarrier = true in 
-    def BRA : GASSInst<(outs), 
-                      (ins brtarget:$target), 
-                      0x947, 
-                      "BRA \t$target;", 
-                      [(br bb:$target)]>, Sched<[]>;
+    def BRA : GASSInstNoPred<(outs), 
+                             (ins brtarget:$target), 
+                             0x947, 
+                             "BRA \t$target;", 
+                             [(br bb:$target)]>, Sched<[]>;
 
-  def CBRA : GASSInst<(outs), 
-                      (ins VReg1:$a, brtarget:$target),
-                      0x947,
-                      "@$a BRA \t$target;",
-                      [(brcond VReg1:$a, bb:$target)]>, Sched<[]>;
+  def CBRA : GASSInstNoPred<(outs), 
+                            (ins VReg1:$a, brtarget:$target),
+                            0x947,
+                            "@$a BRA \t$target;",
+                            [(brcond VReg1:$a, bb:$target)]>, Sched<[]>;
 }
 
 // BAR.SYNC 0;

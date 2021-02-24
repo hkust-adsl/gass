@@ -40,7 +40,8 @@ void GASSInstPrinter::printOperand(const MCInst *MI,
   } else if (Op.isImm()) {
     O << formatImm(Op.getImm());
   } else if (Op.isFPImm()) {
-    APFloat(Op.getFPImm()).print(O);
+    // APFloat(Op.getFPImm()).print(O);
+    O << Op.getFPImm();
   } else {
     assert(Op.isExpr() && "unknown operand kind in printOperand");
     Op.getExpr()->print(O, &MAI);

@@ -33,7 +33,8 @@ INITIALIZE_PASS(GASSMachineFunctionCFGPrinter, DEBUG_TYPE, PASS_NAME,
 
 
 bool GASSMachineFunctionCFGPrinter::runOnMachineFunction(MachineFunction &MF) {
-  std::string Filename = WriteGraph(&MF, MF.getName(), false, "");
+  // std::string Filename = WriteGraph(&MF, MF.getName(), false, "");
+  MF.dump();
 
   return false;
 }
