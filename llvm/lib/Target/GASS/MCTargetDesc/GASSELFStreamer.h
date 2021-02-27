@@ -43,6 +43,12 @@ public:
 
   // override virtual functions declared in GASSTargetStreamer
   void emitAttributes(unsigned SmVersion) override;
+  void emitNvInfo(std::vector<std::unique_ptr<NvInfo>> &Info) override;
+  void emitNvInfoFunc(std::vector<std::unique_ptr<NvInfo>> &Info) override;
+
+  // Due to LLVM's constraint (can't inheritate MCObjectWriter), 
+  // we need to predicate symtab index.
+  unsigned predicateSymtabIndex(MachineFunction *MF, char Modifier = 'f') const;
 };
 } // namespace llvm
 

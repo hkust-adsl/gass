@@ -7,6 +7,7 @@ add_llvm_component_library(LLVMGASSDesc
   GASSAsmBackend.cpp
   GASSELFStreamer.cpp
   GASSTargetStreamer.cpp
+  NvInfo.cpp
   
   LINK_COMPONENTS
   MC

@@ -13,6 +13,10 @@ public:
 
   // Override pure virtual functions defined in GASSTargetStreamer
   void emitAttributes(unsigned SmVersion) override;
+
+  // Do nothing for now.
+  void emitNvInfo(std::vector<std::unique_ptr<NvInfo>> &Info) override {};
+  void emitNvInfoFunc(std::vector<std::unique_ptr<NvInfo>> &Info) override {};
 };
 }
 

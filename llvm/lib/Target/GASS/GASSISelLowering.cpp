@@ -144,6 +144,8 @@ SDValue GASSTargetLowering::LowerFormalArguments(
     // LDC.$Width or MOV?
     Type *Ty = ArgsType[i];
     EVT ObjectVT = getValueType(DL, Ty);
+    assert(ObjectVT.getScalarSizeInBits() % 8 == 0 &&
+           "Sub-byte argument not supported yet, to be extended");
     unsigned SizeInBytes = ObjectVT.getScalarSizeInBits() / 8;
     unsigned AlignRequirement = DL.getABITypeAlignment(Ty);
     CBankOff = alignTo(CBankOff, AlignRequirement);

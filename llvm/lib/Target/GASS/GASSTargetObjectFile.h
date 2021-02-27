@@ -9,6 +9,8 @@ namespace llvm {
 
 // This seems like a layering problem.
 // Maybe we should move this to "MCTargetDesc"?
+// GASSTargetObjectFile : public TargetLoweringObjectFile 
+//                      : public MCObjectFileInfo
 class GASSTargetObjectFile : public TargetLoweringObjectFile {
 public:
   GASSTargetObjectFile() : TargetLoweringObjectFile() {}
