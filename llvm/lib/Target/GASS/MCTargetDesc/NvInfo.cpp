@@ -110,10 +110,13 @@ std::vector<char> NvInfo::getEncoding(const GASSTargetELFStreamer *GTS) const {
   // Entry Encoding
   Enc.push_back(EntryEncoding[0]);
   Enc.push_back(EntryEncoding[1]);
-  // Size Encoding
-  char EntrySizeBuf[2];
-  memcpy(EntrySizeBuf, &EntrySize, sizeof(EntrySize));
-  Enc.insert(Enc.end(), EntrySizeBuf, EntrySizeBuf + sizeof(EntrySize));
+  // Size Encoding (EIATTR_CBANK_PARAM_SIZE doesn't have)
+  if (InfoType != EIATTR_CBANK_PARAM_SIZE &&
+      InfoType != EIATTR_MAXREG_COUNT) {
+    char EntrySizeBuf[2];
+    memcpy(EntrySizeBuf, &EntrySize, sizeof(EntrySize));
+    Enc.insert(Enc.end(), EntrySizeBuf, EntrySizeBuf + sizeof(EntrySize));
+  }
 
   // Buffers
   char SymIdxBuf[4];
@@ -139,7 +142,7 @@ std::vector<char> NvInfo::getEncoding(const GASSTargetELFStreamer *GTS) const {
     Enc.insert(Enc.end(), ValueBuf, ValueBuf + sizeof(Value));
     break;
   case EIATTR_PARAM_CBANK:
-    SymtabIdx = GTS->predicateSymtabIndex(MF, 'c');
+    // SymtabIdx = GTS->predicateSymtabIndex(MF, 'c');
     memcpy(SymIdxBuf, &SymtabIdx, sizeof(SymtabIdx));
     Enc.insert(Enc.end(), SymIdxBuf, SymIdxBuf + sizeof(SymtabIdx));
     memcpy(ValueBuf, &ParamOffset, sizeof(ParamOffset));
@@ -148,18 +151,37 @@ std::vector<char> NvInfo::getEncoding(const GASSTargetELFStreamer *GTS) const {
     Enc.insert(Enc.end(), ValueBuf, ValueBuf + sizeof(ParamSize));
     break;
   case EIATTR_CBANK_PARAM_SIZE:
+    // short
+    memcpy(ValueBuf, &ParamSize, sizeof(ParamSize));
+    Enc.insert(Enc.end(), ValueBuf, ValueBuf + sizeof(ParamSize));
+    break;
   case EIATTR_MAXREG_COUNT:
-    memcpy(ValueBuf, &Value, sizeof(Value));
+    memcpy(ValueBuf, &MaxRegCount, sizeof(MaxRegCount));
+    Enc.insert(Enc.end(), ValueBuf, ValueBuf + sizeof(MaxRegCount));
+    break;
+  case EIATTR_CBANK_KPARAM_INFO: {
+    memcpy(ValueBuf, &Value, sizeof(Value)); // 0
     Enc.insert(Enc.end(), ValueBuf, ValueBuf + sizeof(Value));
+    memcpy(ValueBuf, &KParamOrdinal, sizeof(KParamOrdinal));
+    Enc.insert(Enc.end(), ValueBuf, ValueBuf + sizeof(KParamOrdinal));
+    memcpy(ValueBuf, &KParamOffset, sizeof(KParamOffset));
+    Enc.insert(Enc.end(), ValueBuf, ValueBuf + sizeof(KParamOffset));
+    // FIXME: this is wrong.
+    unsigned V = 0x1f000 + unsigned((KParamSize / 4) << 20); // FIXME FIXME
+    memcpy(ValueBuf, &V, sizeof(V));
+    Enc.insert(Enc.end(), ValueBuf, ValueBuf + sizeof(V));
     break;
-  case EIATTR_CBANK_KPARAM_INFO:
-    break;
+  }
   case EIATTR_INT_WARP_WIDE_INSTR_OFFSETS:
     break;
   case EIATTR_COOP_GROUP_INSTR_OFFSETS:
     llvm_unreachable("Not implemented");
     break;
   case EIATTR_EXIT_INSTR_OFFSETS:
+    for (int i = 0; i < EXITOffsets.size(); ++i) {
+      memcpy(ValueBuf, &EXITOffsets[i], sizeof(unsigned));
+      Enc.insert(Enc.end(), ValueBuf, ValueBuf + sizeof(unsigned));
+    }
     break;  
   }
 
@@ -231,7 +253,7 @@ NvInfo *llvm::createNvInfoKParamInfo(unsigned Idx, unsigned Ordinal,
   return NI;
 }
 
-NvInfo *llvm::createNvInfoMaxRegCount(unsigned MaxCount) {
+NvInfo *llvm::createNvInfoMaxRegCount(short MaxCount) {
   NvInfo *NI = new NvInfo(EIATTR_MAXREG_COUNT);
   NI->setMaxRegCount(MaxCount);
   return NI;
@@ -239,6 +261,6 @@ NvInfo *llvm::createNvInfoMaxRegCount(unsigned MaxCount) {
 
 NvInfo *llvm::createNvInfoExitInstrOffsets(std::vector<unsigned> Offsets) {
   NvInfo *NI = new NvInfo(EIATTR_EXIT_INSTR_OFFSETS);
-  // TODO: fix this
+  NI->setEXITOffsets(Offsets);
   return NI;
 }

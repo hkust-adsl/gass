@@ -104,6 +104,8 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeGASSTargetMC() {
   // // Register the obj streamer.
   // TargetRegistry::RegisterELFStreamer(T, createELFStreamer);
 
+  // Register ELFWriter?
+
   TargetRegistry::RegisterMCAsmBackend(T, createGASSAsmBackend);
   // Emit file (MCStreamer/AsmPrinter)
   TargetRegistry::RegisterObjectTargetStreamer(T, 

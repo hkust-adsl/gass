@@ -87,8 +87,9 @@ public:
 private:
   void generateNvInfoModule(MachineFunction &MF);
 
-  void generateNvInfo(MachineFunction &MF,
-                      std::vector<std::unique_ptr<NvInfo>> &Info);
+  /// @return constant0 size in byte
+  unsigned generateNvInfo(MachineFunction &MF,
+                          std::vector<std::unique_ptr<NvInfo>> &Info);
 };
 } // anonymous namespace
 
@@ -97,7 +98,7 @@ private:
 void GASSAsmPrinter::generateNvInfoModule(MachineFunction &MF) {
   // REGCOUNT
   // TODO: get this value from register allocator
-  ModuleInfo.emplace_back(createNvInfoRegCount(/*Count*/0, &MF));
+  ModuleInfo.emplace_back(createNvInfoRegCount(/*Count*/8, &MF));
   // MAX_STACK_SIZE
   // TODO: get this value from register allocator
   ModuleInfo.emplace_back(createNvInfoMaxStackSize(/*MaxSize*/0, &MF));
@@ -119,8 +120,8 @@ static unsigned alignTo(unsigned CurOff, unsigned AlignReq) {
   return CurOff;    
 }
 
-void GASSAsmPrinter::generateNvInfo(MachineFunction &MF,
-                                   std::vector<std::unique_ptr<NvInfo>> &Info) {
+unsigned GASSAsmPrinter::generateNvInfo(MachineFunction &MF,
+                                  std::vector<std::unique_ptr<NvInfo>> &Info) {
   const GASSSubtarget &Subtarget = 
     *static_cast<const GASSSubtarget*>(&MF.getSubtarget());
 
@@ -136,17 +137,22 @@ void GASSAsmPrinter::generateNvInfo(MachineFunction &MF,
   const DataLayout &DL = MF.getDataLayout();
   // collect arg info
   for (const Argument &I : MF.getFunction().args()) {
-    unsigned Offset = CurrentOffset;
     Type *Ty = I.getType();
     assert(Ty->getScalarSizeInBits() % 8 == 0 && 
            "Sub-byte argument not supported yet, to be extended");
-    unsigned SizeInBytes = Ty->getScalarSizeInBits() / 8;
+    unsigned SizeInBytes;
+    if (Ty->isPointerTy()) {
+      SizeInBytes = DL.getPointerTypeSize(Ty);
+    } else {
+      SizeInBytes = Ty->getScalarSizeInBits() / 8;
+    }
     unsigned AlignRequirement = DL.getABITypeAlignment(Ty);
-    CurrentOffset = alignTo(CurrentOffset, AlignRequirement);
+    CurrentParamOffset = alignTo(CurrentParamOffset, AlignRequirement);
 
-    Arguments.emplace_back(CurrentOffset, SizeInBytes, 0, AlignRequirement);
+    Arguments.emplace_back(CurrentParamOffset, SizeInBytes, 0, 
+                           AlignRequirement);
 
-    CurrentOffset += SizeInBytes;
+    CurrentParamOffset += SizeInBytes;
   }
 
   Info.emplace_back(createNvInfoParamCBank(ParamBaseOffset, 
@@ -157,10 +163,12 @@ void GASSAsmPrinter::generateNvInfo(MachineFunction &MF,
     GASSArgument &Arg = Arguments[i];
     Info.emplace_back(createNvInfoKParamInfo(0, i, 
                                              Arg.Offset, Arg.Size, 
-                                             Arg.LogAlignment));
+                                             calLog2(Arg.LogAlignment)));
   }
   Info.emplace_back(createNvInfoMaxRegCount(255));
-  Info.emplace_back(createNvInfoExitInstrOffsets({}));
+  Info.emplace_back(createNvInfoExitInstrOffsets({EXITOffsets}));
+
+  return ParamBaseOffset + CurrentParamOffset;
 }
 
 GASSTargetStreamer* GASSAsmPrinter::getTargetStreamer() const {
@@ -199,25 +207,19 @@ void GASSAsmPrinter::emitFunctionBodyStart() {
 // Add cubin ELF seconds
 // .nv.constant0.{name}
 void GASSAsmPrinter::emitFunctionBodyEnd() {
-  // TODO: do not let asm emit this?
-  // .nv.constant0.{name} section
-  MCSection *Constant0Section = GTOF->getConstant0NamedSection(
-                                         &MF->getFunction());
-  OutStreamer->SwitchSection(Constant0Section);
-  OutStreamer->emitZeros(128); // TODO: change this
-  auto *NvInfoSymbol = cast<MCSymbolELF>(OutStreamer->getContext()
-                                         .getOrCreateSymbol(
-                                          ".nv.constant0." + MF->getName()));
-  OutStreamer->emitLabel(NvInfoSymbol);
-  // TODO: set symbol attributes
-
   // .nv.info.{name} section
   MCSection *NVInfoSection = GTOF->getNvInfoNamedSection(&MF->getFunction());
   OutStreamer->SwitchSection(NVInfoSection); // Empty
   // TODO: complete this
   std::vector<std::unique_ptr<NvInfo>> FuncInfo;
-  generateNvInfo(*MF, FuncInfo);
+  unsigned Constant0Size = generateNvInfo(*MF, FuncInfo);
   getTargetStreamer()->emitNvInfoFunc(FuncInfo);
+
+  // .nv.constant0.{name} section
+  MCSection *Constant0Section = GTOF->getConstant0NamedSection(
+                                         &MF->getFunction());
+  OutStreamer->SwitchSection(Constant0Section);
+  OutStreamer->emitZeros(Constant0Size);
 
   // Generate module-level .nv.info (not emit)
   generateNvInfoModule(*MF);
@@ -230,6 +232,8 @@ void GASSAsmPrinter::emitFunctionBodyEnd() {
 // symtab
 void GASSAsmPrinter::emitEndOfAsmFile(Module &M) {
   // emit module-level .nv.info
+  MCSection *ModuleNvInfoSection = GTOF->getNvInfoSection();
+  OutStreamer->SwitchSection(ModuleNvInfoSection);
   getTargetStreamer()->emitNvInfo(ModuleInfo);
 
   for (const Function &F : M) {

@@ -131,16 +131,16 @@ public:
     }
 
     if (BT == RAW_S || BT == RAW_G || BT == RAW_C)
-      IsRead = true;
+      IsRAW = true;
     else
-      IsRead = false;
+      IsRAW = false;
 
     // 
   }
 
   // Merge two barriers
   void merge(const Barrier &Other) {
-    assert(IsRead == Other.isRead() && "Cannot merge RAW & WAR barriers");
+    assert(IsRAW == Other.isRAW() && "Cannot merge RAW & WAR barriers");
     if (BT == RAW_S && Other.getBarrierType() == RAW_S) {
       // Since LDSs are executed in order, we only need one start point
       assert(Starts.size() == 1 && Other.getStarts().size() == 1);
@@ -163,16 +163,16 @@ public:
   }
 
   // accessors
-  bool isRead() const { return IsRead; }
+  bool isRAW() const { return IsRAW; }
   BarrierType getBarrierType() const { return BT; }
   void encodeBarrierInfo(const GASSInstrInfo *GII) const {
     // MachineInstr has a field named flags (uint16_t)
     for (SlotIndex SIStart : Starts) {
       MachineInstr *StartInstr = LIS->getInstructionFromIndex(SIStart);
-      if (IsRead)
-        GII->encodeReadBarrier(*StartInstr, PhysBarIdx);
-      else 
+      if (IsRAW)
         GII->encodeWriteBarrier(*StartInstr, PhysBarIdx);
+      else 
+        GII->encodeReadBarrier(*StartInstr, PhysBarIdx);
     }
 
     MachineInstr *EndInstr = LIS->getInstructionFromIndex(End);
@@ -204,7 +204,7 @@ public:
 private:
   BarrierType BT;
   // If this barrier is read barrier (for RAW)
-  bool IsRead = false;
+  bool IsRAW = false;
   bool IsPhysical = false;
   unsigned PhysBarIdx = 0;
   std::vector<SlotIndex> Starts;

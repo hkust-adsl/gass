@@ -1,4 +1,5 @@
 add_llvm_component_library(LLVMGASSDesc
+  CubinWriter.cpp
   GASSInstPrinter.cpp
   GASSMCAsmInfo.cpp
   GASSMCCodeEmitter.cpp

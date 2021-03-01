@@ -2,6 +2,7 @@
 #define LLVM_LIB_TARGET_GASS_MCTARGETDESC_GASSASMBACKEND_H
 
 #include "llvm/MC/MCAsmBackend.h"
+#include "llvm/MC/MCELFObjectWriter.h"
 #include "llvm/MC/MCObjectWriter.h"
 
 namespace llvm {
@@ -35,7 +36,15 @@ public:
   bool writeNopData(raw_ostream &OS, uint64_t Count) const override {
     return true;
   }
+
+  std::unique_ptr<MCObjectWriter>
+  createObjectWriter(raw_pwrite_stream &OS) const override;
 };
+
+// createObjectWriter
+std::unique_ptr<MCObjectWriter>
+createCubinObjectWriter(std::unique_ptr<MCELFObjectTargetWriter> MOTW,
+                        raw_pwrite_stream &OS, bool ISLittleEndian);
 }
 
 #endif

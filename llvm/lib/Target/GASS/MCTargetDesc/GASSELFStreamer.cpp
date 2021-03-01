@@ -20,6 +20,7 @@ void GASSTargetELFStreamer::emitAttributes(unsigned SmVersion) {
 
   unsigned EFlags = MCA.getELFHeaderEFlags();
   
+  EFlags |= 0x500;
   EFlags |= (SmVersion);
   EFlags |= (SmVersion) << 16;
 
@@ -55,19 +56,21 @@ void GASSTargetELFStreamer::emitNvInfoFunc(
 /// predicate symtab index of machinefunction
 unsigned GASSTargetELFStreamer::predicateSymtabIndex(MachineFunction *MF, 
                                                      char Modifier) const {
-  // order of symtab: (for each machine function)
+  // (THIS IS WRONG) order of symtab: (for each machine function) 
   // .text.{name}
   // .nv.constant0.{name}
   
+  // MF0$local
   // MF0
-  // MF1 
+  // MF1$local 
   // ...
   auto Iter = std::find(MFs.begin(), MFs.end(), MF);
   assert(Iter != MFs.end() && "Should have visited this MF");
   unsigned MFIdx = std::distance(MFs.begin(), Iter);
 
-  if (Modifier == 'c') // .nv.constant0.{name}
-    return 1 + 2*MFs.size() + 1 + MFIdx;
+  // TODO: this is wrong.
+  // if (Modifier == 'c') // .nv.constant0.{name}
+  //   return 1 + 2*MFs.size() + 1 + MFIdx;
   
-  return 1 + 2*NumMFs + MFIdx;
+  return 1 + 2*MFIdx + 1;
 }

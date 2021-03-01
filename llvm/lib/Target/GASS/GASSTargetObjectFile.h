@@ -38,6 +38,7 @@ public:
   //=--------GASS specific sections-------------------=//
   MCSection *getConstant0NamedSection(const Function *F) const;
   MCSection *getNvInfoNamedSection(const Function *F) const;
+  MCSection *getNvInfoSection() const;
 };
 
 } // namespace llvm

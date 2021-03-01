@@ -48,11 +48,21 @@ class NvInfo {
 
   /// Store value for REGCOUNT, STACK_SIZE, FRAME_SIZE, CUDA_API_VERSION,
   /// SW_WAR, 
-  unsigned Value;
+  unsigned Value = 0;
 
   /// Store value for PARAM_CBANK
   short ParamOffset;
   short ParamSize;
+
+  /// ParamInfo
+  short KParamOrdinal;
+  short KParamOffset;
+  char KParamSize;
+  char KParamLogAlign;
+
+  std::vector<unsigned> EXITOffsets;
+
+  short MaxRegCount;
 public:
   NvInfo(NvInfoAttrType NVINFOType);
 
@@ -68,34 +78,59 @@ public:
   void setRegCount(unsigned Count, MachineFunction *MF) {
     Value = Count;
     this->MF = MF;
+    EntrySize += /* symtb idx */ 4 + sizeof(Count);
   }
   void setMaxStackSize(unsigned MaxSize, MachineFunction *MF) {
     Value = MaxSize;
     this->MF = MF;
+    EntrySize += /* symtb idx */ 4 + sizeof(MaxSize);
   }
   void setMinStackSize(unsigned MinSize, MachineFunction *MF) {
     Value = MinSize;
     this->MF = MF;
+    EntrySize += /* symtb idx */ 4 + sizeof(MinSize);
   }
   void setFrameSize(unsigned FrameSize, MachineFunction *MF) {
     Value = FrameSize;
     this->MF = MF;
+    EntrySize += /* symtb idx */ 4 + sizeof(FrameSize);
   }
 
   // per function
-  void setSwWar(bool SwWar) { Value = SwWar; }
-  void setCudaVersion(unsigned CudaVersion) { Value = CudaVersion; }
+  void setSwWar(bool SwWar) { 
+    Value = SwWar; 
+    EntrySize += 4;
+  }
+  void setCudaVersion(unsigned CudaVersion) { 
+    Value = CudaVersion; 
+    EntrySize += sizeof(CudaVersion);
+  }
   void setParamCBank(short Offset, short Size, MachineFunction *MF) { 
     ParamOffset = Offset;
     ParamSize = Size;
     this->MF = MF;
+    EntrySize += /* symtb idx */ 4 + sizeof(ParamOffset) + sizeof(ParamSize);
   }
-  void setCBankParamSize(unsigned Size) { Value = Size; }
+  void setCBankParamSize(short Size) { 
+    ParamSize = Size; 
+    EntrySize += sizeof(Size);
+  }
   void setKParamInfo(unsigned Idx, unsigned Ordinal, unsigned Offset,
                      unsigned Size, unsigned LogAlign) { 
-    // TODO
+    KParamOrdinal = Ordinal;
+    KParamOffset = Offset;
+    KParamLogAlign = LogAlign;
+    KParamSize = Size;
+    EntrySize += 12; 
   }
-  void setMaxRegCount(unsigned MaxCount) { Value = MaxCount; }
+  void setMaxRegCount(short MaxCount) { 
+    MaxRegCount = MaxCount; 
+    EntrySize += sizeof(MaxCount);
+  }
+  void setEXITOffsets(std::vector<unsigned> Offsets) {
+    EXITOffsets = Offsets;
+    EntrySize += Offsets.size() * 4;
+  }
 
   /// Observers
 };
@@ -113,7 +148,7 @@ NvInfo *createNvInfoParamCBank(short Offset, short Size, MachineFunction *MF);
 NvInfo *createNvInfoCBankParamSize(unsigned Size);
 NvInfo *createNvInfoKParamInfo(unsigned Idx, unsigned Ordinal, unsigned Offset,
                               unsigned Size, unsigned LogAlign);
-NvInfo *createNvInfoMaxRegCount(unsigned MaxCount);
+NvInfo *createNvInfoMaxRegCount(short MaxCount);
 NvInfo *createNvInfoExitInstrOffsets(std::vector<unsigned> Offsets);
 
 } // namespace llvm

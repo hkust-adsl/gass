@@ -334,11 +334,10 @@ void GASSInstrInfo::encodeWriteBarrier(MachineInstr &MI, unsigned BarIdx) {
   MI.setFlags(Flags);
 }
 
-void GASSInstrInfo::encodeBarrierMask(MachineInstr &MI, unsigned BarMask) {
-  assert(BarMask < 64 && "Wait barrier mask should be smaller than 64");
+void GASSInstrInfo::encodeBarrierMask(MachineInstr &MI, unsigned BarIdx) {
+  assert(BarIdx < 6 && "Wait barrier idx should be smaller than 6");
   uint16_t Flags = MI.getFlags();
-  Flags &= ~(0b11'1111 << 10);
-  Flags |= BarMask << 10;
+  Flags |= 1 << (10 + BarIdx);
   MI.setFlags(Flags);
 }
 
