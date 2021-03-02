@@ -9,6 +9,7 @@
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCAssembler.h"
+#include "llvm/MC/MCFragment.h"
 #include "llvm/MC/MCObjectWriter.h"
 #include "llvm/MC/MCELFObjectWriter.h"
 #include "llvm/MC/MCContext.h"
@@ -53,6 +54,7 @@ class CubinObjectWriter : public MCObjectWriter {
   StringMap<uint32_t> SectionIndexStringMap;
   StringMap<uint32_t> SymbolIndexStringMap;
   SectionOffsetsTy SectionOffsets;
+  StringMap<uint64_t> FunctionSizeStringMap;
 
 
   // Sections in the order they are to be output in the section table.
@@ -65,10 +67,13 @@ class CubinObjectWriter : public MCObjectWriter {
 
   StringTableBuilder StrTabBuilder{StringTableBuilder::ELF};
 
-  /// For Section headers
+  /// For Program headers
   uint64_t PHdrOffset;
   uint64_t ProgbitsOffset;
   uint64_t ProgramSize;
+
+  // symtab's sh_info
+  uint64_t LastLocalSymbolIndex;
 
 public:
   CubinObjectWriter(std::unique_ptr<MCELFObjectTargetWriter> MOTW,
@@ -211,6 +216,16 @@ unsigned CubinObjectWriter::addToSymbolTable(const MCSymbolELF *Sym) {
   return Index;
 }
 
+/// @return size of current section in bytes
+static uint64_t getSectionSize(MCSectionELF *Section) {
+  uint64_t Size = 0;
+  for (const MCFragment &F : *Section) {
+    if (F.getKind() == MCFragment::FT_Data && F.hasInstructions())
+      Size += cast<MCDataFragment>(F).getContents().size();
+  }
+  return Size;
+}
+
 void CubinObjectWriter::precomputeOffsets(MCAssembler &Asm) {
   // We need to know index before writting Sections & Symbols
   MCContext &Ctx = Asm.getContext();
@@ -220,6 +235,7 @@ void CubinObjectWriter::precomputeOffsets(MCAssembler &Asm) {
   // .nv.info.{name}
   // .nv.constant0.{name}
   // .text.{name}
+  // Also record section size
   std::vector<MCSectionELF *> OrderedSections;
   {
     MCSectionELF *NvInfoSec = nullptr;
@@ -236,9 +252,13 @@ void CubinObjectWriter::precomputeOffsets(MCAssembler &Asm) {
         NvInfos.push_back(&Section);
       else if (Section.getName().startswith(".nv.constant0."))
         Constant0s.push_back(&Section);
-      else if (Section.getName().startswith(".text."))
+      else if (Section.getName().startswith(".text.")) {
         Texts.push_back(&Section);
-      else 
+        FunctionSizeStringMap[Section.getName().drop_front(6)] = 
+          getSectionSize(&Section);
+      } else if (Section.getName() == ".text")
+        continue;
+      else
         Others.push_back(&Section);
     }
 
@@ -255,10 +275,44 @@ void CubinObjectWriter::precomputeOffsets(MCAssembler &Asm) {
   for (MCSectionELF *Sec : OrderedSections)
     addToSectionTable(Sec);
 
+  // Reorder symbols
+  // .nv.constant0.func0
+  // .text.func0
+  // .nv.constant0.func1
+  // .text.func1
+  // func0
+  // func1
+  std::vector<const MCSymbolELF *> OrderedSymbols;
+  {
+    std::vector<const MCSymbolELF *> Constant0Symbols;
+    std::vector<const MCSymbolELF *> TextSymbols;
+    std::vector<const MCSymbolELF *> FuncSymbols;
+
+    for (const MCSymbol &Sym : Asm.symbols()) {
+      const MCSymbolELF &Symbol = static_cast<const MCSymbolELF &>(Sym);
+      if (Symbol.getName().startswith(".nv.constant0."))
+        Constant0Symbols.push_back(&Symbol);
+      else if (Symbol.getName().startswith(".text."))
+        TextSymbols.push_back(&Symbol);
+      else if (!Symbol.getName().startswith("."))
+        FuncSymbols.push_back(&Symbol);
+    }
+
+    assert(Constant0Symbols.size() == TextSymbols.size() &&
+           TextSymbols.size() == FuncSymbols.size());
+    
+    for (int i = 0; i < Constant0Symbols.size(); ++i) {
+      OrderedSymbols.push_back(Constant0Symbols[i]);
+      OrderedSymbols.push_back(TextSymbols[i]);
+    }
+    LastLocalSymbolIndex = OrderedSymbols.size();
+    OrderedSymbols.insert(OrderedSymbols.end(), FuncSymbols.begin(),
+                                                FuncSymbols.end());
+  }
+
   // Add Symbols to SymbolTable
-  for (const MCSymbol &Sym : Asm.symbols()) {
-    const MCSymbolELF &Symbol = static_cast<const MCSymbolELF &>(Sym);
-    addToSymbolTable(&Symbol);
+  for (const MCSymbolELF *Sym : OrderedSymbols) {
+    addToSymbolTable(Sym);
   }
 
   StrTabBuilder.finalize();
@@ -332,7 +386,7 @@ void CubinObjectWriter::writeSectionHeader() {
     default: break;
     case ELF::SHT_SYMTAB:
       Link = StringTableIndex;
-      // Info = LastLocalSymbolIndex;
+      Info = LastLocalSymbolIndex + 1;
       break;
     }
 
@@ -390,6 +444,8 @@ void CubinObjectWriter::writeSymbol(unsigned StringIndex,
   uint16_t SectionIndex = SectionIndexMap.lookup(&Section);
   uint64_t Value = 0; // Always 0
   uint64_t Size = 0; // size of kernel = size of .text. section
+  if (Type == ELF::STT_FUNC)
+    Size = FunctionSizeStringMap.lookup(Sym->getName());
 
 
   writeSymbolEntry(StringIndex, Info, Other, SectionIndex, Value, Size);

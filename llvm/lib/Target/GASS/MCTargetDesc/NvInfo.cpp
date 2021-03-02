@@ -142,7 +142,7 @@ std::vector<char> NvInfo::getEncoding(const GASSTargetELFStreamer *GTS) const {
     Enc.insert(Enc.end(), ValueBuf, ValueBuf + sizeof(Value));
     break;
   case EIATTR_PARAM_CBANK:
-    // SymtabIdx = GTS->predicateSymtabIndex(MF, 'c');
+    SymtabIdx = GTS->predicateSymtabIndex(MF, 'c');
     memcpy(SymIdxBuf, &SymtabIdx, sizeof(SymtabIdx));
     Enc.insert(Enc.end(), SymIdxBuf, SymIdxBuf + sizeof(SymtabIdx));
     memcpy(ValueBuf, &ParamOffset, sizeof(ParamOffset));

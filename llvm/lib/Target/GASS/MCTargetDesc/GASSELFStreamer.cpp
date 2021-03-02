@@ -56,21 +56,19 @@ void GASSTargetELFStreamer::emitNvInfoFunc(
 /// predicate symtab index of machinefunction
 unsigned GASSTargetELFStreamer::predicateSymtabIndex(MachineFunction *MF, 
                                                      char Modifier) const {
-  // (THIS IS WRONG) order of symtab: (for each machine function) 
-  // .text.{name}
+  // order of symtab: (for each machine function) 
   // .nv.constant0.{name}
+  // .text.{name}
   
-  // MF0$local
   // MF0
-  // MF1$local 
-  // ...
+  // MF1
   auto Iter = std::find(MFs.begin(), MFs.end(), MF);
   assert(Iter != MFs.end() && "Should have visited this MF");
   unsigned MFIdx = std::distance(MFs.begin(), Iter);
 
   // TODO: this is wrong.
-  // if (Modifier == 'c') // .nv.constant0.{name}
-  //   return 1 + 2*MFs.size() + 1 + MFIdx;
+  if (Modifier == 'c') // .nv.constant0.{name}
+    return 1 + 2*MFIdx;
   
-  return 1 + 2*MFIdx + 1;
+  return 2*MFs.size() + 1;
 }

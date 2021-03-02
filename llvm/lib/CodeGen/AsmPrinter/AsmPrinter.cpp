@@ -826,11 +826,11 @@ void AsmPrinter::emitFunctionEntryLabel() {
 
   OutStreamer->emitLabel(CurrentFnSym);
 
-  if (TM.getTargetTriple().isOSBinFormatELF()) {
-    MCSymbol *Sym = getSymbolPreferLocal(MF->getFunction());
-    if (Sym != CurrentFnSym)
-      OutStreamer->emitLabel(Sym);
-  }
+  // if (TM.getTargetTriple().isOSBinFormatELF()) {
+  //   MCSymbol *Sym = getSymbolPreferLocal(MF->getFunction());
+  //   if (Sym != CurrentFnSym)
+  //     OutStreamer->emitLabel(Sym);
+  // }
 }
 
 /// emitComments - Pretty-print comments for instructions.

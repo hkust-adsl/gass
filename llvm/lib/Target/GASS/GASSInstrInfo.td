@@ -746,6 +746,15 @@ let isTerminator = true, isBranch = true in {
                             [(brcond VReg1:$a, bb:$target)]>, Sched<[]>;
 }
 
+// TODO: This is a dirty fix for tailing bra
+def TailBRA : GASSInst<(outs), (ins), 
+                       0x947,
+                       "// Tail BRA", []>, Sched<[]> {
+  let Inst{127-96} = 0xfffffff0;
+  let Inst{63-32}  = 0x000fc000;
+  let Inst{31-0}   = 0x0383ffff;
+}
+
 // BAR.SYNC 0;
 def BAR : GASSInst<(outs), (ins), 
                    0xb1d, "BAR.SYNC \t0;", 

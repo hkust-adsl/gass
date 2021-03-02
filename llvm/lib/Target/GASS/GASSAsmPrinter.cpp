@@ -8,6 +8,7 @@
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
+#include "llvm/MC/MCInstBuilder.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCContext.h"
@@ -60,6 +61,8 @@ public:
 
   StringRef getPassName() const override { return "GASS Assembly Printer"; }
 
+  bool runOnMachineFunction(MachineFunction &MF) override;
+
   //=---------------Override emit functions----------------=//
   void emitInstruction(const MachineInstr *) override;
 
@@ -75,6 +78,9 @@ public:
 
   // Symtab
   void emitEndOfAsmFile(Module &M) override;
+
+  // Tail & padding instructions
+  void emitTailingInstructions();
 
   GASSTargetStreamer* getTargetStreamer() const;
 
@@ -171,6 +177,13 @@ unsigned GASSAsmPrinter::generateNvInfo(MachineFunction &MF,
   return ParamBaseOffset + CurrentParamOffset;
 }
 
+bool GASSAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
+  MF.setAlignment(Align(128));
+  SetupMachineFunction(MF);
+  emitFunctionBody();
+  return false;
+}
+
 GASSTargetStreamer* GASSAsmPrinter::getTargetStreamer() const {
   if (!OutStreamer)
     return nullptr;
@@ -207,6 +220,9 @@ void GASSAsmPrinter::emitFunctionBodyStart() {
 // Add cubin ELF seconds
 // .nv.constant0.{name}
 void GASSAsmPrinter::emitFunctionBodyEnd() {
+  // tailing instructions (bra & nop)
+  emitTailingInstructions();
+
   // .nv.info.{name} section
   MCSection *NVInfoSection = GTOF->getNvInfoNamedSection(&MF->getFunction());
   OutStreamer->SwitchSection(NVInfoSection); // Empty
@@ -227,6 +243,18 @@ void GASSAsmPrinter::emitFunctionBodyEnd() {
   // reset per-function data
   EXITOffsets.clear();
   CurrentOffset = 0;
+}
+
+void GASSAsmPrinter::emitTailingInstructions() {
+  // BRA
+  EmitToStreamer(*OutStreamer, MCInstBuilder(GASS::TailBRA).addReg(GASS::PT));
+  CurrentOffset += 16;
+
+  // Padding with NOPs
+  while (CurrentOffset % 128 != 0) {
+    EmitToStreamer(*OutStreamer, MCInstBuilder(GASS::NOP).addReg(GASS::PT));
+    CurrentOffset += 16;
+  }
 }
 
 // symtab
