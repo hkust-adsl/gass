@@ -294,7 +294,8 @@ void CubinObjectWriter::precomputeOffsets(MCAssembler &Asm) {
         Constant0Symbols.push_back(&Symbol);
       else if (Symbol.getName().startswith(".text."))
         TextSymbols.push_back(&Symbol);
-      else if (!Symbol.getName().startswith("."))
+      else if (FunctionSizeStringMap.find(Symbol.getName()) != 
+               FunctionSizeStringMap.end()) // A function symbol
         FuncSymbols.push_back(&Symbol);
     }
 
