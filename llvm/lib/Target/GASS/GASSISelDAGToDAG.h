@@ -1,11 +1,17 @@
 #ifndef LLVM_LIB_TARGET_GASS_GASSISELDAGTODAG_H
 #define LLVM_LIB_TARGET_GASS_GASSISELDAGTODAG_H
 
+#include "GASSSubtarget.h"
 #include "GASSTargetMachine.h"
+#include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/SelectionDAGISel.h"
 
 namespace llvm {
+class GASSSubtarget;
+
 class GASSDAGToDAGISel : public SelectionDAGISel {
+  // Cache Subtarget
+  const GASSSubtarget *Subtarget;
 public:
   explicit GASSDAGToDAGISel(GASSTargetMachine &TM)
     : SelectionDAGISel(TM) {}
@@ -13,6 +19,8 @@ public:
   StringRef getPassName() const override {
     return "GASS DAG->DAG Pattern Instruction Selection";
   }
+
+  bool runOnMachineFunction(MachineFunction &MF) override;
 
 private:
 #include "GASSGenDAGISel.inc"

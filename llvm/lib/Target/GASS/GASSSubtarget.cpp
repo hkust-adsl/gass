@@ -1,4 +1,6 @@
 #include "GASSSubtarget.h"
+#include "llvm/IR/IntrinsicsNVPTX.h"
+#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 
@@ -27,5 +29,25 @@ unsigned GASSSubtarget::getParamBase() const {
   case 75:
   case 80:
     return 0x160;
+  }
+}
+
+unsigned GASSSubtarget::getConstantOffset(unsigned IntNo) const {
+  switch (SmVersion) {
+  default: llvm_unreachable("SmVersion invalid");
+  case 70:
+  case 75:
+  case 80:
+  case 86: {
+    switch (IntNo) {
+    default: llvm_unreachable("Invalid intrinsic");
+    case Intrinsic::nvvm_read_ptx_sreg_ntid_x: return 0x0;
+    case Intrinsic::nvvm_read_ptx_sreg_ntid_y: return 0x4;
+    case Intrinsic::nvvm_read_ptx_sreg_ntid_z: return 0x8;
+    case Intrinsic::nvvm_read_ptx_sreg_nctaid_x: return 0xc;
+    case Intrinsic::nvvm_read_ptx_sreg_nctaid_y: return 0x10;
+    case Intrinsic::nvvm_read_ptx_sreg_nctaid_z: return 0x14;
+    }
+  } break;
   }
 }

@@ -270,7 +270,7 @@ bool GASSInstrInfo::isLDS(const MachineInstr &MI) {
   default: break;
   case GASS::READ_TID_X: case GASS::READ_TID_Y: case GASS::READ_TID_Z:
   case GASS::READ_CTAID_X: case GASS::READ_CTAID_Y: case GASS::READ_CTAID_Z:
-  case GASS::READ_LANEID: case GASS::READ_WARPID:
+  case GASS::READ_LANEID:
     return true;
   }
   return false;

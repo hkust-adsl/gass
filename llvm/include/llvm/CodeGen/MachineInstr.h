@@ -336,8 +336,10 @@ public:
 
   void setFlags(unsigned flags) {
     // Filter out the automatically maintained flags.
-    unsigned Mask = BundledPred | BundledSucc;
-    Flags = (Flags & Mask) | (flags & ~Mask);
+    // unsigned Mask = BundledPred | BundledSucc;
+    // Flags = (Flags & Mask) | (flags & ~Mask);
+    // TODO: change this to the original form when we use analysis to set stall
+    Flags = flags;
   }
 
   /// clearFlag - Clear a MI flag.

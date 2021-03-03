@@ -1,5 +1,7 @@
 #include "GASS.h"
 #include "GASSISelDAGToDAG.h"
+#include "GASSSubtarget.h"
+#include "llvm/CodeGen/SelectionDAGISel.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
 #include "llvm/IR/IntrinsicsNVPTX.h"
 #include "llvm/CodeGen/ISDOpcodes.h"
@@ -8,6 +10,11 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "gass-isel"
+
+bool GASSDAGToDAGISel::runOnMachineFunction(MachineFunction &MF) {
+  Subtarget = &MF.getSubtarget<GASSSubtarget>();
+  return SelectionDAGISel::runOnMachineFunction(MF);
+}
 
 //=-----------------------------------=//
 // static helpers
@@ -111,7 +118,24 @@ void GASSDAGToDAGISel::Select(SDNode *N) {
     unsigned IntNo = cast<ConstantSDNode>(N->getOperand(0))->getZExtValue();
     switch (IntNo) {
     default: break;
-    // TODO: fill this
+    case Intrinsic::nvvm_read_ptx_sreg_ntid_x:
+    case Intrinsic::nvvm_read_ptx_sreg_ntid_y:
+    case Intrinsic::nvvm_read_ptx_sreg_ntid_z:
+    case Intrinsic::nvvm_read_ptx_sreg_nctaid_x:
+    case Intrinsic::nvvm_read_ptx_sreg_nctaid_y:
+    case Intrinsic::nvvm_read_ptx_sreg_nctaid_z: {
+      SDLoc DL(N);
+      EVT TargetVT = N->getValueType(0);
+      SDNode *GASSReadSreg = nullptr;
+
+      unsigned ConstOffset = Subtarget->getConstantOffset(IntNo);
+      SDValue Op = CurDAG->getConstant(ConstOffset, DL, MVT::i32);
+
+      SDValue Ops[] = {Op, CurDAG->getRegister(GASS::PT, MVT::i1)};
+      GASSReadSreg = CurDAG->getMachineNode(GASS::MOV32c, DL, TargetVT, Ops);
+      ReplaceNode(N, GASSReadSreg);
+      return;
+    } break;
     }
     break;
   }

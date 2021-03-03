@@ -39,6 +39,9 @@ public:
   const GASSFrameLowering *getFrameLowering() const override {
     return &FrameLowering;
   }
+
+  unsigned getConstantOffset(unsigned IntNo) const;
+
 protected:
   //
 public:  
