@@ -213,10 +213,12 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
 
   switch (Opc){
   default: return false;
-  case GASS::IMULrr: { /* TODO */ }
-    break;
-  case GASS::IMUL_WIDErr: {/* TODO */}
-    break;
+  case GASS::IMULrr: { 
+    llvm_unreachable("Not implemented");
+  } break;
+  case GASS::IMUL_WIDErr: {
+    llvm_unreachable("Not implemented");
+  } break;
   case GASS::IMUL_WIDEri: {
     Register Dst = MI.getOperand(0).getReg();
     BuildMI(MBB, MI, DL, get(GASS::IMAD_S32_WIDErir), Dst)

@@ -20,7 +20,8 @@ def SM70UnitFP64ALU : ProcResource<1> { let BufferSize = 0; }
 // 4. Map processor resources to SchedWrites
 let SchedModel = SM70Model in {
 
-def : WriteRes<WriteINT, [SM70UnitALU]> { let Latency = 4; }
+// Maybe Latency of "WriteINT" could be 5?
+def : WriteRes<WriteINT, [SM70UnitALU]> { let Latency = 5; }
 def : WriteRes<WriteFP32, [SM70UnitFP32ALU]> { let Latency = 4; }
 def : WriteRes<WriteFP64, [SM70UnitFP64ALU]> { let Latency = 8; }
 def : WriteRes<WriteLD, [SM70UnitLDST]> { let Latency = 20; }
