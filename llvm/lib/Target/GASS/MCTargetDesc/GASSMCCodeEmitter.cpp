@@ -114,7 +114,7 @@ void GASSMCCodeEmitter::encodeShiftType(const MCInst &MI, unsigned int OpIdx,
     Enc = 0;
     break;
   case GASS::SHF_FLAGS::S32:
-    Enc = 1;
+    Enc = 2;
     break;
   case GASS::SHF_FLAGS::U32:
     Enc = 3;

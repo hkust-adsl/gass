@@ -1,3 +1,4 @@
+#include "GASS.h"
 #include "GASSInstrInfo.h"
 #include "GASSRegisterInfo.h"
 #include "GASSSubtarget.h"
@@ -207,7 +208,7 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
 
   MachineBasicBlock &MBB = *MI.getParent();
   auto &Subtarget = MBB.getParent()->getSubtarget<GASSSubtarget>();
-  auto TRI = Subtarget.getRegisterInfo();
+  const GASSRegisterInfo *TRI = Subtarget.getRegisterInfo();
   DebugLoc DL = MI.getDebugLoc();
 
   switch (Opc){
@@ -227,15 +228,57 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   case GASS::XOR1rr: case GASS::XOR1ri: case GASS::XOR32rr: case GASS::XOR32ri:
   case GASS::AND1rr: case GASS::AND1ri: case GASS::AND32rr: case GASS::AND32ri:
   {
-    // TODO
+    llvm_unreachable("Not implemented");
+  } break;
+  case GASS::SHL64rr: case GASS::SHL64ri: {
+    // SHL64 $dst, $src, $amt;
+    //  -->
+    // SHF.L.U64.HI $dst.hi, $src.lo, $amt, $src.hi;
+    // SHF.L.U32    $dst.lo, $src.lo, $amt, RZ;
+    Register Dst = MI.getOperand(0).getReg();
+    Register DstLo = TRI->getSubReg(Dst, GASS::sub0);
+    Register DstHi = TRI->getSubReg(Dst, GASS::sub1);
+
+    Register Src = MI.getOperand(1).getReg();
+    Register SrcLo = TRI->getSubReg(Src, GASS::sub0);
+    Register SrcHi = TRI->getSubReg(Src, GASS::sub1);
+
+    const MachineOperand &Amount = MI.getOperand(2);
+    const MachineOperand &PredMask = MI.getOperand(3);
+    unsigned Opcode;
+    if (Amount.isReg()) 
+      Opcode = GASS::SHFrrr;
+    else if (Amount.isImm())
+      Opcode = GASS::SHFrir;
+    else
+      llvm_unreachable("Invalid data type");
+
+    // SHF.L.U64.HI $dst.hi, $src.lo, $amt, $src.hi;
+    BuildMI(MBB, MI, DL, get(Opcode), DstHi)
+      .addReg(SrcLo)
+      .add(Amount)
+      .addReg(SrcHi)
+      .addImm(GASS::SHF_FLAGS::L)
+      .addImm(GASS::SHF_FLAGS::U64)
+      .addImm(GASS::SHF_FLAGS::HI)
+      .add(PredMask);
+
+    // SHF.L.U32
+    BuildMI(MBB, MI, DL, get(Opcode), DstLo)
+      .addReg(SrcLo)
+      .add(Amount)
+      .addReg(GASS::RZ32)
+      .addImm(GASS::SHF_FLAGS::L)
+      .addImm(GASS::SHF_FLAGS::U32)
+      .addImm(GASS::SHF_FLAGS::LO)
+      .add(PredMask);
   } break;
   case GASS::SHL32rr: case GASS::SHL32ri: 
-  case GASS::SHL64rr: case GASS::SHL64ri:
   case GASS::SRA32rr: case GASS::SRA32ri: 
   case GASS::SRA64rr: case GASS::SRA64ri:
   case GASS::SRL32rr: case GASS::SRL32ri: 
   case GASS::SRL64rr: case GASS::SRL64ri: {
-    // TODO:
+    llvm_unreachable("Not implemented");
   } break;
   }
 

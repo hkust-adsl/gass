@@ -6,6 +6,7 @@
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineFunction.h"
+#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 
@@ -114,13 +115,13 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
           .addReg(CarryReg, RegState::Define)
           .add(LHSSub0)
           .add(RHSSub0)
-          .addReg(GASS::NPT)
+          .addImm(1).addReg(GASS::PT) // !PT
           .addReg(GASS::PT); // PredMask
         BuildMI(MBB, MI, DL, TII->get(GASS::IADDXrr), DstSub1)
           .addReg(GASS::PT, RegState::Define)
           .add(LHSSub1)
           .add(RHSSub1)
-          .addReg(CarryReg, RegState::Kill)
+          .addImm(0).addReg(CarryReg, RegState::Kill)
           .addReg(GASS::PT);
 
         // Merge result
@@ -167,8 +168,7 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
         ToDeletInstrs.push_back(&*MII);
       } break;
       case GASS::ZEXT: {
-        //
-        outs() << "Expanding ZEXT\n";
+        llvm_unreachable("Not implemented");
       } break;
       }
     }

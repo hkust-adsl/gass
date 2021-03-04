@@ -136,5 +136,5 @@ void GASSPassConfig::addPreSched2() {
 // NVGPU specific passes
 void GASSPassConfig::addPreEmitPass() {
   addPass(createGASSBarrierSettingPass());
-  addPass(createGASSStallSettingPass());
+  // addPass(createGASSStallSettingPass());
 }

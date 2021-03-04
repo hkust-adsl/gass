@@ -2,6 +2,7 @@
 #include "GASSSubtarget.h"
 #include "GASSTargetMachine.h"
 #include "GASSMCInstLowering.h"
+#include "GASSStallSettingPass.h"
 #include "TargetInfo/GASSTargetInfo.h"
 #include "MCTargetDesc/GASSTargetStreamer.h"
 #include "MCTargetDesc/NvInfo.h"
@@ -40,6 +41,7 @@ class GASSAsmPrinter : public AsmPrinter {
   const GASSTargetMachine *GTM = nullptr;
   const GASSSubtarget *Subtarget = nullptr;
   const GASSTargetObjectFile *GTOF = nullptr;
+  const GASSStallSetting *StallSetter = nullptr;
 
   /// Record offsets of EXITs (nv.info needs them)
   std::vector<unsigned> EXITOffsets;
@@ -85,8 +87,9 @@ public:
   GASSTargetStreamer* getTargetStreamer() const;
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<MachineModuleInfoWrapperPass>();
-    AU.addPreserved<MachineModuleInfoWrapperPass>();
+    // AU.addRequired<MachineModuleInfoWrapperPass>();
+    // AU.addPreserved<MachineModuleInfoWrapperPass>();
+    AU.addRequired<GASSStallSetting>();
     AsmPrinter::getAnalysisUsage(AU);
   }
 
@@ -179,6 +182,7 @@ unsigned GASSAsmPrinter::generateNvInfo(MachineFunction &MF,
 
 bool GASSAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
   MF.setAlignment(Align(128));
+  StallSetter = &getAnalysis<GASSStallSetting>();
   SetupMachineFunction(MF);
   emitFunctionBody();
   return false;
@@ -197,6 +201,14 @@ void GASSAsmPrinter::emitInstruction(const MachineInstr *MI) {
     EXITOffsets.push_back(CurrentOffset);
 
   MCInstLowering.LowerToMCInst(MI, Inst);
+  // Update stall cycles
+  {
+    uint32_t Flags = Inst.getFlags();
+    Flags &= ~(0b1111);
+    unsigned Stalls = StallSetter->getStallCycles(MI);
+    Flags |= (Stalls << 9); // so bad :(
+    Inst.setFlags(Flags);
+  }
   EmitToStreamer(*OutStreamer, Inst);
 
   // FIXME: Should be architecture-dependent. i.e., query MCInstrDesc

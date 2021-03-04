@@ -52,6 +52,11 @@ def ShflMode : Operand<i32> {
   let PrintMethod = "printShflMode";
 }
 
+// {!|}@p
+def PredSign : Operand<i1> {
+  let PrintMethod = "printPredicateSign";
+}
+
 // Thest must match the enum in GASS.h
 def CmpEQ   : PatLeaf<(i32 0)>;
 def CmpNE   : PatLeaf<(i32 1)>;
@@ -120,9 +125,10 @@ defm IADD : IADD, Sched<[WriteINT]>;
 // This is (real) IADD3 with defalut value
 multiclass IADDX {
   def rr : GASSInstOp2rr<(outs VReg32:$dst, VReg1:$carryout),
-                    (ins VReg32:$src0, VReg32:$src1, VReg1:$carryin),
+                    (ins VReg32:$src0, VReg32:$src1, 
+                        PredSign:$carryin_sign, VReg1:$carryin),
                     0x210,
-                    "IADD3.X \t$dst, $carryout, $src0, $src1, RZ, $carryin",
+                    "IADD3.X \t$dst, $carryout, $src0, $src1, RZ, $carryin_sign$carryin",
                     [/*TODO*/]> {
     let Inst{10} = 1;
     let Src2 = 0xff;  // RZ
@@ -134,16 +140,19 @@ multiclass IADDX {
     let Inst{22-20} = 0x7; 
 
     // ps0
+    bit carryin_sign;
     bits<3> carryin;
+    let Inst{26} = carryin_sign;
     let Inst{25-23} = carryin;
     // ps1
     let Inst{16-13} = 0xf;
   }
 
   def ri : GASSInstOp2ri<(outs VReg32:$dst, VReg1:$carryout),
-                    (ins VReg32:$src0, i32imm:$src1, VReg1:$carryin),
+                    (ins VReg32:$src0, i32imm:$src1, 
+                         PredSign:$carryin_sign, VReg1:$carryin),
                     0x810,
-                    "IADD3.X \t$dst, $carryout, $src0, $src1, RZ, $carryin",
+                    "IADD3.X \t$dst, $carryout, $src0, $src1, RZ, $carryin_sign$carryin",
                     [/*TODO*/]> {
     let Inst{10} = 1;
     let Src2 = 0xff; // RZ
@@ -155,7 +164,9 @@ multiclass IADDX {
     let Inst{22-20} = 0x7; 
 
     // ps0
+    bit carryin_sign;
     bits<3> carryin;
+    let Inst{26} = carryin_sign;
     let Inst{25-23} = carryin;
     // ps1
     let Inst{16-13} = 0xf;
@@ -268,7 +279,7 @@ multiclass SHF {
     bits<1> dir; // .L | .R
     let Inst{12} = dir;
     bits<2> ty; // .S64 | .S32 | .U32
-    let Inst{11-10} = ty;
+    let Inst{10-9} = ty;
     bits<1> hi; // .HI | .LO
     let Inst{16} = hi;
   }
@@ -282,7 +293,7 @@ multiclass SHF {
     bits<1> dir; // .L | .R
     let Inst{12} = dir;
     bits<2> ty; // .S64 | .S32 | .U32
-    let Inst{11-10} = ty;
+    let Inst{10-9} = ty;
     bits<1> hi; // .HI | .LO
     let Inst{16} = hi;
   }

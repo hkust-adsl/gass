@@ -35,6 +35,7 @@ private:
   void printCmpMode(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printShflMode(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printPredicateOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);
+  void printPredicateSign(const MCInst *MI, unsigned OpNo, raw_ostream &O);
 
   // funnel shift (shf)
   void printShiftDir(const MCInst *MI, unsigned OpNo, raw_ostream &O);

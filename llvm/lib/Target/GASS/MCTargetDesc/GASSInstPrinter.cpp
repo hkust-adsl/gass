@@ -145,3 +145,15 @@ void GASSInstPrinter::printShiftLoc(const MCInst *MI,
   case GASS::SHF_FLAGS::HI: O << ".HI"; return;
   }
 }
+
+void GASSInstPrinter::printPredicateSign(const MCInst *MI,
+                                         unsigned OpNo, raw_ostream &O) {
+  const MCOperand &Op = MI->getOperand(OpNo);
+  assert(Op.isImm());
+  unsigned Value = Op.getImm();
+  switch (Value) {
+  default: llvm_unreachable("Invalid");
+  case 0 : return;
+  case 1 : O << "!"; return;
+  }
+}
