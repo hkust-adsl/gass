@@ -53,14 +53,24 @@ void GASSMCInstLower::lowerToMCOperand(const MachineOperand &MO,
     break;
   }
   case MachineOperand::MO_MachineBasicBlock:
-    // Following the practice in NVPTX & AArch64
-    MCOp = MCOperand::createExpr(MCSymbolRefExpr::create(
-      MO.getMBB()->getSymbol(), Ctx));
+    // Encode BrOffset here
+    // TODO: how about JMP?
+    // relative offset (18-bit signed)
+    // TODO: should query TII
+    uint64_t SrcOffset = MIOffsets->lookup(MO.getParent()) + 16;
+    uint64_t DstOffset = MBBOffsets->lookup(MO.getMBB());
+    uint64_t BrOffset = DstOffset - SrcOffset;
+    MCOp = MCOperand::createImm(BrOffset);
     break;
   }
 }
 
-void GASSMCInstLower::LowerToMCInst(const MachineInstr *MI, MCInst &Inst) {
+void GASSMCInstLower::LowerToMCInst(const MachineInstr *MI, MCInst &Inst,
+                     DenseMap<const MachineBasicBlock*, uint64_t> MBBOffsets,
+                     DenseMap<const MachineInstr *, uint64_t> MIOffsets) {
+  this->MIOffsets = &MIOffsets;
+  this->MBBOffsets = &MBBOffsets;
+
   Inst.setOpcode(MI->getOpcode());
 
   for (unsigned i=0; i != MI->getNumOperands(); ++i) {

@@ -6,6 +6,7 @@ class AsmPrinter;
 class MCAsmInfo;
 class MCContext;
 class MCInst;
+class MachineBasicBlock;
 class MCOperand;
 class MCSymbol;
 class MachineInstr;
@@ -17,10 +18,17 @@ class GASSMCInstLower {
   MCContext &Ctx;
   AsmPrinter &Printer;
 
+  /// Cache MI & MBB offsets to compute BrOffset
+  /// Ref: BranchReleaxation
+  DenseMap<const MachineInstr *, uint64_t> *MIOffsets;
+  DenseMap<const MachineBasicBlock *, uint64_t> *MBBOffsets;
+
 public:
   GASSMCInstLower(MCContext &ctx, AsmPrinter &printer)
     : Ctx(ctx), Printer(printer) {}
-  void LowerToMCInst(const MachineInstr *MI, MCInst &Inst);
+  void LowerToMCInst(const MachineInstr *MI, MCInst &Inst,
+                     DenseMap<const MachineBasicBlock*, uint64_t> MBBOffsets,
+                     DenseMap<const MachineInstr *, uint64_t> MIOffsets);
 
 private:
   void lowerToMCOperand(const MachineOperand &MO, MCOperand &MCOp);

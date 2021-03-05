@@ -3,12 +3,15 @@
 #include "GASSTargetMachine.h"
 #include "GASSMCInstLowering.h"
 #include "GASSStallSettingPass.h"
+#include "GASSBranchOffsetPass.h"
 #include "TargetInfo/GASSTargetInfo.h"
 #include "MCTargetDesc/GASSTargetStreamer.h"
 #include "MCTargetDesc/NvInfo.h"
+#include "MCTargetDesc/GASSMCTargetDesc.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/MC/MCInstBuilder.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/MC/MCStreamer.h"
@@ -41,7 +44,10 @@ class GASSAsmPrinter : public AsmPrinter {
   const GASSTargetMachine *GTM = nullptr;
   const GASSSubtarget *Subtarget = nullptr;
   const GASSTargetObjectFile *GTOF = nullptr;
+
+  // Required passes
   const GASSStallSetting *StallSetter = nullptr;
+  const GASSBranchOffset *BranchOffset = nullptr;
 
   /// Record offsets of EXITs (nv.info needs them)
   std::vector<unsigned> EXITOffsets;
@@ -87,8 +93,7 @@ public:
   GASSTargetStreamer* getTargetStreamer() const;
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    // AU.addRequired<MachineModuleInfoWrapperPass>();
-    // AU.addPreserved<MachineModuleInfoWrapperPass>();
+    // Can not change order here.....!!!!! (OMG...)
     AU.addRequired<GASSStallSetting>();
     AsmPrinter::getAnalysisUsage(AU);
   }
@@ -99,15 +104,60 @@ private:
   /// @return constant0 size in byte
   unsigned generateNvInfo(MachineFunction &MF,
                           std::vector<std::unique_ptr<NvInfo>> &Info);
+
+  /// Update instr/mbb offsets
+  void scanFunction(MachineFunction *MF);
+
+  /// Record MI offset in byte
+  DenseMap<const MachineInstr*, uint64_t> MIOffsets;
+  /// Record MBB offset in byte
+  DenseMap<const MachineBasicBlock*, uint64_t> MBBOffsets;
+
+  /// BasicBlockInfo - Information about the offset and size of a single
+  /// basic block.
+  struct BasicBlockInfo {
+    /// Offset - Distance from the beginning of the function to the beginning
+    /// of this basic block.
+    ///
+    /// The offset is always aligned as required by the basic block.
+    unsigned Offset = 0;
+
+    /// Size - Size of the basic block in bytes.  If the block contains
+    /// inline assembly, this is a worst case estimate.
+    ///
+    /// The size does not include any alignment padding whether from the
+    /// beginning of the block, or from an aligned jump table at the end.
+    unsigned Size = 0;
+
+    BasicBlockInfo() = default;
+
+    /// Compute the offset immediately following this block.
+    unsigned postOffset() const { return Offset + Size; }
+  };
+
+  SmallVector<BasicBlockInfo, 16> BlockInfo;
+
+  const TargetInstrInfo *TII = nullptr;
 };
 } // anonymous namespace
 
 // helper
 // generate .nv.info (per module)
 void GASSAsmPrinter::generateNvInfoModule(MachineFunction &MF) {
+  //=--------------------Compute #Regs---------------------------------------=//
+  const MachineRegisterInfo *MRI = &MF.getRegInfo();
+  unsigned MaxReg = 0;
+  // TODO: Do we need to consider v2/v4 registers here?
+  for (unsigned Reg = GASS::VGPR0; Reg <= GASS::VGPR255; ++Reg) {
+    if (MRI->isPhysRegUsed(Reg))
+      MaxReg = Reg;
+  }
+  MaxReg -= GASS::VGPR0;
+  while (MaxReg % 8 != 0) 
+    ++MaxReg;
+  //=------------------------------------------------------------------------=//
   // REGCOUNT
-  // TODO: get this value from register allocator
-  ModuleInfo.emplace_back(createNvInfoRegCount(/*Count*/8, &MF));
+  ModuleInfo.emplace_back(createNvInfoRegCount(/*Count*/MaxReg, &MF));
   // MAX_STACK_SIZE
   // TODO: get this value from register allocator
   ModuleInfo.emplace_back(createNvInfoMaxStackSize(/*MaxSize*/0, &MF));
@@ -115,6 +165,49 @@ void GASSAsmPrinter::generateNvInfoModule(MachineFunction &MF) {
   ModuleInfo.emplace_back(createNvInfoMinStackSize(0, &MF));
   // FRAME_SIZE
   ModuleInfo.emplace_back(createNvInfoFrameSize(0, &MF));
+}
+
+// compute offsets
+void GASSAsmPrinter::scanFunction(MachineFunction *MF) {
+  MF->RenumberBlocks();
+
+  BlockInfo.clear();
+  BlockInfo.resize(MF->getNumBlockIDs());
+
+  // First, compute the size of all basic blocks.
+  for (MachineBasicBlock &MBB : *MF) {
+    uint64_t Size = 0;
+    for (const MachineInstr &MI : MBB)
+      Size += 16; // TII->getInstSizeInBytes(MI);
+    BlockInfo[MBB.getNumber()].Size = Size;
+  }
+
+  // Second, update MBB offset
+  unsigned PrevNum = MF->begin()->getNumber();
+  assert(PrevNum == 0);
+  for (auto &MBB : *MF) {
+    unsigned Num = MBB.getNumber();
+    if (Num == 0)
+      continue;
+    // Get the offset and known bits at the end of the layout predecessor.
+    // Include the alignment of the current block.
+    uint64_t Offset = BlockInfo[PrevNum].postOffset();
+    BlockInfo[Num].Offset = Offset;
+
+    MBBOffsets[&MBB] = BlockInfo[Num].Offset;
+
+    PrevNum = Num;
+  }
+
+  // Update Instr offset
+  for (MachineBasicBlock &MBB : *MF) {
+    uint64_t Offset = MBBOffsets.lookup(&MBB);
+    for (const MachineInstr &MI : MBB) {
+      MIOffsets[&MI] = Offset;
+      Offset += 16; // TII->getInstSizeInBytes(MI);
+    }
+  }
+
 }
 
 // static helpers
@@ -182,9 +275,18 @@ unsigned GASSAsmPrinter::generateNvInfo(MachineFunction &MF,
 
 bool GASSAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
   MF.setAlignment(Align(128));
+
   StallSetter = &getAnalysis<GASSStallSetting>();
+  TII = MF.getSubtarget().getInstrInfo();
+
+  scanFunction(&MF);
+
   SetupMachineFunction(MF);
   emitFunctionBody();
+
+  // Clear per-function data
+  MIOffsets.clear();
+  MBBOffsets.clear();
   return false;
 }
 
@@ -200,7 +302,8 @@ void GASSAsmPrinter::emitInstruction(const MachineInstr *MI) {
   if (MI->getOpcode() == GASS::EXIT)
     EXITOffsets.push_back(CurrentOffset);
 
-  MCInstLowering.LowerToMCInst(MI, Inst);
+  MCInstLowering.LowerToMCInst(MI, Inst, MBBOffsets,
+                                         MIOffsets);
   // Update stall cycles
   {
     uint32_t Flags = Inst.getFlags();

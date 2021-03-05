@@ -25,7 +25,7 @@ using namespace llvm;
 char GASSStallSetting::ID = 0;
 
 INITIALIZE_PASS(GASSStallSetting, "gass-stall-setting",
-                "Setting Instruction Stall Cycles", false, false);
+                "Setting Instruction Stall Cycles", true, true)
 
 
 bool GASSStallSetting::runOnMachineFunction(MachineFunction &MF) {
@@ -108,9 +108,5 @@ bool GASSStallSetting::runOnMachineFunction(MachineFunction &MF) {
     } // for each MI
   }
 
-  return true;
-}
-
-FunctionPass *llvm::createGASSStallSettingPass() {
-  return new GASSStallSetting();
+  return false;
 }

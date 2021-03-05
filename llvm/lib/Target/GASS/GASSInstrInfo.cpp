@@ -118,13 +118,13 @@ bool GASSInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
 }
 
 // Note: return false on success
+// Now: can not reverse branch condition
 bool
 GASSInstrInfo::reverseBranchCondition(
     SmallVectorImpl<MachineOperand> &Cond) const {
+  // llvm_unreachable("Not implemented");
   // TODO: fill this.
-  if (Cond.size() != 1)
-    return true;
-
+  outs() << "Fail to reverse branch.\n";
   return true;
 }
 
@@ -275,10 +275,60 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       .addImm(GASS::SHF_FLAGS::LO)
       .add(PredMask);
   } break;
-  case GASS::SHL32rr: case GASS::SHL32ri: 
+  case GASS::SHL32rr: case GASS::SHL32ri: {
+    // SHL32 $dst, $src, $amt;
+    //   ->
+    // SHF.L.U32.LO $dst, $src, $amt, RZ;
+    Register Dst = MI.getOperand(0).getReg();
+    Register Src = MI.getOperand(1).getReg();
+    const MachineOperand &Amount = MI.getOperand(2);
+    const MachineOperand &PredMask = MI.getOperand(3);
+
+    unsigned Opcode;
+    if (Amount.isReg()) 
+      Opcode = GASS::SHFrrr;
+    else if (Amount.isImm())
+      Opcode = GASS::SHFrir;
+    else
+      llvm_unreachable("Invalid data type");
+
+    BuildMI(MBB, MI, DL, get(Opcode), Dst)
+      .addReg(Src)
+      .add(Amount)
+      .addReg(GASS::RZ32)
+      .addImm(GASS::SHF_FLAGS::L)
+      .addImm(GASS::SHF_FLAGS::U32)
+      .addImm(GASS::SHF_FLAGS::LO)
+      .add(PredMask);
+  } break;
+  case GASS::SRL32rr: case GASS::SRL32ri: {
+    // SRL32 $dst, $src, $amt;
+    //   ->
+    // SHF.R.U32.LO $dst, $src, $amt, RZ;
+    Register Dst = MI.getOperand(0).getReg();
+    Register Src = MI.getOperand(1).getReg();
+    const MachineOperand &Amount = MI.getOperand(2);
+    const MachineOperand &PredMask = MI.getOperand(3);
+
+    unsigned Opcode;
+    if (Amount.isReg()) 
+      Opcode = GASS::SHFrrr;
+    else if (Amount.isImm())
+      Opcode = GASS::SHFrir;
+    else
+      llvm_unreachable("Invalid data type");
+
+    BuildMI(MBB, MI, DL, get(Opcode), Dst)
+      .addReg(Src)
+      .add(Amount)
+      .addReg(GASS::RZ32)
+      .addImm(GASS::SHF_FLAGS::R)
+      .addImm(GASS::SHF_FLAGS::U32)
+      .addImm(GASS::SHF_FLAGS::LO)
+      .add(PredMask);
+  } break;
   case GASS::SRA32rr: case GASS::SRA32ri: 
   case GASS::SRA64rr: case GASS::SRA64ri:
-  case GASS::SRL32rr: case GASS::SRL32ri: 
   case GASS::SRL64rr: case GASS::SRL64ri: {
     llvm_unreachable("Not implemented");
   } break;

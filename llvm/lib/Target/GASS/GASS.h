@@ -29,6 +29,7 @@ void initializeGASSExpandPreRAPseudoPass(PassRegistry&);
 void initializeGASSCodeGenPreparePass(PassRegistry&);
 void initializeGASSMachineFunctionCFGPrinterPass(PassRegistry&);
 void initializeGASSIfConversionPass(PassRegistry&);
+void initializeGASSBranchOffsetPass(PassRegistry &);
 
 
 namespace GASS {

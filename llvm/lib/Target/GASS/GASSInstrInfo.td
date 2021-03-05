@@ -83,14 +83,20 @@ multiclass IADD3 {
                           0x210,
                           "IADD3 \t$dst, $src0, $src1, $src2;",
                           [(set i32:$dst, (add (add i32:$src0, i32:$src1), 
-                                                i32:$src2))]>;
+                                                i32:$src2))]> {
+    let Inst{16-13} = 0xf; // no ps1
+    let Inst{26-23} = 0xf; // no ps0
+  }
 
-  def rri : GASSInstOp3rri<(outs VReg32:$dst),
-                          (ins VReg32:$src0, VReg32:$src1, i32imm:$src2),
-                          0x410,
+  def rir : GASSInstOp3rir<(outs VReg32:$dst),
+                          (ins VReg32:$src0, i32imm:$src1, VReg32:$src2),
+                          0x810,
                           "IADD3 \t$dst, $src0, $src1, $src2;",
                           [(set i32:$dst, (add (add i32:$src0, i32:$src1),
-                                                imm:$src2))]>;
+                                                imm:$src2))]> {
+    let Inst{16-13} = 0xf; // no ps1
+    let Inst{26-23} = 0xf; // no ps0
+  }
 
   // Consider this
   // def _Xrrr : ;
@@ -98,7 +104,7 @@ multiclass IADD3 {
 defm IADD3 : IADD3, Sched<[WriteINT]>;
 // Support 2-source add (TODO)
 def : Pat<(i32 (add i32:$src0, i32:$src1)),
-          (IADD3rri VReg32:$src0, VReg32:$src1, PatLeaf<(i32 0)>)>;
+          (IADD3rir VReg32:$src0, PatLeaf<(i32 0)>, VReg32:$src1)>;
 
 // 2-operand IADD, 
 // This is IADD3 with default value
@@ -109,6 +115,9 @@ multiclass IADD {
                     "IADD3 \t$dst, $src0, $src1, RZ;",
                     [(set i32:$dst, (add i32:$src0, i32:$src1))]> {
     let Src2 = 0xff;
+
+    let Inst{16-13} = 0xf; // no ps1
+    let Inst{26-23} = 0xf; // no ps0
   }
   
   def ri : GASSInstOp2ri<(outs VReg32:$dst),
@@ -117,6 +126,9 @@ multiclass IADD {
                     "IADD3 \t$dst, $src0, $src1, RZ;",
                     [(set i32:$dst, (add i32:$src0, imm:$src1))]> {
     let Src2 = 0xff;
+
+    let Inst{16-13} = 0xf; // no ps1
+    let Inst{26-23} = 0xf; // no ps0
   }
 }
 defm IADD : IADD, Sched<[WriteINT]>;
@@ -130,7 +142,7 @@ multiclass IADDX {
                     0x210,
                     "IADD3.X \t$dst, $carryout, $src0, $src1, RZ, $carryin_sign$carryin",
                     [/*TODO*/]> {
-    let Inst{10} = 1;
+    let Inst{10} = 1; // .X
     let Src2 = 0xff;  // RZ
 
     // pd0
@@ -154,7 +166,7 @@ multiclass IADDX {
                     0x810,
                     "IADD3.X \t$dst, $carryout, $src0, $src1, RZ, $carryin_sign$carryin",
                     [/*TODO*/]> {
-    let Inst{10} = 1;
+    let Inst{10} = 1; // .X
     let Src2 = 0xff; // RZ
 
     // pd0
@@ -450,19 +462,19 @@ def : Pat<(shl (sext i32:$a), (i64 imm:$b)),
 // 1   1   rcr 0xa
 multiclass FMA<string OpcStr, RegisterClass RC, Operand ImmCls, ValueType vt,
                bits<12> rrrEnc, bits<12> rriEnc, bits<12> rirEnc> {
-  def rrr : GASSInst<(outs RC:$dst),
+  def rrr : GASSInstOp3rrr<(outs RC:$dst),
                     (ins RC:$a, RC:$b, RC:$c),
                     rrrEnc, 
                     !strconcat(OpcStr, " \t$dst, $a, $b, $c;"), 
                     [(set vt:$dst, (fma vt:$a, vt:$b, vt:$c))]>;
   
-  def rri : GASSInst<(outs RC:$dst),
+  def rri : GASSInstOp3rri<(outs RC:$dst),
                      (ins RC:$a, RC:$b, ImmCls:$c),
                      rriEnc,
                      !strconcat(OpcStr, " \t$dst, $a, $b, $c;"),
                      [(set vt:$dst, (fma vt:$a, vt:$b, fpimm:$c))]>;
 
-  def rir : GASSInst<(outs RC:$dst),
+  def rir : GASSInstOp3rir<(outs RC:$dst),
                      (ins RC:$a, ImmCls:$b, RC:$c),
                      rirEnc,
                      !strconcat(OpcStr, " \t$dst, $a, $b, $c;"),
@@ -491,13 +503,13 @@ multiclass MUL<string OpcStr, RegisterClass RC, Operand ImmCls, ValueType vt,
 // ADD
 multiclass ADD<string OpcStr, RegisterClass RC, Operand ImmCls, ValueType vt,
                bits<12> rrEnc, bits<12> riEnc> {
-  def rr : GASSInst<(outs RC:$dst),
+  def rr : GASSInstOp2rr<(outs RC:$dst),
                     (ins RC:$a, RC:$b),
                     rrEnc,
                     !strconcat(OpcStr, " \t$dst, $a, $b;"),
                     [(set vt:$dst, (fadd vt:$a, vt:$b))]>;
   
-  def ri : GASSInst<(outs RC:$dst),
+  def ri : GASSInstOp2ri<(outs RC:$dst),
                      (ins RC:$a, ImmCls:$b),
                      riEnc,
                      !strconcat(OpcStr, " \t$dst, $a, $b;"),
@@ -825,6 +837,9 @@ let isTerminator = true, isBranch = true in {
                              "BRA \t$target;", 
                              [(br bb:$target)]>, Sched<[]> {
       let Inst{26-23} = 0x7; // predicate PT
+
+      bits<32> target;
+      let Inst{127-96} = target;
     }
 
   def CBRA : GASSInstNoPred<(outs), 
@@ -833,6 +848,9 @@ let isTerminator = true, isBranch = true in {
                             "@$a BRA \t$target;",
                             [(brcond VReg1:$a, bb:$target)]>, Sched<[]> {
     let Inst{26-23} = 0x7; // predicate PT
+
+    bits<32> target;
+    let Inst{127-96} = target;
   }
 }
 
@@ -938,29 +956,18 @@ class READ_SREG_R32<string RegName, Intrinsic IntOp, bits<8>RegEnc>
   let Inst{15-8} = RegEnc;
 }
 
+// ntid.x & nctaid.x are handled in ISel
 def READ_TID_X : READ_SREG_R32<"tid.x", int_nvvm_read_ptx_sreg_tid_x, 33>;
 def READ_TID_Y : READ_SREG_R32<"tid.y", int_nvvm_read_ptx_sreg_tid_y, 34>;
 def READ_TID_Z : READ_SREG_R32<"tid.z", int_nvvm_read_ptx_sreg_tid_z, 35>;
 def READ_TID_W : READ_SREG_R32<"tid.w", int_nvvm_read_ptx_sreg_tid_w, 36>;
-
-// def READ_NTID_X : READ_SREG_R32<"ntid.x", int_nvvm_read_ptx_sreg_ntid_x>;
-// def READ_NTID_Y : READ_SREG_R32<"ntid.y", int_nvvm_read_ptx_sreg_ntid_y>;
-// def READ_NTID_Z : READ_SREG_R32<"ntid.z", int_nvvm_read_ptx_sreg_ntid_z>;
-// def READ_NTID_W : READ_SREG_R32<"ntid.w", int_nvvm_read_ptx_sreg_ntid_w>;
 
 def READ_CTAID_X : READ_SREG_R32<"ctaid.x", int_nvvm_read_ptx_sreg_ctaid_x, 37>;
 def READ_CTAID_Y : READ_SREG_R32<"ctaid.y", int_nvvm_read_ptx_sreg_ctaid_y, 38>;
 def READ_CTAID_Z : READ_SREG_R32<"ctaid.z", int_nvvm_read_ptx_sreg_ctaid_z, 39>;
 def READ_CTAID_W : READ_SREG_R32<"ctaid.w", int_nvvm_read_ptx_sreg_ctaid_w, 40>;
 
-// def READ_NCTAID_X : READ_SREG_R32<"nctaid.x", int_nvvm_read_ptx_sreg_nctaid_x>;
-// def READ_NCTAID_Y : READ_SREG_R32<"nctaid.y", int_nvvm_read_ptx_sreg_nctaid_y>;
-// def READ_NCTAID_Z : READ_SREG_R32<"nctaid.z", int_nvvm_read_ptx_sreg_nctaid_z>;
-// def READ_NCTAID_W : READ_SREG_R32<"nctaid.w", int_nvvm_read_ptx_sreg_nctaid_w>;
-
 def READ_LANEID : READ_SREG_R32<"laneid", int_nvvm_read_ptx_sreg_laneid, 0>;
-// def READ_WARPID : READ_SREG_R32<"warpid", int_nvvm_read_ptx_sreg_warpid, ?>;
-// def READ_NWARPID : READ_SREG_R32<"nwarpid", int_nvvm_read_ptx_sreg_nwarpid>;
 
 // TODO: SReg: smid, nsmid, gridid, lanemask_eq, 
 

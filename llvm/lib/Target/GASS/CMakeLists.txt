@@ -16,6 +16,7 @@ add_llvm_target(GASSCodeGen
   GASSAddAddrSpace.cpp
   GASSAsmPrinter.cpp
   GASSBarrierSettingPass.cpp
+  GASSBranchOffsetPass.cpp
   GASSCodeGenPrepare.cpp
   GASSExpandPreRAPseudo.cpp
   GASSFrameLowering.cpp

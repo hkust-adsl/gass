@@ -19,6 +19,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeGASSTarget() {
   RegisterTargetMachine<GASSTargetMachine> X(getTheGASSTarget());
   auto PR = PassRegistry::getPassRegistry();
   initializeGASSStallSettingPass(*PR);
+  // initializeGASSBranchOffsetPass(*PR);
   initializeGASSExpandPreRAPseudoPass(*PR);
 }
 
