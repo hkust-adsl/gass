@@ -25,7 +25,7 @@ void GASSMCInstLower::lowerToMCFlags(const MachineInstr &MI, MCInst &MCI) {
   // 00 (2 bits) :: 0000 (reuse, 4 bits) :: Wait Mask (6 bits) ::
   // Read Barrier Idx (3 bits) :: Write Barrier Idx (3 bits) ::
   // 1 (yield 1 bit) :: stalls (4 bits) :: 0...0 (padding 9 bits)
-  uint32_t MCFlags = 0x10; // Yield
+  uint32_t MCFlags = 0x0; 
   MCFlags |= Stalls;
   MCFlags |= WriteBarIdx << 5;
   MCFlags |= ReadBarIdx << 8;

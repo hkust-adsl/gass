@@ -615,7 +615,7 @@ multiclass SETP<string OpcStr, RegisterClass RC, Operand ImmCls,
     let Inst{6-4} = 0x7; // ?
   }
 }
-defm ISETP : SETP<"ISETP", VReg32, i32imm, 0x20c, 0x40c>, Sched<[WriteINT]>;
+defm ISETP : SETP<"ISETP", VReg32, i32imm, 0x20c, 0x40c>, Sched<[WriteISETP]>;
 
 // Patterns
 def : Pat<(i1 (seteq i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpEQ)>;

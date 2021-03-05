@@ -310,6 +310,9 @@ void GASSAsmPrinter::emitInstruction(const MachineInstr *MI) {
     Flags &= ~(0b1111);
     unsigned Stalls = StallSetter->getStallCycles(MI);
     Flags |= (Stalls << 9); // so bad :(
+    if (Stalls >= 12) {
+      Flags &= ~(1<<13);  // Force yield // Even worse :)
+    }
     Inst.setFlags(Flags);
   }
   EmitToStreamer(*OutStreamer, Inst);
