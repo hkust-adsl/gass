@@ -99,11 +99,21 @@ class GASSInstLdst<dag outs, dag ins, bits<12> opcode, string asmstr,
 
   bits<8> dst;
   bits<8> ptr;
+  bits<8> src1;
   
   let Dst = dst;
   let Src0 = ptr;
+  let Src1 = src1;
   
   let isFixLat = false;
+}
+
+class GASSInstLdstOff<dag outs, dag ins, bits<12> opcode, string asmstr, 
+                   list<dag> pattern, int width>
+  : GASSInstLdst<outs, ins, opcode, asmstr, pattern, width> {
+  bits<24> offset;
+
+  let Inst{127-104} = offset;
 }
 
 class GASSInstLdstGlobal<dag outs, dag ins, bits<12> opcode, string asmstr, 
@@ -119,6 +129,13 @@ class GASSInstLdstGlobal<dag outs, dag ins, bits<12> opcode, string asmstr,
   // Load/Store instructions 
 }
 
+class GASSInstLdstGlobalOff<dag outs, dag ins, bits<12> opcode, string asmstr, 
+                   list<dag> pattern, int width>
+  : GASSInstLdstGlobal<outs, ins, opcode, asmstr, pattern, width> {
+  bits<24> offset;
+
+  let Inst{127-104} = offset;
+}
 //=--------------------------------------------------------------------------=//
 // 3-operand template
 //=--------------------------------------------------------------------------=//

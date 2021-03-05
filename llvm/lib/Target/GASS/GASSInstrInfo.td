@@ -752,7 +752,7 @@ multiclass LDG<RegisterClass RC, int Width> {
     let Inst{20-17} = 0x7; // predicate: PT 
   }
 
-  def ri : GASSInstLdstGlobal<(outs RC:$dst),
+  def ri : GASSInstLdstGlobalOff<(outs RC:$dst),
                     (ins VReg64:$ptr, i16imm:$offset),
                     0x381,
                     "LDG."#Width#" \t$dst, [$ptr+$offset];",
@@ -774,7 +774,7 @@ multiclass LDS<RegisterClass RC, int Width> {
                        0x984, "LDS."#Width#" \t$dst, [$ptr];", [],
                        Width>;
 
-  def ri: GASSInstLdst<(outs RC:$dst), (ins VReg32:$ptr, i16imm:$offset),
+  def ri: GASSInstLdstOff<(outs RC:$dst), (ins VReg32:$ptr, i16imm:$offset),
                        0x984, "LDS."#Width#" \t$dst, [$ptr+$offset];", [],
                        Width>;
 }
@@ -788,16 +788,16 @@ defm LDS128 : LDS<VReg128, 128>, Sched<[WriteLD]>;
 // STG
 multiclass STG<RegisterClass RC, int Width> {
   def r : GASSInstLdstGlobal<(outs),
-                       (ins RC:$src, VReg64:$ptr), // RZ?
+                       (ins RC:$src1, VReg64:$ptr), // RZ?
                        0x386,
-                       "STG."#Width#" \t[$ptr], $src;",
+                       "STG."#Width#" \t[$ptr], $src1;",
                        [],
                        Width>;
   
-  def ri : GASSInstLdstGlobal<(outs),
-                        (ins RC:$src, VReg64:$ptr, i16imm:$offset),
+  def ri : GASSInstLdstGlobalOff<(outs),
+                        (ins RC:$src1, VReg64:$ptr, i16imm:$offset),
                         0x386,
-                        "STG."#Width#" \t[$ptr+$offset], $src;",
+                        "STG."#Width#" \t[$ptr+$offset], $src1;",
                         [],
                         Width>;
 }
@@ -813,7 +813,7 @@ multiclass STS<RegisterClass RC, int Width> {
                        [],
                        Width>;
   
-  def ri : GASSInstLdst<(outs), (ins RC:$src, VReg32:$ptr, i16imm:$offset),
+  def ri : GASSInstLdstOff<(outs), (ins RC:$src, VReg32:$ptr, i16imm:$offset),
                         0x388,
                         "STS."#Width#" \t[$ptr+$offset], $src;",
                         [],

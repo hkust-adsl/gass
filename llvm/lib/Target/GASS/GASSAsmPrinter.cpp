@@ -312,7 +312,8 @@ void GASSAsmPrinter::emitInstruction(const MachineInstr *MI) {
     Flags |= (Stalls << 9); // so bad :(
     if (Stalls >= 12) {
       Flags &= ~(1<<13);  // Force yield // Even worse :)
-    }
+    } else 
+      Flags |= 1<<13;
     Inst.setFlags(Flags);
   }
   EmitToStreamer(*OutStreamer, Inst);
