@@ -355,6 +355,7 @@ bool GASSInstrInfo::isLDG(const MachineInstr &MI) {
   default: return false;
   case GASS::LDG32r: case GASS::LDG32ri:
   case GASS::LDG64r: case GASS::LDG64ri:
+  case GASS::LDG128r: case GASS::LDG128ri:
     return true;
   }
 }
@@ -366,6 +367,9 @@ bool GASSInstrInfo::isLDS(const MachineInstr &MI) {
   case GASS::READ_TID_X: case GASS::READ_TID_Y: case GASS::READ_TID_Z:
   case GASS::READ_CTAID_X: case GASS::READ_CTAID_Y: case GASS::READ_CTAID_Z:
   case GASS::READ_LANEID:
+  case GASS::LDS32r: case GASS::LDS32ri:
+  case GASS::LDS64r: case GASS::LDS64ri:
+  case GASS::LDS128r: case GASS::LDS128ri:
     return true;
   }
   return false;
@@ -385,6 +389,7 @@ bool GASSInstrInfo::isSTG(const MachineInstr &MI) {
     break;
   case GASS::STG32r: case GASS::STG32ri:
   case GASS::STG64r: case GASS::STG64ri:
+  case GASS::STG128r: case GASS::STG128ri:
     return true;
   }
   return false;

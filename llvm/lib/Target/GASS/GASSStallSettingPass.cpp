@@ -38,12 +38,13 @@ bool GASSStallSetting::runOnMachineFunction(MachineFunction &MF) {
     return false;
 
   for (MachineBasicBlock &MBB : MF) {
+    // Record activate regs
+    std::map<Register*, unsigned> ActivateRegs;
     for (auto iter = MBB.begin(); iter != MBB.end(); ++iter) {
       MachineInstr &MI = *iter;
       unsigned Stalls = 1; // minimum stall cycle: 1
 
-      // Record activate regs
-      std::map<Register*, unsigned> ActivateRegs;
+      // MI.dump();
 
       // TODO: use enums to interpret TSFlags
       bool IsFixedLat = MI.getDesc().TSFlags & 1;
@@ -98,6 +99,10 @@ bool GASSStallSetting::runOnMachineFunction(MachineFunction &MF) {
           ++areg_iter;
         }
       }
+
+      // Special rule for BRA
+      if (MI.isBranch())
+        Stalls = std::max(Stalls, unsigned(7));
 
       // (Optional) Debug
       LLVM_DEBUG(MI.dump());

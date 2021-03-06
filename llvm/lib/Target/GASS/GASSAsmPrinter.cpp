@@ -11,7 +11,9 @@
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
+#include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/CodeGen/TargetOpcodes.h"
 #include "llvm/MC/MCInstBuilder.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/MC/MCStreamer.h"
@@ -279,6 +281,7 @@ bool GASSAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
   StallSetter = &getAnalysis<GASSStallSetting>();
   TII = MF.getSubtarget().getInstrInfo();
 
+  // MF.dump();
   scanFunction(&MF);
 
   SetupMachineFunction(MF);
@@ -310,7 +313,7 @@ void GASSAsmPrinter::emitInstruction(const MachineInstr *MI) {
     Flags &= ~(0b1111);
     unsigned Stalls = StallSetter->getStallCycles(MI);
     Flags |= (Stalls << 9); // so bad :(
-    if (Stalls >= 12) {
+    if (Stalls >= 10) {
       Flags &= ~(1<<13);  // Force yield // Even worse :)
     } else 
       Flags |= 1<<13;
@@ -395,3 +398,9 @@ void GASSAsmPrinter::emitEndOfAsmFile(Module &M) {
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeGASSAsmPrinter() {
   RegisterAsmPrinter<GASSAsmPrinter> X(getTheGASSTarget());
 }
+
+
+//==------------------------------------------------------------------------==//
+// Override void emitFunctionBody();
+//   Just to emit TargetOpcode::IMPLICIT_DEF as NOP
+//==------------------------------------------------------------------------==//

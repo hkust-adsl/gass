@@ -83,6 +83,7 @@ TargetPassConfig *GASSTargetMachine::createPassConfig(PassManagerBase &PM) {
 
 void GASSPassConfig::addIRPasses() {
   // disable passes that I don't know how they could be useful
+  addPass(createDeadCodeEliminationPass());
   addPass(createGASSAddrSpacePass()); // required by infer address space
   addPass(createSROAPass());
   addPass(createInferAddressSpacesPass());
@@ -136,6 +137,7 @@ void GASSPassConfig::addPreSched2() {
 
 // NVGPU specific passes
 void GASSPassConfig::addPreEmitPass() {
+  addPass(createGASSPreEmitPreparePass());
   addPass(createGASSBarrierSettingPass());
   // addPass(createGASSStallSettingPass());
 }

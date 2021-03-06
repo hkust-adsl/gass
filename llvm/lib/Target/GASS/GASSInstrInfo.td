@@ -936,7 +936,7 @@ def EXIT : GASSInst<(outs), (ins), 0x94d, "EXIT;", [(GASSexit)]>,
 }
 
 def NOP : GASSInst<(outs), (ins), 0x918, "NOP;", []>,
-          Sched<[]> { // maybe @llvm.donothing()
+          Sched<[WriteINT]> { // maybe @llvm.donothing()
   let Inst{26-23} = 0x7; // predicate PT
 }
 

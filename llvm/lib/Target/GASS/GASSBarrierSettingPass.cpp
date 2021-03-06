@@ -466,6 +466,25 @@ bool GASSBarrierSetting::runOnMachineFunction(MachineFunction &MF) {
   return true;
 }
 
+/// If current MBB has only one successor & NOT ends with branch,
+/// we also need to scan the next MBB
+static std::vector<MachineInstr *> 
+getScanRange(MachineBasicBlock &MBB, MachineBasicBlock::iterator iter) {
+  std::vector<MachineInstr *> Res;
+
+  // following instrs in the current MBB
+  for (auto I = iter; I != MBB.end(); ++I)
+    Res.push_back(&*I);
+
+  // If MBB doesn't end with branch & only one successor, add instr in the succ
+  if (!MBB.getLastNonDebugInstr()->isBranch()) {
+    assert(MBB.succ_size() == 1);
+    for (MachineInstr &I : **MBB.succ_begin())
+      Res.push_back(&I);
+  }
+  return Res;
+}
+
 void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
   CurMBB = &MBB;
 
@@ -482,20 +501,22 @@ void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
 
     // Check RAW dependency
     if (GII->isLoad(MI)) {
-      for (auto probe = iter; probe != MBB.end(); ++probe) {
-        for (MachineOperand const &Use : probe->explicit_uses()) {
-          if (Use.isReg()) {
-            // TODO: we should cache this
-            for (MachineOperand const &Def : MI.defs()) {
-              if (Def.isReg()) {
-                if (GRI->regsOverlap(Use.getReg(), Def.getReg())) {
-                  SlotIndex Start = LIS->getInstructionIndex(MI);
-                  SlotIndex End = LIS->getInstructionIndex(*probe);
-                  // TODO: maybe we can record which operand to wait on.
-                  Barriers.emplace_back(MI, Start, End, false, LIS, GII);
-                  // Triple break
-                  goto CreateWARForMemOperand;
-                }
+      // Check all defs (dsts) of load (requires RAW barriers)
+      for (MachineOperand const &Def : MI.defs()) {
+        if (Def.isReg()) {
+          std::vector<MachineInstr *> ScanRange = getScanRange(MBB, iter);
+          for (MachineInstr *probe : ScanRange) {
+            for (MachineOperand const &Use : probe->explicit_uses()) {
+              if ((Use.isReg() && GRI->regsOverlap(Use.getReg(), Def.getReg())) 
+                  || probe == ScanRange.back()) {
+                // The last instr needs to catch all dependency
+                SlotIndex Start = LIS->getInstructionIndex(MI);
+                SlotIndex End = LIS->getInstructionIndex(*probe);
+                assert(Start != End);
+                // TODO: maybe we can record which operand to wait on.
+                Barriers.emplace_back(MI, Start, End, false, LIS, GII);
+                // Triple break
+                goto CreateWARForMemOperand;
               }
             }
           } // We only care about reg

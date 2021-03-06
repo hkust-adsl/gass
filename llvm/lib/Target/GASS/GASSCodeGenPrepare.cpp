@@ -74,6 +74,8 @@ bool GASSCodeGenPrepare::runOnFunction(Function &F) {
     }
   }
 
+  F.dump();
+
   return MadeChange;
 }
 
