@@ -403,7 +403,7 @@ void CubinObjectWriter::writeSectionHeader() {
       Info = FuncSectionIndex;
     } else if (Name.startswith(".text.")) {
       Link = SymbolTableIndex;
-      uint8_t NumRegisters = 8; // TODO: update this
+      uint8_t NumRegisters = 8; // TODO: update this (doesn't matter?)
       uint32_t FuncSymbolIndex = 
           SymbolIndexStringMap.lookup(Name.drop_front(6));
       Info = (NumRegisters << 24) | FuncSymbolIndex;

@@ -504,16 +504,16 @@ multiclass MUL<string OpcStr, RegisterClass RC, Operand ImmCls, ValueType vt,
 multiclass ADD<string OpcStr, RegisterClass RC, Operand ImmCls, ValueType vt,
                bits<12> rrEnc, bits<12> riEnc> {
   def rr : GASSInstOp2rr<(outs RC:$dst),
-                    (ins RC:$a, RC:$b),
+                    (ins RC:$src0, RC:$src1),
                     rrEnc,
-                    !strconcat(OpcStr, " \t$dst, $a, $b;"),
-                    [(set vt:$dst, (fadd vt:$a, vt:$b))]>;
+                    !strconcat(OpcStr, " \t$dst, $src0, $src1;"),
+                    [(set vt:$dst, (fadd vt:$src0, vt:$src1))]>;
   
   def ri : GASSInstOp2ri<(outs RC:$dst),
-                     (ins RC:$a, ImmCls:$b),
+                     (ins RC:$src0, ImmCls:$src1),
                      riEnc,
-                     !strconcat(OpcStr, " \t$dst, $a, $b;"),
-                     [(set vt:$dst, (fadd vt:$a, fpimm:$b))]>;
+                     !strconcat(OpcStr, " \t$dst, $src0, $src1;"),
+                     [(set vt:$dst, (fadd vt:$src0, fpimm:$src1))]>;
 }
 
 defm FFMA : FMA<"FFMA", VReg32, f32imm, f32, 0x223, 0x423, 0x823>, 
@@ -733,6 +733,7 @@ multiclass LDC<RegisterClass RC, int Width> {
     let ptr = 0xff; // base offset
     bits<32> offset; // TODO: check width of constant mem
     let Inst{127-102} = offset{25-0}; 
+    let Inst{103-96} = 0; // Src1 
   }
 
   // def rc : ;
@@ -749,7 +750,9 @@ multiclass LDG<RegisterClass RC, int Width> {
                        "LDG."#Width#" \t$dst, [$ptr];",
                        [],
                        Width> {
-    let Inst{20-17} = 0x7; // predicate: PT 
+    let Inst{19-17} = 0x7; // predicate: PT 
+    // TODO: this is just a quick fix. But we should modify GASSInstLdst
+    let Inst{103-96} = 0; // Src1 
   }
 
   def ri : GASSInstLdstGlobalOff<(outs RC:$dst),
@@ -758,7 +761,8 @@ multiclass LDG<RegisterClass RC, int Width> {
                     "LDG."#Width#" \t$dst, [$ptr+$offset];",
                     [],
                     Width> {
-    let Inst{20-17} = 0x7; // predicate: PT
+    let Inst{19-17} = 0x7; // predicate: PT
+    let Inst{103-96} = 0; // Src1 
   }
 }
 }
@@ -792,14 +796,18 @@ multiclass STG<RegisterClass RC, int Width> {
                        0x386,
                        "STG."#Width#" \t[$ptr], $src1;",
                        [],
-                       Width>;
+                       Width> {
+    let Inst{87-80} = 0; // Dst
+  }
   
   def ri : GASSInstLdstGlobalOff<(outs),
                         (ins RC:$src1, VReg64:$ptr, i16imm:$offset),
                         0x386,
                         "STG."#Width#" \t[$ptr+$offset], $src1;",
                         [],
-                        Width>;
+                        Width> {
+    let Inst{87-80} = 0; // Dst
+  }
 }
 
 defm STG32 : STG<VReg32, 32>, Sched<[WriteST]>;
@@ -936,9 +944,7 @@ def EXIT : GASSInst<(outs), (ins), 0x94d, "EXIT;", [(GASSexit)]>,
 }
 
 def NOP : GASSInst<(outs), (ins), 0x918, "NOP;", []>,
-          Sched<[WriteINT]> { // maybe @llvm.donothing()
-  let Inst{26-23} = 0x7; // predicate PT
-}
+          Sched<[WriteINT]> ;
 
 //=--------------------------------=//
 // Read Special Registers

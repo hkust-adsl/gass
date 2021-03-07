@@ -1,3 +1,8 @@
+//=--------------------------------------------------------------------------=//
+// This Pass has following responsibilities:
+// 1. lower rem&div to other instrs
+//
+//=--------------------------------------------------------------------------=//
 #include "GASS.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Instruction.h"
@@ -74,7 +79,6 @@ bool GASSCodeGenPrepare::runOnFunction(Function &F) {
     }
   }
 
-  F.dump();
 
   return MadeChange;
 }

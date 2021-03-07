@@ -155,6 +155,7 @@ void GASSAsmPrinter::generateNvInfoModule(MachineFunction &MF) {
       MaxReg = Reg;
   }
   MaxReg -= GASS::VGPR0;
+  MaxReg += 2; // We need 2 more regs?
   while (MaxReg % 8 != 0) 
     ++MaxReg;
   //=------------------------------------------------------------------------=//
@@ -374,7 +375,9 @@ void GASSAsmPrinter::emitTailingInstructions() {
 
   // Padding with NOPs
   while (CurrentOffset % 128 != 0) {
-    EmitToStreamer(*OutStreamer, MCInstBuilder(GASS::NOP).addReg(GASS::PT));
+    MCInst &PaddingNOP = MCInstBuilder(GASS::NOP).addReg(GASS::PT);
+    PaddingNOP.setFlags(0xfc000);
+    EmitToStreamer(*OutStreamer, PaddingNOP);
     CurrentOffset += 16;
   }
 }

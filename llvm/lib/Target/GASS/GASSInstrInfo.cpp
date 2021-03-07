@@ -396,7 +396,14 @@ bool GASSInstrInfo::isSTG(const MachineInstr &MI) {
 }
 
 bool GASSInstrInfo::isSTS(const MachineInstr &MI) {
-  // TODO: fill this.
+  switch (MI.getOpcode()) {
+  default:
+    break;
+  case GASS::STS32r: case GASS::STS32ri:
+  case GASS::STS64r: case GASS::STS64ri:
+  case GASS::STS128r: case GASS::STS128ri:
+    return true;
+  }
   return false;
 }
 
@@ -405,9 +412,12 @@ MachineOperand* GASSInstrInfo::getMemOperandReg(MachineInstr &MI) {
   switch (MI.getOpcode()) {
   default: return Ret;
   case GASS::LDG32r: case GASS::LDG32ri:
+  case GASS::LDG64r: case GASS::LDG64ri:
+  case GASS::LDG128r: case GASS::LDG128ri:
     return &MI.getOperand(1);
   case GASS::STG32r: case GASS::STG32ri:
   case GASS::STG64r: case GASS::STG64ri:
+  case GASS::STG128r: case GASS::STG128ri:
     return &MI.getOperand(0);
   }
 }

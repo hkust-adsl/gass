@@ -42,9 +42,8 @@ bool GASSStallSetting::runOnMachineFunction(MachineFunction &MF) {
     std::map<Register*, unsigned> ActivateRegs;
     for (auto iter = MBB.begin(); iter != MBB.end(); ++iter) {
       MachineInstr &MI = *iter;
-      unsigned Stalls = 1; // minimum stall cycle: 1
-
-      // MI.dump();
+      // minimum stall cycle: 2 (Maybe we can change this to 1?)
+      unsigned Stalls = 2; 
 
       // TODO: use enums to interpret TSFlags
       bool IsFixedLat = MI.getDesc().TSFlags & 1;
@@ -56,7 +55,11 @@ bool GASSStallSetting::runOnMachineFunction(MachineFunction &MF) {
           if (MOP.isReg()) {
             // We don't consider WAW here (why?)
             Register Reg = MOP.getReg();
-            ActivateRegs.insert({&Reg, Lat});
+            // Update
+            if (ActivateRegs.find(&Reg) == ActivateRegs.end()) 
+              ActivateRegs[&Reg] = Lat;
+            else
+              ActivateRegs[&Reg] = std::max(ActivateRegs[&Reg], Lat);
           }
         }
       } else {
@@ -72,7 +75,7 @@ bool GASSStallSetting::runOnMachineFunction(MachineFunction &MF) {
           Register *ARegs = x.first;
           unsigned ALat = x.second;
 
-          for(const MachineOperand &MOP : next_iter->operands()) {
+          for(const MachineOperand &MOP : next_iter->uses()) {
             if (MOP.isReg()) 
               if (GRI->regsOverlap(MOP.getReg(), *ARegs))
                 Stalls = std::max(ALat, Stalls);

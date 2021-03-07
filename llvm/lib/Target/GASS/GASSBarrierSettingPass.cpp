@@ -476,11 +476,19 @@ getScanRange(MachineBasicBlock &MBB, MachineBasicBlock::iterator iter) {
   for (auto I = iter; I != MBB.end(); ++I)
     Res.push_back(&*I);
 
+  // Terminator MBB
+  if (MBB.succ_size() == 0)
+    return Res;
+
   // If MBB doesn't end with branch & only one successor, add instr in the succ
   if (!MBB.getLastNonDebugInstr()->isBranch()) {
     assert(MBB.succ_size() == 1);
-    for (MachineInstr &I : **MBB.succ_begin())
+    for (MachineInstr &I : **MBB.succ_begin()) {
+      // TODO: change this to predicated instr
+      if (I.isBranch())
+        break; // Do not let BRA wait.
       Res.push_back(&I);
+    }
   }
   return Res;
 }
@@ -530,20 +538,26 @@ void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
     }
 
     // Check WAR dependency
+    // Debug
+    continue;
     if (MachineOperand *BSrc = GII->getMemOperandReg(MI)) {
       SlotIndex SIStart = LIS->getInstructionIndex(MI);
 
       // if current instr writes to it, we don't need to care about that
-      auto war_iter = iter;
-      ++war_iter;
-      for (; war_iter != MBB.end(); ++war_iter) {
-        for (MachineOperand &Def : war_iter->defs()) {
-          if (Def.isReg()) {
-            if (GRI->regsOverlap(BSrc->getReg(), Def.getReg())) {
-              SlotIndex SIEnd = LIS->getInstructionIndex(*war_iter);
-              Barriers.emplace_back(MI, SIStart, SIEnd, true, LIS, GII);
-              goto TheEnd; // double break
-            }
+      std::vector<MachineInstr *> ScanRange = getScanRange(MBB, 
+                                                           std::next(iter));
+      for (MachineInstr *probe : ScanRange) {
+        // The last inst must wait on this.
+        if (probe == ScanRange.back()) {
+            SlotIndex SIEnd = LIS->getInstructionIndex(*probe);
+            Barriers.emplace_back(MI, SIStart, SIEnd, true, LIS, GII);
+            break;
+        }
+        for (MachineOperand &Def : probe->defs()) {
+          if (Def.isReg() && GRI->regsOverlap(BSrc->getReg(), Def.getReg())) {
+            SlotIndex SIEnd = LIS->getInstructionIndex(*probe);
+            Barriers.emplace_back(MI, SIStart, SIEnd, true, LIS, GII);
+            goto TheEnd; // double break
           }
         }
       }

@@ -22,7 +22,7 @@ let SchedModel = SM70Model in {
 
 def : WriteRes<WriteINT, [SM70UnitALU]> { let Latency = 5; }
 def : WriteRes<WriteISETP, [SM70UnitALU]> { let Latency = 12; }
-def : WriteRes<WriteFP32, [SM70UnitFP32ALU]> { let Latency = 4; }
+def : WriteRes<WriteFP32, [SM70UnitFP32ALU]> { let Latency = 5; }
 def : WriteRes<WriteFP64, [SM70UnitFP64ALU]> { let Latency = 8; }
 def : WriteRes<WriteLD, [SM70UnitLDST]> { let Latency = 20; }
 def : WriteRes<WriteST, [SM70UnitLDST]> { let Latency = 20; }
