@@ -16,7 +16,7 @@ class GASSSubtarget : public GASSGenSubtargetInfo {
   GASSTargetLowering TLInfo;
   GASSFrameLowering FrameLowering;
 
-  unsigned SmVersion;
+  unsigned SmVersion = 70;
 
 public:
   GASSSubtarget(const Triple &TT, StringRef CPU, StringRef FS, 
