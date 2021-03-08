@@ -508,21 +508,31 @@ void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
     // TODO: get rid of this.
     // Provide default flag encoding
     GII->initializeFlagsEncoding(MI);
+    // outs() << "\n\nScan:\n";
+    // MI.dump();
 
     // Check RAW dependency
     if (GII->isLoad(MI)) {
+      // outs() << "isLoad, scan downward\n";
       // Check all defs (dsts) of load (requires RAW barriers)
       for (MachineOperand const &Def : MI.defs()) {
         if (Def.isReg()) {
           std::vector<MachineInstr *> ScanRange = getScanRange(MBB, iter);
           for (MachineInstr *probe : ScanRange) {
+            // outs() << "Checking:\n";
+            // probe->dump();
             for (MachineOperand const &Use : probe->explicit_uses()) {
               if ((Use.isReg() && GRI->regsOverlap(Use.getReg(), Def.getReg())) 
                   || probe == ScanRange.back()) {
                 // The last instr needs to catch all dependency
                 SlotIndex Start = LIS->getInstructionIndex(MI);
                 SlotIndex End = LIS->getInstructionIndex(*probe);
-                assert(Start != End);
+                if (Start == End) {
+                  outs() << "Start == End is incorrect.\n";
+                  MI.dump();
+                  probe->dump();
+                  llvm_unreachable("Start == End is incorrect.");
+                }
                 // TODO: maybe we can record which operand to wait on.
                 Barriers.emplace_back(MI, Start, End, false, LIS, GII);
                 // Triple break
@@ -540,8 +550,6 @@ void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
     }
 
     // Check WAR dependency
-    // Debug
-    continue;
     if (MachineOperand *BSrc = GII->getMemOperandReg(MI)) {
       SlotIndex SIStart = LIS->getInstructionIndex(MI);
 

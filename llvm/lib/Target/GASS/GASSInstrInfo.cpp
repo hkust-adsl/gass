@@ -8,6 +8,8 @@
 
 using namespace llvm;
 
+#define DEBUG_TYPE "gass-instr-info"
+
 #define GET_INSTRINFO_CTOR_DTOR
 #include "GASSGenInstrInfo.inc"
 
@@ -125,7 +127,7 @@ GASSInstrInfo::reverseBranchCondition(
     SmallVectorImpl<MachineOperand> &Cond) const {
   // llvm_unreachable("Not implemented");
   // TODO: fill this.
-  outs() << "Fail to reverse branch.\n";
+  LLVM_DEBUG(dbgs() << "Fail to reverse branch.\n");
   return true;
 }
 
@@ -205,9 +207,9 @@ unsigned GASSInstrInfo::insertBranch(MachineBasicBlock &MBB,
 /// Helper function for LOP3, immLut generator
 static char makeLop3Lut(std::function<char(char, char)> fab, 
                         std::function<char(char, char)> fbc) {
-  char TA = 0xF0;
-  char TB = 0xCC;
-  char TC = 0xAA;
+  uint8_t TA = 0xF0;
+  uint8_t TB = 0xCC;
+  uint8_t TC = 0xAA;
   
   return fbc(fab(TA, TB), TC);
 }
@@ -419,7 +421,7 @@ bool GASSInstrInfo::isLDG(const MachineInstr &MI) {
 bool GASSInstrInfo::isLDS(const MachineInstr &MI) {
   // TODO: fill this.
   switch (MI.getOpcode()) {
-  default: break;
+  default: return false;
   case GASS::READ_TID_X: case GASS::READ_TID_Y: case GASS::READ_TID_Z:
   case GASS::READ_CTAID_X: case GASS::READ_CTAID_Y: case GASS::READ_CTAID_Z:
   case GASS::READ_LANEID:
@@ -428,12 +430,11 @@ bool GASSInstrInfo::isLDS(const MachineInstr &MI) {
   case GASS::LDS128r: case GASS::LDS128ri:
     return true;
   }
-  return false;
 }
 
 bool GASSInstrInfo::isLDC(const MachineInstr &MI) {
   switch (MI.getOpcode()) {
-  default: break;
+  default: return false;
   case GASS::LDC32c: case GASS::LDC64c:
     return true;
   }
