@@ -4,6 +4,7 @@
 #include "GASSSubtarget.h"
 #include "MCTargetDesc/GASSMCTargetDesc.h"
 #include "llvm/Support/ErrorHandling.h"
+#include <functional>
 
 using namespace llvm;
 
@@ -201,6 +202,16 @@ unsigned GASSInstrInfo::insertBranch(MachineBasicBlock &MBB,
   return 2;
 }
 
+/// Helper function for LOP3, immLut generator
+static char makeLop3Lut(std::function<char(char, char)> fab, 
+                        std::function<char(char, char)> fbc) {
+  char TA = 0xF0;
+  char TB = 0xCC;
+  char TC = 0xAA;
+  
+  return fbc(fab(TA, TB), TC);
+}
+
 // Expand pseudo instrucitons
 // IMUL, IADD64, SEXT
 bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
@@ -214,7 +225,13 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   switch (Opc){
   default: return false;
   case GASS::IMULrr: { 
-    llvm_unreachable("Not implemented");
+    Register Dst = MI.getOperand(0).getReg();
+    MachineOperand &PredMask = MI.getOperand(3);
+    BuildMI(MBB, MI, DL, get(GASS::IMAD_S32rrr), Dst)
+      .add(MI.getOperand(1))
+      .add(MI.getOperand(2))
+      .addReg(GASS::RZ32)
+      .add(PredMask);
   } break;
   case GASS::IMUL_WIDErr: {
     llvm_unreachable("Not implemented");
@@ -224,13 +241,52 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     BuildMI(MBB, MI, DL, get(GASS::IMAD_S32_WIDErir), Dst)
       .add(MI.getOperand(1))
       .add(MI.getOperand(2))
-      .addReg(GASS::RZ64);
+      .addReg(GASS::RZ64)
+      .add(MI.getOperand(3)); // PredMask
   } break;
-  case GASS::OR1rr: case GASS::OR1ri: case GASS::OR32rr: case GASS::OR32ri:
-  case GASS::XOR1rr: case GASS::XOR1ri: case GASS::XOR32rr: case GASS::XOR32ri:
-  case GASS::AND1rr: case GASS::AND1ri: case GASS::AND32rr: case GASS::AND32ri:
+  case GASS::OR1rr: case GASS::OR1ri: 
+  case GASS::XOR1rr: case GASS::XOR1ri: 
+  case GASS::AND1rr: case GASS::AND1ri: 
   {
     llvm_unreachable("Not implemented");
+    // OR,XOR,AND -> LOP3
+  } break;
+  case GASS::OR32rr: case GASS::OR32ri:
+  case GASS::XOR32rr: case GASS::XOR32ri:
+  case GASS::AND32rr: case GASS::AND32ri: {
+    // Note: LOP3.LUT $dst, $src0, $src1, $src2, $immLut;
+    Register Dst = MI.getOperand(0).getReg();
+    MachineOperand &PredMask = MI.getOperand(3);
+    unsigned Opcode;
+    switch (Opc) {
+    llvm_unreachable("Shouldn't be here");
+    case GASS::OR32rr: case GASS::XOR32rr: case GASS::AND32rr:
+      Opcode = GASS::LOP3rir; 
+      break;
+    case GASS::OR32ri: case GASS::XOR32ri: case GASS::AND32ri:
+      Opcode = GASS::LOP3rir;
+      break;
+    }
+    
+    char ImmLut = 0;
+    // OR -> LOP3 
+    // a or b; --> a or b or rz;
+    ImmLut = makeLop3Lut(std::bit_or<char>(), std::bit_or<char>());
+
+    // XOR -> LOP3
+    // a xor b; --> a xor b or rz;
+    ImmLut = makeLop3Lut(std::bit_xor<char>(), std::bit_or<char>());
+
+    // AND -> LOP3
+    // a and b; --> a and b or rz;
+    ImmLut = makeLop3Lut(std::bit_and<char>(), std::bit_or<char>());
+
+    BuildMI(MBB, MI, DL, get(Opcode), Dst)
+      .add(MI.getOperand(1))
+      .add(MI.getOperand(2))
+      .addReg(GASS::RZ32)
+      .addImm(ImmLut)
+      .add(PredMask);
   } break;
   case GASS::SHL64rr: case GASS::SHL64ri: {
     // SHL64 $dst, $src, $amt;

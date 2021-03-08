@@ -60,6 +60,8 @@ enum BarrierType {
   WAR_MEM,
 };
 
+
+// TODO: better to query subtarget
 constexpr unsigned kNumBarriers = 6;
 
 namespace {

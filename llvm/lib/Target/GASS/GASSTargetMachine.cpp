@@ -92,6 +92,9 @@ void GASSPassConfig::addIRPasses() {
 
   addPass(createGASSCodeGenPreparePass());
   addPass(createLoadStoreVectorizerPass());
+  // Following the practice in AArch64
+  // TODO: disable it for now.
+  // addPass(createLICMPass());
 }
 
 bool GASSPassConfig::addInstSelector() {
@@ -136,7 +139,10 @@ void GASSPassConfig::addPreSched2() {
 
 // NVGPU specific passes
 void GASSPassConfig::addPreEmitPass() {
+  // This pass changes IMPLICT_DEF to NOP
   addPass(createGASSPreEmitPreparePass());
+  // Debug pass
+  // addPass(createGASSMachineFunctionCFGPrinterPass());
   addPass(createGASSBarrierSettingPass());
-  // addPass(createGASSStallSettingPass());
+  // StallSetting here (called by GASSAsmPrinter)
 }

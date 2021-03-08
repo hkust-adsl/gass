@@ -213,24 +213,19 @@ defm SUB : SUB, Sched<[WriteINT]>;
 
 // IMUL
 // Pseudo instruction
-let isPseudo = true in {
 multiclass IMUL {
-  def rr : GASSInst<(outs VReg32:$dst),
+  def rr : GASSPseudoInst<(outs VReg32:$dst),
                     (ins VReg32:$src0, VReg32:$src1),
-                    0x0, "", 
                     [(set i32:$dst, (mul i32:$src0, i32:$src1))]>;
 
-  def _WIDErr : GASSInst<(outs VReg64:$dst),
+  def _WIDErr : GASSPseudoInst<(outs VReg64:$dst),
                          (ins VReg32:$src0, VReg32:$src1),
-                         0x0, "",
                          []>;
 
-  def _WIDEri : GASSInst<(outs VReg64:$dst),
+  def _WIDEri : GASSPseudoInst<(outs VReg64:$dst),
                          (ins VReg32:$src0, i32imm:$src1),
-                         0x0, "",
                          []>;
 }
-} // isPseudo = true
 defm IMUL : IMUL, Sched<[WriteINT]>;
 
 // IMAD
@@ -315,21 +310,21 @@ defm SHF : SHF, Sched<[WriteINT]>;
 // LOP3
 //   LOP3 $dst, $src1, $src2, $src3, $immLut;
 multiclass LOP3 {
-  def rrr : GASSInst<(outs VReg32:$dst),
+  def rrr : GASSInstOp3rrr<(outs VReg32:$dst),
                      (ins VReg32:$src0, VReg32:$src1, VReg32:$src2, 
                           i8imm:$immLut),
                      0x212,
                      "LOP3.LUT $dst, $src0, $src1, $src2, $immLut;",
                      []>;
 
-  def rri : GASSInst<(outs VReg32:$dst),
+  def rri : GASSInstOp3rri<(outs VReg32:$dst),
                      (ins VReg32:$src0, VReg32:$src1, i32imm:$src2,
                           i8imm:$immLut),
                      0x412,
                      "LOP3.LUT $dst, $src0, $src1, $src2, $immLut;",
                      []>;
 
-  def rir : GASSInst<(outs VReg32:$dst),
+  def rir : GASSInstOp3rir<(outs VReg32:$dst),
                      (ins VReg32:$src0, i32imm:$src1, VReg32:$src2,
                           i8imm:$immLut),
                      0x812,
