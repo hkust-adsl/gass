@@ -35,6 +35,8 @@ GASSTargetMachine::GASSTargetMachine(const Target &T, const Triple &TT,
                         getEffectiveCodeModel(CM, CodeModel::Small), OL),
       TLOF(std::make_unique<GASSTargetObjectFile>()),
       Subtarget(std::make_unique<GASSSubtarget>(TT, CPU, FS, *this)) {
+  // TODO: check this.
+  setRequiresStructuredCFG(true);
   initAsmInfo(); // What does this do?
 }
 
