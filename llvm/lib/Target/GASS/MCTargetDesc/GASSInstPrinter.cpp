@@ -83,6 +83,18 @@ void GASSInstPrinter::printCmpMode(const MCInst *MI,
   }
 }
 
+void GASSInstPrinter::printCmpModeSign(const MCInst *MI, 
+                                       unsigned OpNo, raw_ostream &O) {
+  const MCOperand &Op = MI->getOperand(OpNo);
+
+  unsigned Value = Op.getImm();
+  switch (Value) {
+  default:  llvm_unreachable("Invalid Cmp Sign");
+  case GASS::GASSCC::CondCodeSign::U32: O << ".U32";  return;
+  case GASS::GASSCC::CondCodeSign::S32: O << ".S32";  return;
+  }
+}
+
 void GASSInstPrinter::printShflMode(const MCInst *MI, 
                                     unsigned OpNo, raw_ostream &O) {
   const MCOperand &Op = MI->getOperand(OpNo);

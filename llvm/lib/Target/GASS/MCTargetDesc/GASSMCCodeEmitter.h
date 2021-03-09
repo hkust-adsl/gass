@@ -32,10 +32,15 @@ public:
                          APInt &Op,
                          SmallVectorImpl<MCFixup> &Fixups,
                          const MCSubtargetInfo &STI) const;
-  
+
+  /// SETP{.EQ|.NE|.LT|.LE|.GT|.GE}
   void encodeCmpMode(const MCInst &MI, unsigned OpIdx, APInt &Op, 
                      SmallVectorImpl<MCFixup> &Fixups,
                      const MCSubtargetInfo &STI) const;
+  /// SETP{.U32|.S32}
+  void encodeCmpModeSign(const MCInst &MI, unsigned OpIdx, APInt &Op, 
+                         SmallVectorImpl<MCFixup> &Fixups,
+                         const MCSubtargetInfo &STI) const;  
 
   /// SHF.{.L|.R}
   void encodeShiftDir(const MCInst &MI, unsigned OpIdx, APInt &Op, 

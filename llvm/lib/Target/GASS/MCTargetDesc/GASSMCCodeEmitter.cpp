@@ -73,25 +73,29 @@ void GASSMCCodeEmitter::encodeCmpMode(const MCInst &MI, unsigned int OpIdx,
 
   switch (MO.getImm()) {
   default: llvm_unreachable("Invalid cmp mode");
-  case GASS::GASSCC::EQ: 
-    Enc = 2;
-    break;
-  case GASS::GASSCC::NE:
-    Enc = 5;
-    break;
-  case GASS::GASSCC::LT:
-    Enc = 1;
-    break;
-  case GASS::GASSCC::LE:
-    Enc = 3;
-    break;
-  case GASS::GASSCC::GT:
-    Enc = 4;
-    break;
-  case GASS::GASSCC::GE:
-    Enc = 6;
-    break;
-  // TODO: EQU, NEU, ...
+  case GASS::GASSCC::EQ: Enc = 2; break;
+  case GASS::GASSCC::NE: Enc = 5; break;
+  case GASS::GASSCC::LT: Enc = 1; break;
+  case GASS::GASSCC::LE: Enc = 3; break;
+  case GASS::GASSCC::GT: Enc = 4; break;
+  case GASS::GASSCC::GE: Enc = 6; break;
+  }
+
+  Op = Enc;
+}
+
+void GASSMCCodeEmitter::encodeCmpModeSign(const MCInst &MI, unsigned int OpIdx, 
+                                          APInt &Op, 
+                                          SmallVectorImpl<MCFixup> &Fixups, 
+                                          const MCSubtargetInfo &STI) const {
+  APInt Enc(1, 0);
+  const MCOperand &MO = MI.getOperand(OpIdx);
+  assert(MO.isImm());
+
+  switch (MO.getImm()) {
+  default: llvm_unreachable("Invalid cmp mode sign");
+  case GASS::GASSCC::U32: Enc = 0; break;
+  case GASS::GASSCC::S32: Enc = 1; break;
   }
 
   Op = Enc;

@@ -77,6 +77,11 @@ enum CondCode {
   HI,
   HS,
 };
+
+enum CondCodeSign {
+  U32 = 0,
+  S32 = 1,
+};
 } // namespace GASSCC
 
 namespace SHF_FLAGS {
