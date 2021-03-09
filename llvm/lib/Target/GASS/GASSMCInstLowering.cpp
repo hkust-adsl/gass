@@ -55,8 +55,8 @@ void GASSMCInstLower::lowerToMCOperand(const MachineOperand &MO,
   case MachineOperand::MO_MachineBasicBlock:
     // Encode BrOffset here
     // TODO: how about JMP?
-    // relative offset (18-bit signed)
     // TODO: should query TII
+    // TODO: should be MCExpr (use MCFixup for CodeEmitter)
     uint64_t SrcOffset = MIOffsets->lookup(MO.getParent()) + 16;
     uint64_t DstOffset = MBBOffsets->lookup(MO.getMBB());
     uint64_t BrOffset = DstOffset - SrcOffset;

@@ -15,7 +15,28 @@ void GASSMCCodeEmitter::encodeInstruction(const MCInst &MI, raw_ostream &OS,
                                           const MCSubtargetInfo &STI) const {
   APInt Inst(128, 0);
   APInt Scratch(128, 0); // for op
+
   getBinaryCodeForInstr(MI, Fixups, Inst, Scratch, STI);
+
+  // Update encoding for specific rules
+  // FIXME FIXME FIXME: should really use MCExpr here.
+  if (MI.getOpcode() == GASS::BRA || MI.getOpcode() == GASS::CBRA) {
+    const MCOperand *MOOffset = nullptr;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Error");
+    case GASS::BRA:
+      MOOffset = &MI.getOperand(0);
+      break;
+    case GASS::CBRA:
+      MOOffset = &MI.getOperand(1);
+      break;
+    }
+    assert(MOOffset->isImm());
+    uint64_t Offset = MOOffset->getImm();
+
+    if (Offset >= 0x80000000) // negtive offset
+      Inst.insertBits(0x3ffff, 0, 18);
+  }
   // Add control info
   uint64_t enc0 = Inst.getRawData()[1];
   uint64_t enc1 = Inst.getRawData()[0];
