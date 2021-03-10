@@ -17,8 +17,14 @@ GASSTargetLowering::GASSTargetLowering(const TargetMachine &TM,
   addRegisterClass(MVT::i1,  &GASS::VReg1RegClass);
   addRegisterClass(MVT::i32, &GASS::VReg32RegClass);
   addRegisterClass(MVT::f32, &GASS::VReg32RegClass);
+
   addRegisterClass(MVT::i64, &GASS::VReg64RegClass);
   addRegisterClass(MVT::f64, &GASS::VReg64RegClass);
+  // Vector types
+  addRegisterClass(MVT::v2f16, &GASS::VReg32RegClass);
+  addRegisterClass(MVT::v4f16, &GASS::VReg64RegClass);
+  addRegisterClass(MVT::v8f16, &GASS::VReg128RegClass);
+  addRegisterClass(MVT::v2f32, &GASS::VReg64RegClass);
   addRegisterClass(MVT::v4f32, &GASS::VReg128RegClass);
   
   // ConstantFP are legal in GASS (*Must*, otherwise will be expanded to 
