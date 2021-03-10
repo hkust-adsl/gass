@@ -55,7 +55,7 @@ enum AddressSpace : unsigned {
 
 // SETCC
 namespace GASSCC {
-enum CondCode {
+enum CondCode : unsigned {
   EQ = 0,
   NE = 1,
   LT = 2,
@@ -78,7 +78,7 @@ enum CondCode {
   HS,
 };
 
-enum CondCodeSign {
+enum CondCodeSign : unsigned {
   U32 = 0,
   S32 = 1,
 };

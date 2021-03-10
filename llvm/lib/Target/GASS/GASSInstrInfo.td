@@ -24,7 +24,7 @@ def CmpMode : Operand<i32> {
   let EncoderMethod = "encodeCmpMode";
 }
 
-def CmpModeSign : Operand<i1> {
+def CmpModeSign : Operand<i32> {
   let PrintMethod = "printCmpModeSign";
   let EncoderMethod = "encodeCmpModeSign";
 }
@@ -78,8 +78,8 @@ def CmpGEU  : PatLeaf<(i32 15)>;
 def CmpNUM  : PatLeaf<(i32 16)>;
 def CmpNAN  : PatLeaf<(i32 17)>;
 // Sign of *SETP
-def CmpU : PatLeaf<(i1 0)>;
-def CmpS : PatLeaf<(i1 1)>;
+def CmpU : PatLeaf<(i32 0)>;
+def CmpS : PatLeaf<(i32 1)>;
 
 //=---------------------------------=//
 // Integer

@@ -61,6 +61,9 @@ GASSTargetLowering::GASSTargetLowering(const TargetMachine &TM,
   // setOperationAction(ISD::INSERT_VECTOR_ELT, MVT::v4f32, Legal);
   // setOperationAction(ISD::VECTOR_SHUFFLE, MVT::v4f32, Legal);
   // setOperationAction(ISD::CONCAT_VECTORS, MVT::v4f32, Legal);
+  // setOperationAction(ISD::BUILD_VECTOR, MVT::v2f16, Custom);
+  // setOperationAction(ISD::BUILD_VECTOR, MVT::v4f16, Custom);
+  // setOperationAction(ISD::BUILD_VECTOR, MVT::v8f16, Custom);
 
   computeRegisterProperties(Subtarget.getRegisterInfo());
 }
@@ -181,6 +184,22 @@ GASSTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
 //=--------------------------------------=//
 // Custom lowering
 //=--------------------------------------=//
+// SDValue 
+// GASSTargetLowering::lowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const {
+//   // BUILD_VECTOR
+//   // for v2f16, v4f16, v8f16
+//   // Res = BUILD_VECTOR ConstantFP:f16<APFloat(0)>, ....
+//   //   ===>
+//   // ???
+//   MVT VT = Op.getSimpleValueType();
+//   if (VT != MVT::v2f16 && VT != MVT::v4f16 && MVT != MVT::v8f16)
+//     return Op;
+  
+//   unsigned NumVectorElts = VT.getVectorNumElements();
+
+
+// }
+
 SDValue
 GASSTargetLowering::lowerAddrSpaceCast(SDValue Op, SelectionDAG &DAG) const {
   SDLoc dl(Op);
