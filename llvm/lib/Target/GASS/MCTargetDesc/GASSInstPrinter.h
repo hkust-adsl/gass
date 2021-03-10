@@ -33,6 +33,7 @@ private:
   void printRegOperand(unsigned RegNo, raw_ostream &O);
   void printConstantMem(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printCmpMode(const MCInst *MI, unsigned OpNo, raw_ostream &O);
+  void printCmpModeSign(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printShflMode(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printPredicateOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printPredicateSign(const MCInst *MI, unsigned OpNo, raw_ostream &O);

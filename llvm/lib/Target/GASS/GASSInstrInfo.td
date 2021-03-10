@@ -24,6 +24,11 @@ def CmpMode : Operand<i32> {
   let EncoderMethod = "encodeCmpMode";
 }
 
+def CmpModeSign : Operand<i1> {
+  let PrintMethod = "printCmpModeSign";
+  let EncoderMethod = "encodeCmpModeSign";
+}
+
 // .xor .or .and
 def BoolMode : Operand<i32> {
   let PrintMethod = "printBoolMode";
@@ -72,6 +77,9 @@ def CmpGTU  : PatLeaf<(i32 14)>;
 def CmpGEU  : PatLeaf<(i32 15)>;
 def CmpNUM  : PatLeaf<(i32 16)>;
 def CmpNAN  : PatLeaf<(i32 17)>;
+// Sign of *SETP
+def CmpU : PatLeaf<(i1 0)>;
+def CmpS : PatLeaf<(i1 1)>;
 
 //=---------------------------------=//
 // Integer
@@ -577,34 +585,38 @@ defm HMUL2 : HMUL2<VReg32, 0x232>, Sched<[WriteFP32]>;
 multiclass SETP<string OpcStr, RegisterClass RC, Operand ImmCls,
                 bits<12> rrEnc, bits<12> riEnc> {
   def rr : GASSInstOp2rr<(outs VReg1:$pdst), // TODO: 2 dsts (no?)
-                          (ins RC:$src0, RC:$src1, CmpMode:$cmp),
-                          rrEnc,
-                          !strconcat(OpcStr, "$cmp \t$pdst, $src0, $src1;"),
-                          []> {
+                      (ins RC:$src0, RC:$src1, CmpMode:$cmp, CmpModeSign:$sign),
+                      rrEnc,
+                      !strconcat(OpcStr, "$cmp$sign \t$pdst, $src0, $src1;"),
+                      []> {
     let dst = 0; // no $dst
     bits<3> pdst;
     bits<3> cmp;
+    bit sign;
     
     let Inst{19-17} = pdst;
     let Inst{22-20} = 0x7; // pdst1
     let Inst{14-12} = cmp;
+    let Inst{9} = sign;
 
     let Inst{25-23} = 0x7; // ps0 (PT)
     let Inst{6-4} = 0x7; // ?
   }
 
   def ri : GASSInstOp2ri<(outs VReg1:$pdst),
-                          (ins RC:$src0, ImmCls:$src1, CmpMode:$cmp),
-                          riEnc,
-                          !strconcat(OpcStr, "$cmp \t$pdst, $src0, $src1"),
-                          []> {
+                  (ins RC:$src0, ImmCls:$src1, CmpMode:$cmp, CmpModeSign:$sign),
+                  riEnc,
+                  !strconcat(OpcStr, "$cmp$sign \t$pdst, $src0, $src1;"),
+                  []> {
     let dst = 0;
     bits<3> pdst;
     bits<3> cmp;
+    bit sign;
     
     let Inst{19-17} = pdst;
     let Inst{22-20} = 0x7; // pdst1
     let Inst{14-12} = cmp;
+    let Inst{9} = sign;
 
     let Inst{25-23} = 0x7; // ps0 (PT)
     let Inst{6-4} = 0x7; // ?
@@ -613,18 +625,33 @@ multiclass SETP<string OpcStr, RegisterClass RC, Operand ImmCls,
 defm ISETP : SETP<"ISETP", VReg32, i32imm, 0x20c, 0x40c>, Sched<[WriteISETP]>;
 
 // Patterns
-def : Pat<(i1 (seteq i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpEQ)>;
-def : Pat<(i1 (seteq i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpEQ)>;
-def : Pat<(i1 (setne i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpNE)>;
-def : Pat<(i1 (setne i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpNE)>;
-def : Pat<(i1 (setlt i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpLT)>;
-def : Pat<(i1 (setlt i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpLT)>;
-def : Pat<(i1 (setle i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpLE)>;
-def : Pat<(i1 (setle i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpLE)>;
-def : Pat<(i1 (setgt i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpGT)>;
-def : Pat<(i1 (setgt i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpGT)>;
-def : Pat<(i1 (setge i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpGE)>;
-def : Pat<(i1 (setge i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpGE)>;
+// unsigned compare
+def : Pat<(i1 (setueq i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpEQ, CmpU)>;
+def : Pat<(i1 (setueq i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpEQ, CmpU)>;
+def : Pat<(i1 (setune i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpNE, CmpU)>;
+def : Pat<(i1 (setune i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpNE, CmpU)>;
+def : Pat<(i1 (setult i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpLT, CmpU)>;
+def : Pat<(i1 (setult i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpLT, CmpU)>;
+def : Pat<(i1 (setule i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpLE, CmpU)>;
+def : Pat<(i1 (setule i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpLE, CmpU)>;
+def : Pat<(i1 (setugt i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpGT, CmpU)>;
+def : Pat<(i1 (setugt i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpGT, CmpU)>;
+def : Pat<(i1 (setuge i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpGE, CmpU)>;
+def : Pat<(i1 (setuge i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpGE, CmpU)>;
+// signed compare
+def : Pat<(i1 (seteq i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpEQ, CmpS)>;
+def : Pat<(i1 (seteq i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpEQ, CmpS)>;
+def : Pat<(i1 (setne i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpNE, CmpS)>;
+def : Pat<(i1 (setne i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpNE, CmpS)>;
+def : Pat<(i1 (setlt i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpLT, CmpS)>;
+def : Pat<(i1 (setlt i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpLT, CmpS)>;
+def : Pat<(i1 (setle i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpLE, CmpS)>;
+def : Pat<(i1 (setle i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpLE, CmpS)>;
+def : Pat<(i1 (setgt i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpGT, CmpS)>;
+def : Pat<(i1 (setgt i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpGT, CmpS)>;
+def : Pat<(i1 (setge i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpGE, CmpS)>;
+def : Pat<(i1 (setge i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpGE, CmpS)>;
+
 
 // i1 compares
 def : Pat<(setne i1:$a, i1:$b), (XOR1rr VReg1:$a, VReg1:$b)>;
