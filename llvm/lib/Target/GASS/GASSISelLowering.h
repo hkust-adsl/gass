@@ -67,6 +67,7 @@ public:
 
 private:
   // Custom lowering
+  SDValue lowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerAddrSpaceCast(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerADD64(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerCONCAT_VECTORS(SDValue Op, SelectionDAG &DAG) const;

@@ -20,12 +20,17 @@ GASSTargetLowering::GASSTargetLowering(const TargetMachine &TM,
 
   addRegisterClass(MVT::i64, &GASS::VReg64RegClass);
   addRegisterClass(MVT::f64, &GASS::VReg64RegClass);
+
+  addRegisterClass(MVT::i128, &GASS::VReg128RegClass);
   // Vector types
   addRegisterClass(MVT::v2f16, &GASS::VReg32RegClass);
   addRegisterClass(MVT::v4f16, &GASS::VReg64RegClass);
   addRegisterClass(MVT::v8f16, &GASS::VReg128RegClass);
   addRegisterClass(MVT::v2f32, &GASS::VReg64RegClass);
   addRegisterClass(MVT::v4f32, &GASS::VReg128RegClass);
+  // sub-register
+  // AMGDPU does this anyway
+  addRegisterClass(MVT::f16, &GASS::VReg32RegClass);
   
   // ConstantFP are legal in GASS (*Must*, otherwise will be expanded to 
   //                                                   load<ConstantPool>)
@@ -61,9 +66,11 @@ GASSTargetLowering::GASSTargetLowering(const TargetMachine &TM,
   // setOperationAction(ISD::INSERT_VECTOR_ELT, MVT::v4f32, Legal);
   // setOperationAction(ISD::VECTOR_SHUFFLE, MVT::v4f32, Legal);
   // setOperationAction(ISD::CONCAT_VECTORS, MVT::v4f32, Legal);
-  // setOperationAction(ISD::BUILD_VECTOR, MVT::v2f16, Custom);
-  // setOperationAction(ISD::BUILD_VECTOR, MVT::v4f16, Custom);
-  // setOperationAction(ISD::BUILD_VECTOR, MVT::v8f16, Custom);
+
+  // TODO: logic here can also be applied to v2i16, v4i16 ... v2i8 ...
+  setOperationAction(ISD::BUILD_VECTOR, MVT::v2f16, Custom);
+  setOperationAction(ISD::BUILD_VECTOR, MVT::v4f16, Custom);
+  setOperationAction(ISD::BUILD_VECTOR, MVT::v8f16, Custom);
 
   computeRegisterProperties(Subtarget.getRegisterInfo());
 }
@@ -174,6 +181,7 @@ GASSTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   switch(Op.getOpcode()) {
   default:
     llvm_unreachable("Custom lowering not defined for operation");
+  case ISD::BUILD_VECTOR: return lowerBUILD_VECTOR(Op, DAG);
   case ISD::ADDRSPACECAST: return lowerAddrSpaceCast(Op, DAG);
   case ISD::ADD: return lowerADD64(Op, DAG);
   case ISD::CONCAT_VECTORS: return lowerCONCAT_VECTORS(Op, DAG);
@@ -184,21 +192,97 @@ GASSTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
 //=--------------------------------------=//
 // Custom lowering
 //=--------------------------------------=//
-// SDValue 
-// GASSTargetLowering::lowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const {
-//   // BUILD_VECTOR
-//   // for v2f16, v4f16, v8f16
-//   // Res = BUILD_VECTOR ConstantFP:f16<APFloat(0)>, ....
-//   //   ===>
-//   // ???
-//   MVT VT = Op.getSimpleValueType();
-//   if (VT != MVT::v2f16 && VT != MVT::v4f16 && MVT != MVT::v8f16)
-//     return Op;
+SDValue 
+GASSTargetLowering::lowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const {
+  // BUILD_VECTOR
+  // for v2f16, v4f16, v8f16
+  // Res = BUILD_VECTOR ConstantFP:f16<APFloat(0)>, ....
+  //   ===>
+  // Res = BITCAST Constant;
+  MVT VT = Op.getSimpleValueType();
+  if (VT != MVT::v2f16 && 
+      VT != MVT::v4f16 && 
+      VT != MVT::v8f16)
+    return Op;
   
-//   unsigned NumVectorElts = VT.getVectorNumElements();
+  // v2f16
+  if (VT == MVT::v2f16) {
+    if (!(isa<ConstantFPSDNode>(Op.getOperand(0)) && 
+          isa<ConstantFPSDNode>(Op.getOperand(1))))
+      return Op;
+    
+    APInt E0 =
+      cast<ConstantFPSDNode>(Op->getOperand(0))->getValueAPF().bitcastToAPInt();
+    APInt E1 =
+      cast<ConstantFPSDNode>(Op->getOperand(1))->getValueAPF().bitcastToAPInt();
+    SDValue Const =
+        DAG.getConstant(E1.zext(32).shl(16) | E0.zext(32), SDLoc(Op), MVT::i32);
+    return DAG.getNode(ISD::BITCAST, SDLoc(Op), MVT::v2f16, Const);
+  }
 
+  // v4f16
+  if (VT == MVT::v4f16) {
+    if (!(isa<ConstantFPSDNode>(Op.getOperand(0)) && 
+          isa<ConstantFPSDNode>(Op.getOperand(1)) &&
+          isa<ConstantFPSDNode>(Op.getOperand(2)) &&
+          isa<ConstantFPSDNode>(Op.getOperand(3))))
+      return Op;
+    
+    APInt E0 =
+      cast<ConstantFPSDNode>(Op->getOperand(0))->getValueAPF().bitcastToAPInt();
+    APInt E1 =
+      cast<ConstantFPSDNode>(Op->getOperand(1))->getValueAPF().bitcastToAPInt();
+    APInt E2 =
+      cast<ConstantFPSDNode>(Op->getOperand(2))->getValueAPF().bitcastToAPInt();
+    APInt E3 =
+      cast<ConstantFPSDNode>(Op->getOperand(3))->getValueAPF().bitcastToAPInt();
+    SDValue Const =
+      DAG.getConstant(
+          E3.zext(64).shl(48) | E2.zext(64).shl(32) | 
+          E1.zext(64).shl(16) | E0.zext(64), SDLoc(Op), MVT::i64);
+    return DAG.getNode(ISD::BITCAST, SDLoc(Op), MVT::v4f16, Const);
+  }
 
-// }
+  // v8f16
+  if (VT == MVT::v8f16) {
+    if (!(isa<ConstantFPSDNode>(Op.getOperand(0)) && 
+          isa<ConstantFPSDNode>(Op.getOperand(1)) &&
+          isa<ConstantFPSDNode>(Op.getOperand(2)) &&
+          isa<ConstantFPSDNode>(Op.getOperand(3)) &&
+          isa<ConstantFPSDNode>(Op.getOperand(4)) && 
+          isa<ConstantFPSDNode>(Op.getOperand(5)) &&
+          isa<ConstantFPSDNode>(Op.getOperand(6)) &&
+          isa<ConstantFPSDNode>(Op.getOperand(7))))
+      return Op;
+    
+    APInt E0 =
+      cast<ConstantFPSDNode>(Op->getOperand(0))->getValueAPF().bitcastToAPInt();
+    APInt E1 =
+      cast<ConstantFPSDNode>(Op->getOperand(1))->getValueAPF().bitcastToAPInt();
+    APInt E2 =
+      cast<ConstantFPSDNode>(Op->getOperand(2))->getValueAPF().bitcastToAPInt();
+    APInt E3 =
+      cast<ConstantFPSDNode>(Op->getOperand(3))->getValueAPF().bitcastToAPInt();
+    APInt E4 =
+      cast<ConstantFPSDNode>(Op->getOperand(4))->getValueAPF().bitcastToAPInt();
+    APInt E5 =
+      cast<ConstantFPSDNode>(Op->getOperand(5))->getValueAPF().bitcastToAPInt();
+    APInt E6 =
+      cast<ConstantFPSDNode>(Op->getOperand(6))->getValueAPF().bitcastToAPInt();
+    APInt E7 =
+      cast<ConstantFPSDNode>(Op->getOperand(7))->getValueAPF().bitcastToAPInt();
+    SDValue Const =
+      DAG.getConstant(
+          E7.zext(128).shl(112) | E6.zext(128).shl(96) | 
+          E5.zext(128).shl(80) | E4.zext(128).shl(64) | 
+          E3.zext(128).shl(48) | E2.zext(128).shl(32) | 
+          E1.zext(128).shl(16) | E0.zext(128), SDLoc(Op), MVT::i128);
+    return DAG.getNode(ISD::BITCAST, SDLoc(Op), MVT::v8f16, Const);
+  }
+
+  llvm_unreachable("Shouldn't be here.");
+  return Op;
+}
 
 SDValue
 GASSTargetLowering::lowerAddrSpaceCast(SDValue Op, SelectionDAG &DAG) const {
