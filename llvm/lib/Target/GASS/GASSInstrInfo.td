@@ -490,14 +490,12 @@ multiclass FMA<string OpcStr, RegisterClass RC, Operand ImmCls, ValueType vt,
 // MUL
 multiclass MUL<string OpcStr, RegisterClass RC, Operand ImmCls, ValueType vt,
                bits<12> rrEnc, bits<12> riEnc> {
-  def rr : GASSInst<(outs RC:$dst),
-                    (ins RC:$a, RC:$b),
+  def rr : GASSInst<(outs RC:$dst), (ins RC:$a, RC:$b),
                     rrEnc,
                     !strconcat(OpcStr, " \t$dst, $a, $b;"),
                     [(set vt:$dst, (fmul vt:$a, vt:$b))]>;
   
-  def ri : GASSInst<(outs RC:$dst),
-                     (ins RC:$a, ImmCls:$b),
+  def ri : GASSInst<(outs RC:$dst), (ins RC:$a, ImmCls:$b),
                      riEnc,
                      !strconcat(OpcStr, " \t$dst, $a, $b;"),
                      [(set vt:$dst, (fmul vt:$a, fpimm:$b))]>;
@@ -506,14 +504,12 @@ multiclass MUL<string OpcStr, RegisterClass RC, Operand ImmCls, ValueType vt,
 // ADD
 multiclass ADD<string OpcStr, RegisterClass RC, Operand ImmCls, ValueType vt,
                bits<12> rrEnc, bits<12> riEnc> {
-  def rr : GASSInstOp2rr<(outs RC:$dst),
-                    (ins RC:$src0, RC:$src1),
+  def rr : GASSInstOp2rr<(outs RC:$dst), (ins RC:$src0, RC:$src1),
                     rrEnc,
                     !strconcat(OpcStr, " \t$dst, $src0, $src1;"),
                     [(set vt:$dst, (fadd vt:$src0, vt:$src1))]>;
   
-  def ri : GASSInstOp2ri<(outs RC:$dst),
-                     (ins RC:$src0, ImmCls:$src1),
+  def ri : GASSInstOp2ri<(outs RC:$dst), (ins RC:$src0, ImmCls:$src1),
                      riEnc,
                      !strconcat(OpcStr, " \t$dst, $src0, $src1;"),
                      [(set vt:$dst, (fadd vt:$src0, fpimm:$src1))]>;
@@ -549,27 +545,21 @@ def : Pat<(f64 (fadd (fmul f64:$a, fpimm:$b), f64:$c)),
 
 // half prevision
 multiclass HFMA2<RegisterClass RC, bits<12> rrrEnc> {
-  def rr : GASSInst<(outs RC:$dst), 
-                    (ins RC:$a, RC:$b, RC:$c),
-                    rrrEnc,
-                    "HFMA2 \t$dst, $a, $b, $c;",
+  def rr : GASSInst<(outs RC:$dst), (ins RC:$a, RC:$b, RC:$c),
+                    rrrEnc, "HFMA2 \t$dst, $a, $b, $c;",
                     [/*TODO*/]>;
 }
 
 multiclass HADD2<RegisterClass RC, bits<12> rrrEnc> {
-  def rr : GASSInst<(outs RC:$dst),
-                    (ins RC:$a, RC:$b),
-                    rrrEnc,
-                    "HADD2 \t$dst, $a, $b;",
+  def rr : GASSInst<(outs RC:$dst),(ins RC:$a, RC:$b),
+                    rrrEnc, "HADD2 \t$dst, $a, $b;",
                     [/*TODO*/]>;
 }
 
 multiclass HMUL2<RegisterClass RC, bits<12> rrrEnc> {
-  def rr : GASSInst<(outs RC:$dst),
-                    (ins RC:$a, RC:$b),
-                    rrrEnc,
-                    "HMUL2 \t$dst, $a, $b;",
-                    [/*TODO*/]>;
+  def rr : GASSInst<(outs RC:$dst), (ins RC:$a, RC:$b), 
+                     rrrEnc, "HMUL2 \t$dst, $a, $b;",
+                     [/*TODO*/]>;
 }
 
 defm HFMA2 : HFMA2<VReg32, 0x231>, Sched<[WriteFP32]>; // Sched<[WriteFP16x2]?
@@ -950,6 +940,12 @@ defm SHFL : SHFL, Sched<[WriteLD]>;
 // def : Pat<(i32 int_nvvm_shfl_sync_bfly_i32 ), ()>;
 // def : Pat<(f32 int_nvvm_shfl_sync_bfly_f32 ), ()>;
 
+//-------- Conversion -------------
+// Ref: PPCInstrAltivec.td
+def MOV128 : GASSPseudoInst<(outs VReg128:$dst), (ins VReg128:$src), []>, 
+             Sched<[WriteINT]>;
+def : Pat<(v8f16 (bitconvert (i128 VReg128:$src))), (MOV128 VReg128:$src)>;
+def : Pat<(v8f16 (bitconvert (i128 imm:$src))), (MOV128 imm:$src)>;
 
 
 //=---------------------------------=//

@@ -64,16 +64,22 @@ void GASSDAGToDAGISel::Select(SDNode *N) {
     SDLoc DL(N);
     EVT VT = N->getValueType(0);
     unsigned NumVectorElts = VT.getVectorNumElements();
+    unsigned VTWidth = VT.getFixedSizeInBits();
+    assert(VTWidth % 32 == 0 && "Do not know how to select this BUILD_VECTOR,"
+                                " should lower it first.");
+    // RegClass created by REG_SEQUENCE
     unsigned RegClassID;
-
-    switch(NumVectorElts) {
-    case 2: RegClassID = GASS::VReg64RegClassID; break;
-    case 4: RegClassID = GASS::VReg128RegClassID; break;
-    default: llvm_unreachable("Do not know how to lower this BUILD_VECTOR");
+    switch (VTWidth) {
+    default: llvm_unreachable("error");
+    // TODO: shouldn't be here? (32 is weird)
+    case 32: RegClassID = GASS::VReg32RegClassID; break;
+    case 64: RegClassID = GASS::VReg64RegClassID; break;
+    case 128: RegClassID = GASS::VReg128RegClassID; break;
     }
 
     SDNode *RegSeq = nullptr;
     SmallVector<SDValue, 4*2> Ops;
+    assert(VT.getScalarSizeInBits() % 32 == 0);
     Ops.push_back(CurDAG->getTargetConstant(RegClassID, DL, MVT::i32));
     for (unsigned i = 0; i < NumVectorElts; ++i) {
       unsigned Sub = 0;
@@ -93,6 +99,10 @@ void GASSDAGToDAGISel::Select(SDNode *N) {
     ReplaceNode(N, RegSeq);
     return;
   } break;
+  case ISD::EXTRACT_SUBVECTOR:
+    if (tryEXTRACT_SUBVECTOR(N))
+      return;
+    break;
   case GASSISD::LDC:
     if (tryLDC(N))
       return;
@@ -388,6 +398,87 @@ bool GASSDAGToDAGISel::tryEXTRACT_VECTOR_ELT(SDNode *N) {
                                        DL, ResultTy, Ops);
   
   ReplaceNode(N, ExtraSubReg);
+  return true;
+}
+
+bool GASSDAGToDAGISel::tryEXTRACT_SUBVECTOR(SDNode *N) {
+  // Select EXTRACT_SUBVECTOR as TargetOpcode::EXTRACT_SUBREG
+  assert(N->getOpcode() == ISD::EXTRACT_SUBVECTOR);
+
+  SDLoc DL(N);
+  SDNode *MachineNode = nullptr;
+
+  // Now cannot handle sub-reg (less than 32 bits)
+  MVT VT = N->getSimpleValueType(0);
+  assert(VT.getFixedSizeInBits() % 32 == 0 && "Cannot handle sub-reg");
+
+  SDValue Src = N->getOperand(0);
+  SDValue StartIdx = N->getOperand(1);
+  unsigned IdxValue = dyn_cast<ConstantSDNode>(StartIdx)->getSExtValue();
+
+  MVT SrcTy = Src.getSimpleValueType();
+  
+  if (SrcTy.getFixedSizeInBits() == 64) {
+    // 64-bit src    
+    llvm_unreachable("Not implemented");
+  } else if (SrcTy.getFixedSizeInBits() == 128) {
+    // 128-bit src
+    if (VT.getFixedSizeInBits() == 32) {
+      llvm_unreachable("Not implemented");
+    } else if (VT.getFixedSizeInBits() == 64) {
+      // 2 EXTRACT_SUBREG + REG_SEQUENCE
+      // (sub0, sub1) or (sub2, sub3)
+      unsigned BitsOffset = VT.getScalarSizeInBits() * IdxValue;
+      assert(BitsOffset == 0 || BitsOffset == 64);
+      // TODO: merge these two cases.
+      if (BitsOffset == 0) {
+        // sub0, sub1
+        SDValue Sub0Ops[] = 
+          {Src, CurDAG->getTargetConstant(GASS::sub0, DL, MVT::i32)};
+        SDValue Sub0 = SDValue(
+          CurDAG->getMachineNode(TargetOpcode::EXTRACT_SUBREG, DL, MVT::i32, 
+                                 Sub0Ops), 0);
+        SDValue Sub1Ops[] = 
+          {Src, CurDAG->getTargetConstant(GASS::sub1, DL, MVT::i32)};
+        SDValue Sub1 = SDValue(
+          CurDAG->getMachineNode(TargetOpcode::EXTRACT_SUBREG, DL, MVT::i32, 
+                                 Sub1Ops), 0);
+        SDValue Ops[] = 
+          {CurDAG->getTargetConstant(GASS::VReg64RegClassID, DL, MVT::i32), 
+           Sub0, 
+           CurDAG->getTargetConstant(GASS::sub0, DL, MVT::i32),
+           Sub1,
+           CurDAG->getTargetConstant(GASS::sub1, DL, MVT::i32)};
+        MachineNode = 
+          CurDAG->getMachineNode(TargetOpcode::REG_SEQUENCE, DL, N->getVTList(), 
+                                 Ops);
+      } else if (BitsOffset == 64) {
+        // sub2, sub3
+        SDValue Sub2Ops[] = 
+          {Src, CurDAG->getTargetConstant(GASS::sub2, DL, MVT::i32)};
+        SDValue Sub2 = SDValue(
+          CurDAG->getMachineNode(TargetOpcode::EXTRACT_SUBREG, DL, MVT::i32, 
+                                 Sub2Ops), 0);
+        SDValue Sub3Ops[] = 
+          {Src, CurDAG->getTargetConstant(GASS::sub3, DL, MVT::i32)};
+        SDValue Sub3 = SDValue(
+          CurDAG->getMachineNode(TargetOpcode::EXTRACT_SUBREG, DL, MVT::i32, 
+                                 Sub3Ops), 0);
+        SDValue Ops[] = 
+          {CurDAG->getTargetConstant(GASS::VReg64RegClassID, DL, MVT::i32), 
+           Sub2, 
+           CurDAG->getTargetConstant(GASS::sub2, DL, MVT::i32),
+           Sub3,
+           CurDAG->getTargetConstant(GASS::sub3, DL, MVT::i32)};
+        MachineNode = 
+          CurDAG->getMachineNode(TargetOpcode::REG_SEQUENCE, DL, N->getVTList(), 
+                                 Ops);
+      }
+    }
+  } else
+    llvm_unreachable("error");
+
+  ReplaceNode(N, MachineNode);
   return true;
 }
 

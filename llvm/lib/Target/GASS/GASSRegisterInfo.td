@@ -84,5 +84,6 @@ def VReg64 : GASSRegClass<[i64, f64, v2f32, v2i32, v4f16],
                           64, (add VReg64Tuple, RZ64)>;
 def VReg128Tuple : GASSRegTuples<[sub0, sub1, sub2, sub3], 
                                  VReg32, 255, 4, 4, "R">;
-def VReg128 : GASSRegClass<[v2i64, v2f64, v4i32, v4f32], 128, 
+def VReg128 : GASSRegClass<[v2i64, v2f64, v4i32, v4f32, 
+                            v8f16, v8i16, i128, f128], 128, 
                            (add VReg128Tuple)>;

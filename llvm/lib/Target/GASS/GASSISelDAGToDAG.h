@@ -29,6 +29,7 @@ private:
   bool tryStore(SDNode *N);
   bool tryLDC(SDNode *N);
   bool tryEXTRACT_VECTOR_ELT(SDNode *N);
+  bool tryEXTRACT_SUBVECTOR(SDNode *N);
   bool trySHFL(SDNode *N);
 
 private:
