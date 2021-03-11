@@ -109,6 +109,34 @@ void GASSInstPrinter::printShflMode(const MCInst *MI,
   }
 }
 
+void GASSInstPrinter::printMmaLayout(const MCInst *MI,
+                                     unsigned OpNo, raw_ostream &O) {
+  const MCOperand &Op = MI->getOperand(OpNo);
+
+  assert(Op.isImm());
+  unsigned Value = Op.getImm();
+  switch (Value) {
+  default: llvm_unreachable("error");
+  case GASS::TensorCore::ROW: O << ".ROW"; return;
+  case GASS::TensorCore::COL: O << ".COL"; return;
+  }
+}
+
+void GASSInstPrinter::printMmaStep(const MCInst *MI,
+                                   unsigned OpNo, raw_ostream &O) {
+  const MCOperand &Op = MI->getOperand(OpNo);
+
+  assert(Op.isImm());
+  unsigned Value = Op.getImm();
+  switch (Value) {
+  default: llvm_unreachable("error");
+  case 0: O << ".STEP0"; return;
+  case 1: O << ".STEP1"; return;
+  case 2: O << ".STEP2"; return;
+  case 3: O << ".STEP3"; return;
+  }
+}
+
 void GASSInstPrinter::printPredicateOperand(const MCInst *MI, unsigned OpNo,
                                             raw_ostream &O) {
   const MCOperand &Op = MI->getOperand(OpNo);

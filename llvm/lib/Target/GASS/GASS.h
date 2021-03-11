@@ -110,7 +110,14 @@ enum MODE : unsigned {
   DOWN,
   BFLY
 };
-}
+} // namespace ShflMode
+
+namespace TensorCore {
+enum MmaLayout : unsigned {
+  ROW = 0,
+  COL = 1,
+};
+} // namespace TensorCore
 
 } // namespace GASS
 

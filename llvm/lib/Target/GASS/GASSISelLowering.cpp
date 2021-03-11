@@ -28,6 +28,8 @@ GASSTargetLowering::GASSTargetLowering(const TargetMachine &TM,
   addRegisterClass(MVT::v8f16, &GASS::VReg128RegClass);
   addRegisterClass(MVT::v2f32, &GASS::VReg64RegClass);
   addRegisterClass(MVT::v4f32, &GASS::VReg128RegClass);
+  addRegisterClass(MVT::v2i32, &GASS::VReg64RegClass);
+  addRegisterClass(MVT::v4i32, &GASS::VReg128RegClass);
   // sub-register
   // AMGDPU does this anyway
   addRegisterClass(MVT::f16, &GASS::VReg32RegClass);

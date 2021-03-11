@@ -62,6 +62,21 @@ def PredSign : Operand<i1> {
   let PrintMethod = "printPredicateSign";
 }
 
+// Tensor Cores
+def MmaLayout : Operand<i32> {
+  let PrintMethod = "printMmaLayout";
+  // let EncoderMethod = "encodeMmaLayout";
+}
+
+def MmaStep : Operand<i32> {
+  let PrintMethod = "printMmaStep";
+  // let EncoderMethod = "encodeMmaStep";
+}
+
+// Must sync with enum in GASS.h
+def MmaRow : PatLeaf<(i32 0)>;
+def MmaCol : PatLeaf<(i32 1)>;
+
 // Thest must match the enum in GASS.h
 def CmpEQ   : PatLeaf<(i32 0)>;
 def CmpNE   : PatLeaf<(i32 1)>;
@@ -669,21 +684,80 @@ def : Pat<(setne i1:$a, imm:$b), (XOR1ri VReg1:$a, imm:$b)>;
 //=---------------------------------=//
 // Tensor Core
 //=---------------------------------=//
-// should have direct intrinsic mapping
-// multiclass HMMA {
-//   def F32_1688 : ;
+// multiclass HMMA1688 {
+//   // Accumulator type
+//   def _f32 : ;
 
-//   def F16_1688 : ;
+//   def _f16 : ;
 // }
-// defm HMMA : HMMA, Sched<[WriteTC]>;
+// defm HMMA1688 : HMMA1688, Sched<[WriteTC]>;
 
-// multiclass IMMA {
-// }
-// defm IMMA : IMMA, Sched<[WriteTC]>;
 
-// multiclass BMMA {
-// }
-// defm BMMA : BMMA, Sched<[WriteTC]>;
+// TODO: also to support _f16_f32 & _f16_f16
+def HMMA884_f32_f32_Pseudo : 
+  GASSPseudoInst<(outs VReg32:$d0, VReg32:$d1, VReg32:$d2, VReg32:$d3,
+                       VReg32:$d4, VReg32:$d5, VReg32:$d6, VReg32:$d7),
+                 (ins VReg32:$a0, VReg32:$a1, VReg32:$b0, VReg32:$b1,
+                      VReg32:$c0, VReg32:$c1, VReg32:$c2, VReg32:$c3,
+                      VReg32:$c4, VReg32:$c5, VReg32:$c6, VReg32:$c7,
+                      MmaLayout:$s0layout, MmaLayout:$s1layout), []>, 
+  Sched<[WriteTC]>;
+
+def : Pat<(int_nvvm_mma_m8n8k4_row_row_f32_f32 
+             v2f16:$a0, v2f16:$a1, v2f16:$b0, v2f16:$b1,
+             f32:$c0, f32:$c1, f32:$c2, f32:$c3, f32:$c4, f32:$c5, f32:$c6, f32:$c7), 
+          (HMMA884_f32_f32_Pseudo 
+             VReg32:$a0, VReg32:$a1, VReg32:$b0, VReg32:$b1,
+             VReg32:$c0, VReg32:$c1, VReg32:$c2, VReg32:$c3, VReg32:$c4,
+             VReg32:$c5, VReg32:$c6, VReg32:$c7, MmaRow, MmaRow)>;
+def : Pat<(int_nvvm_mma_m8n8k4_row_col_f32_f32 
+             v2f16:$a0, v2f16:$a1, v2f16:$b0, v2f16:$b1,
+             f32:$c0, f32:$c1, f32:$c2, f32:$c3, f32:$c4, f32:$c5, f32:$c6, f32:$c7), 
+          (HMMA884_f32_f32_Pseudo 
+             VReg32:$a0, VReg32:$a1, VReg32:$b0, VReg32:$b1,
+             VReg32:$c0, VReg32:$c1, VReg32:$c2, VReg32:$c3, VReg32:$c4,
+             VReg32:$c5, VReg32:$c6, VReg32:$c7, MmaRow, MmaCol)>;
+def : Pat<(int_nvvm_mma_m8n8k4_col_row_f32_f32 
+             v2f16:$a0, v2f16:$a1, v2f16:$b0, v2f16:$b1,
+             f32:$c0, f32:$c1, f32:$c2, f32:$c3, f32:$c4, f32:$c5, f32:$c6, f32:$c7), 
+          (HMMA884_f32_f32_Pseudo 
+             VReg32:$a0, VReg32:$a1, VReg32:$b0, VReg32:$b1,
+             VReg32:$c0, VReg32:$c1, VReg32:$c2, VReg32:$c3, VReg32:$c4,
+             VReg32:$c5, VReg32:$c6, VReg32:$c7, MmaCol, MmaRow)>;
+def : Pat<(int_nvvm_mma_m8n8k4_col_col_f32_f32 
+             v2f16:$a0, v2f16:$a1, v2f16:$b0, v2f16:$b1,
+             f32:$c0, f32:$c1, f32:$c2, f32:$c3, f32:$c4, f32:$c5, f32:$c6, f32:$c7), 
+          (HMMA884_f32_f32_Pseudo 
+             VReg32:$a0, VReg32:$a1, VReg32:$b0, VReg32:$b1,
+             VReg32:$c0, VReg32:$c1, VReg32:$c2, VReg32:$c3, VReg32:$c4,
+             VReg32:$c5, VReg32:$c6, VReg32:$c7, MmaCol, MmaCol)>;
+
+class HMMA884Base<dag oops, dag iops, bits<12> opcode, string asm> :
+  GASSInstOp3rrr<oops, iops, opcode, asm, []> {
+  bit s0layout;
+  bit s1layout;
+  bits<2> step;
+
+  let Inst{9} = s0layout;
+  let Inst{10} = s1layout;
+  let Inst{16-15} = step;
+}
+multiclass HMMA884 {
+// dst, src0, src1, src2, src0layout, src1layout, step
+  def _f32_f32 : 
+    HMMA884Base<(outs VReg64:$dst), 
+                (ins VReg64:$src0, VReg64:$src1, VReg64:$src2,
+                 MmaLayout:$s0layout, MmaLayout:$s1layout, MmaStep:$step), 0x236, 
+                 "HMMA.F32.F32$step \t$dst, $src0$s0layout, $src1$s1layout, $src2;">;
+
+  // TODO
+  // def _f16_f16 : ;
+
+  // TODO
+  // def _f16_f32 : ;
+}
+defm HMMA884 : HMMA884, Sched<[WriteTC]>;
+
 
 //=---------------------------------=//
 // mov
@@ -691,33 +765,25 @@ def : Pat<(setne i1:$a, imm:$b), (XOR1ri VReg1:$a, imm:$b)>;
 multiclass MOV<RegisterClass RC, int Width, Operand ImmCls, Operand FpImmCls> {
   def r : GASSInstOp1r<(outs RC:$dst),
                    (ins RC:$src),
-                   0x202,
-                   "MOV."#Width#" \t$dst, $src;",
-                   []> {
+                   0x202, "MOV."#Width#" \t$dst, $src;", []> {
     let Inst{11-8} = 0xf;
   }
 
   def i : GASSInstOp1i<(outs RC:$dst),
                    (ins ImmCls:$src),
-                   0x802,
-                   "MOV."#Width#" \t$dst, $src;",
-                   []> {
+                   0x802, "MOV."#Width#" \t$dst, $src;", []> {
     let Inst{11-8} = 0xf;
   }
   
   def f : GASSInstOp1i<(outs RC:$dst),
                    (ins FpImmCls:$src),
-                   0x802,
-                   "MOV."#Width#" \t$dst, $src;",
-                   []> {
+                   0x802, "MOV."#Width#" \t$dst, $src;", []> {
     let Inst{11-8} = 0xf;
   }
 
   def c : GASSInstOp1c<(outs RC:$dst),
                    (ins constantmem:$src), // Not true.
-                   0xa02,
-                   "MOV."#Width#" \t$dst, $src;",
-                   []> {
+                   0xa02, "MOV."#Width#" \t$dst, $src;", []> {
     let Inst{11-8} = 0xf;
   }
 }
@@ -739,9 +805,7 @@ multiclass LDC<RegisterClass RC, int Width> {
   def c : GASSInstLdst<(outs RC:$dst),
                        (ins constantmem:$offset), 
                        0xb82,
-                       "LDC." #Width #" \t$dst, $offset;",
-                       [],
-                       Width> {
+                       "LDC." #Width #" \t$dst, $offset;", [], Width> {
     let ptr = 0xff; // base offset
     bits<32> offset; // TODO: check width of constant mem
     let Inst{127-102} = offset{25-0}; 
@@ -759,9 +823,7 @@ multiclass LDG<RegisterClass RC, int Width> {
   def r : GASSInstLdstGlobal<(outs RC:$dst),
                        (ins VReg64:$ptr),
                        0x381,
-                       "LDG."#Width#" \t$dst, [$ptr];",
-                       [],
-                       Width> {
+                       "LDG."#Width#" \t$dst, [$ptr];", [], Width> {
     let Inst{19-17} = 0x7; // predicate: PT 
     // TODO: this is just a quick fix. But we should modify GASSInstLdst
     let Inst{103-96} = 0; // Src1 
@@ -770,9 +832,7 @@ multiclass LDG<RegisterClass RC, int Width> {
   def ri : GASSInstLdstGlobalOff<(outs RC:$dst),
                     (ins VReg64:$ptr, i16imm:$offset),
                     0x381,
-                    "LDG."#Width#" \t$dst, [$ptr+$offset];",
-                    [],
-                    Width> {
+                    "LDG."#Width#" \t$dst, [$ptr+$offset];", [], Width> {
     let Inst{19-17} = 0x7; // predicate: PT
     let Inst{103-96} = 0; // Src1 
   }
@@ -806,18 +866,14 @@ multiclass STG<RegisterClass RC, int Width> {
   def r : GASSInstLdstGlobal<(outs),
                        (ins RC:$src1, VReg64:$ptr), // RZ?
                        0x386,
-                       "STG."#Width#" \t[$ptr], $src1;",
-                       [],
-                       Width> {
+                       "STG."#Width#" \t[$ptr], $src1;", [], Width> {
     let Inst{87-80} = 0; // Dst
   }
   
   def ri : GASSInstLdstGlobalOff<(outs),
                         (ins RC:$src1, VReg64:$ptr, i16imm:$offset),
                         0x386,
-                        "STG."#Width#" \t[$ptr+$offset], $src1;",
-                        [],
-                        Width> {
+                        "STG."#Width#" \t[$ptr+$offset], $src1;", [], Width> {
     let Inst{87-80} = 0; // Dst
   }
 }
@@ -829,15 +885,11 @@ defm STG128 : STG<VReg128, 128>, Sched<[WriteST]>;
 multiclass STS<RegisterClass RC, int Width> {
   def r : GASSInstLdst<(outs), (ins RC:$src, VReg32:$ptr),
                        0x388,
-                       "STS."#Width#" \t[$ptr], $src;",
-                       [],
-                       Width>;
+                       "STS."#Width#" \t[$ptr], $src;", [], Width>;
   
   def ri : GASSInstLdstOff<(outs), (ins RC:$src, VReg32:$ptr, i16imm:$offset),
                         0x388,
-                        "STS."#Width#" \t[$ptr+$offset], $src;",
-                        [],
-                        Width>;
+                        "STS."#Width#" \t[$ptr+$offset], $src;", [], Width>;
 }
 
 defm STS32 : STS<VReg32, 32>, Sched<[WriteST]>;
@@ -900,52 +952,42 @@ multiclass SHFL {
   def rrr : GASSInst<(outs VReg32:$dst),
                      (ins VReg32:$src0, VReg32:$src1, VReg32:$src2,
                           ShflMode:$shfl),
-                     0x389,
-                     "SHFL$shfl $dst, $src0, $src1, $src2;",
-                     []>;
+                     0x389, "SHFL$shfl $dst, $src0, $src1, $src2;", []>;
 
   def rri : GASSInst<(outs VReg32:$dst),
                     (ins VReg32:$src0, VReg32:$src1, i32imm:$src2,
                         ShflMode:$shfl),
-                    0x589,
-                    "SHFL$shfl $dst, $src0, $src1, $src2;",
-                    []>;
+                    0x589, "SHFL$shfl $dst, $src0, $src1, $src2;", []>;
 
   def rir : GASSInst<(outs VReg32:$dst),
                      (ins VReg32:$src0, i32imm:$src1, VReg32:$src2,
                           ShflMode:$shfl),
-                     0x989,
-                     "SHFL$shfl $dst, $src0, $src1, $src2;",
-                     []>;
+                     0x989, "SHFL$shfl $dst, $src0, $src1, $src2;", []>;
 
 
 
   def rii : GASSInst<(outs VReg32:$dst),
                      (ins VReg32:$src0, i32imm:$src1, i32imm:$src2,
                           ShflMode:$shfl),
-                     0xf89,
-                     "SHFL$shfl $dst, $src0, $src1, $src2;",
-                     []>;
+                     0xf89, "SHFL$shfl $dst, $src0, $src1, $src2;", []>;
 }
 }
 
 defm SHFL : SHFL, Sched<[WriteLD]>;
 
-// def : Pat<(i32 int_nvvm_shfl_sync_idx_i32 ), ()>;
-// def : Pat<(f32 int_nvvm_shfl_sync_idx_f32 ), ()>;
-// def : Pat<(i32 int_nvvm_shfl_sync_up_i32 ), ()>;
-// def : Pat<(f32 int_nvvm_shfl_sync_up_f32 ), ()>;
-// def : Pat<(i32 int_nvvm_shfl_sync_down_i32 ), ()>;
-// def : Pat<(f32 int_nvvm_shfl_sync_down_f32 ), ()>;
-// def : Pat<(i32 int_nvvm_shfl_sync_bfly_i32 ), ()>;
-// def : Pat<(f32 int_nvvm_shfl_sync_bfly_f32 ), ()>;
 
+//=----------------------------------=//
 //-------- Conversion -------------
+//=----------------------------------=//
 // Ref: PPCInstrAltivec.td
 def MOV128 : GASSPseudoInst<(outs VReg128:$dst), (ins VReg128:$src), []>, 
              Sched<[WriteINT]>;
 def : Pat<(v8f16 (bitconvert (i128 VReg128:$src))), (MOV128 VReg128:$src)>;
 def : Pat<(v8f16 (bitconvert (i128 imm:$src))), (MOV128 imm:$src)>;
+
+//-------- Type Conversion---------
+// multiclass F2F : {}
+
 
 
 //=---------------------------------=//

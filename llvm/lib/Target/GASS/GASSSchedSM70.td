@@ -12,6 +12,7 @@ def SM70UnitALU   : ProcResource<1> { let BufferSize = 0; }
 def SM70UnitLDST  : ProcResource<1> { let BufferSize = 5; }
 def SM70UnitFP32ALU : ProcResource<1> { let BufferSize = 0; }
 def SM70UnitFP64ALU : ProcResource<1> { let BufferSize = 0; }
+def SM70UintTensorCore : ProcResource<1> { let BufferSize = 0; }
 // Other
 
 
@@ -24,6 +25,7 @@ def : WriteRes<WriteINT, [SM70UnitALU]> { let Latency = 5; }
 def : WriteRes<WriteISETP, [SM70UnitALU]> { let Latency = 12; }
 def : WriteRes<WriteFP32, [SM70UnitFP32ALU]> { let Latency = 5; }
 def : WriteRes<WriteFP64, [SM70UnitFP64ALU]> { let Latency = 8; }
+def : WriteRes<WriteTC, [SM70UintTensorCore]> { let Latency = 8; }
 def : WriteRes<WriteLD, [SM70UnitLDST]> { let Latency = 20; }
 def : WriteRes<WriteST, [SM70UnitLDST]> { let Latency = 20; }
 
