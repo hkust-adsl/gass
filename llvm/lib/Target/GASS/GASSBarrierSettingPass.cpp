@@ -475,7 +475,7 @@ getScanRange(MachineBasicBlock &MBB, MachineBasicBlock::iterator iter) {
   std::vector<MachineInstr *> Res;
 
   // following instrs in the current MBB
-  for (auto I = iter; I != MBB.end(); ++I)
+  for (auto I = ++iter; I != MBB.end(); ++I)
     Res.push_back(&*I);
 
   // Terminator MBB

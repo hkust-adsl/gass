@@ -109,6 +109,9 @@ multiclass IADD3 {
                                                 i32:$src2))]> {
     let Inst{16-13} = 0xf; // no ps1
     let Inst{26-23} = 0xf; // no ps0
+
+    let Inst{19-17} = 0x7; // no pd0
+    let Inst{22-20} = 0x7; // no pd1
   }
 
   def rir : GASSInstOp3rir<(outs VReg32:$dst),
@@ -119,6 +122,9 @@ multiclass IADD3 {
                                                 imm:$src2))]> {
     let Inst{16-13} = 0xf; // no ps1
     let Inst{26-23} = 0xf; // no ps0
+
+    let Inst{19-17} = 0x7; // no pd0
+    let Inst{22-20} = 0x7; // no pd1
   }
 
   // Consider this
@@ -141,6 +147,9 @@ multiclass IADD {
 
     let Inst{16-13} = 0xf; // no ps1
     let Inst{26-23} = 0xf; // no ps0
+
+    let Inst{19-17} = 0x7; // no pd0
+    let Inst{22-20} = 0x7; // no pd1
   }
   
   def ri : GASSInstOp2ri<(outs VReg32:$dst),
@@ -152,6 +161,9 @@ multiclass IADD {
 
     let Inst{16-13} = 0xf; // no ps1
     let Inst{26-23} = 0xf; // no ps0
+
+    let Inst{19-17} = 0x7; // no pd0
+    let Inst{22-20} = 0x7; // no pd1
   }
 }
 defm IADD : IADD, Sched<[WriteINT]>;
