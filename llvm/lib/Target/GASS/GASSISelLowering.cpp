@@ -201,88 +201,140 @@ GASSTargetLowering::lowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const {
   // Res = BUILD_VECTOR ConstantFP:f16<APFloat(0)>, ....
   //   ===>
   // Res = BITCAST Constant;
+  // 1. If all operands are ConstantFP
+  auto isConstantFPLowering = [&Op]() -> bool {
+    for (unsigned OpNo = 0; OpNo < Op.getNumOperands(); ++OpNo) {
+      if (!isa<ConstantFPSDNode>(Op.getOperand(OpNo)))
+        return false;
+    }
+    return true;
+  };
+
   MVT VT = Op.getSimpleValueType();
-  if (VT != MVT::v2f16 && 
-      VT != MVT::v4f16 && 
-      VT != MVT::v8f16)
-    return Op;
-  
-  // v2f16
-  if (VT == MVT::v2f16) {
-    if (!(isa<ConstantFPSDNode>(Op.getOperand(0)) && 
-          isa<ConstantFPSDNode>(Op.getOperand(1))))
+  unsigned NumElts = VT.getVectorNumElements();
+  MVT ScalarTy = VT.getScalarType();
+  SDLoc DL(Op);
+
+  // Focus on f16 now
+  if (isConstantFPLowering() && ScalarTy == MVT::f16) {
+    if (VT == MVT::v2f16) {
+      APInt E0 =
+        cast<ConstantFPSDNode>(Op->getOperand(0))->getValueAPF()
+                                                   .bitcastToAPInt();
+      APInt E1 =
+        cast<ConstantFPSDNode>(Op->getOperand(1))->getValueAPF()
+                                                   .bitcastToAPInt();
+      SDValue Const =
+          DAG.getConstant(E1.zext(32).shl(16) | E0.zext(32), 
+                          SDLoc(Op), MVT::i32);
+      return DAG.getNode(ISD::BITCAST, SDLoc(Op), MVT::v2f16, Const);
+    } else if (VT == MVT::v4f16) {
+      APInt E0 =
+        cast<ConstantFPSDNode>(Op->getOperand(0))->getValueAPF()
+                                                   .bitcastToAPInt();
+      APInt E1 =
+        cast<ConstantFPSDNode>(Op->getOperand(1))->getValueAPF()
+                                                   .bitcastToAPInt();
+      APInt E2 =
+        cast<ConstantFPSDNode>(Op->getOperand(2))->getValueAPF()
+                                                   .bitcastToAPInt();
+      APInt E3 =
+        cast<ConstantFPSDNode>(Op->getOperand(3))->getValueAPF()
+                                                   .bitcastToAPInt();
+      SDValue Const =
+        DAG.getConstant(
+            E3.zext(64).shl(48) | E2.zext(64).shl(32) | 
+            E1.zext(64).shl(16) | E0.zext(64), SDLoc(Op), MVT::i64);
+      return DAG.getNode(ISD::BITCAST, SDLoc(Op), MVT::v4f16, Const);
+    } else if (VT == MVT::v8f16) {
+      APInt E0 =
+        cast<ConstantFPSDNode>(Op->getOperand(0))->getValueAPF()
+                                                   .bitcastToAPInt();
+      APInt E1 =
+        cast<ConstantFPSDNode>(Op->getOperand(1))->getValueAPF()
+                                                   .bitcastToAPInt();
+      APInt E2 =
+        cast<ConstantFPSDNode>(Op->getOperand(2))->getValueAPF()
+                                                   .bitcastToAPInt();
+      APInt E3 =
+        cast<ConstantFPSDNode>(Op->getOperand(3))->getValueAPF()
+                                                   .bitcastToAPInt();
+      APInt E4 =
+        cast<ConstantFPSDNode>(Op->getOperand(4))->getValueAPF()
+                                                   .bitcastToAPInt();
+      APInt E5 =
+        cast<ConstantFPSDNode>(Op->getOperand(5))->getValueAPF()
+                                                   .bitcastToAPInt();
+      APInt E6 =
+        cast<ConstantFPSDNode>(Op->getOperand(6))->getValueAPF()
+                                                   .bitcastToAPInt();
+      APInt E7 =
+        cast<ConstantFPSDNode>(Op->getOperand(7))->getValueAPF()
+                                                   .bitcastToAPInt();
+      SDValue Const =
+        DAG.getConstant(
+            E7.zext(128).shl(112) | E6.zext(128).shl(96) | 
+            E5.zext(128).shl(80) | E4.zext(128).shl(64) | 
+            E3.zext(128).shl(48) | E2.zext(128).shl(32) | 
+            E1.zext(128).shl(16) | E0.zext(128), SDLoc(Op), MVT::i128);
+      return DAG.getNode(ISD::BITCAST, SDLoc(Op), MVT::v8f16, Const);
+    } else 
       return Op;
-    
-    APInt E0 =
-      cast<ConstantFPSDNode>(Op->getOperand(0))->getValueAPF().bitcastToAPInt();
-    APInt E1 =
-      cast<ConstantFPSDNode>(Op->getOperand(1))->getValueAPF().bitcastToAPInt();
-    SDValue Const =
-        DAG.getConstant(E1.zext(32).shl(16) | E0.zext(32), SDLoc(Op), MVT::i32);
-    return DAG.getNode(ISD::BITCAST, SDLoc(Op), MVT::v2f16, Const);
   }
 
-  // v4f16
-  if (VT == MVT::v4f16) {
-    if (!(isa<ConstantFPSDNode>(Op.getOperand(0)) && 
-          isa<ConstantFPSDNode>(Op.getOperand(1)) &&
-          isa<ConstantFPSDNode>(Op.getOperand(2)) &&
-          isa<ConstantFPSDNode>(Op.getOperand(3))))
-      return Op;
-    
-    APInt E0 =
-      cast<ConstantFPSDNode>(Op->getOperand(0))->getValueAPF().bitcastToAPInt();
-    APInt E1 =
-      cast<ConstantFPSDNode>(Op->getOperand(1))->getValueAPF().bitcastToAPInt();
-    APInt E2 =
-      cast<ConstantFPSDNode>(Op->getOperand(2))->getValueAPF().bitcastToAPInt();
-    APInt E3 =
-      cast<ConstantFPSDNode>(Op->getOperand(3))->getValueAPF().bitcastToAPInt();
-    SDValue Const =
-      DAG.getConstant(
-          E3.zext(64).shl(48) | E2.zext(64).shl(32) | 
-          E1.zext(64).shl(16) | E0.zext(64), SDLoc(Op), MVT::i64);
-    return DAG.getNode(ISD::BITCAST, SDLoc(Op), MVT::v4f16, Const);
-  }
+  // If scalarType == sub-reg (e.g., f16), split it to multiple reg-BUILD_VECTOR
+  // e.g., t2 : v4f16 = BUILD_VECTOR f16, f16, f16, f16 
+  //  ==>
+  // t0 : v2f16 = BUILD_VECTOR f16, f16 (Selected as PRMT ... 0x5410 ...;)
+  // t1 : v2f16 = BUILD_VECTOR f16, f16
+  // t2 : v4f16 = CONCAT_VECTORS t0:v2f16, t1:v2f16
+  if (VT == MVT::v4f16 || VT == MVT::v8f16) {
+    SmallVector<SDValue, 4> Ops;
 
-  // v8f16
-  if (VT == MVT::v8f16) {
-    if (!(isa<ConstantFPSDNode>(Op.getOperand(0)) && 
-          isa<ConstantFPSDNode>(Op.getOperand(1)) &&
-          isa<ConstantFPSDNode>(Op.getOperand(2)) &&
-          isa<ConstantFPSDNode>(Op.getOperand(3)) &&
-          isa<ConstantFPSDNode>(Op.getOperand(4)) && 
-          isa<ConstantFPSDNode>(Op.getOperand(5)) &&
-          isa<ConstantFPSDNode>(Op.getOperand(6)) &&
-          isa<ConstantFPSDNode>(Op.getOperand(7))))
+    // create basic values
+    if (VT == MVT::v4f16) {
+      unsigned RegClassID = GASS::VReg64RegClassID;
+      Ops.push_back(DAG.getTargetConstant(RegClassID, DL, MVT::i32));
+      SDValue Op0 = Op.getOperand(0);
+      SDValue Op1 = Op.getOperand(1);
+      SDValue Op2 = Op.getOperand(2);
+      SDValue Op3 = Op.getOperand(3);
+      SDValue T0 = DAG.getNode(ISD::BUILD_VECTOR, DL, MVT::v2f16, {Op0, Op1});
+      SDValue T1 = DAG.getNode(ISD::BUILD_VECTOR, DL, MVT::v2f16, {Op2, Op3});
+      Ops.push_back(T0);
+      Ops.push_back(DAG.getTargetConstant(GASS::sub0, DL, MVT::i32));
+      Ops.push_back(T1);
+      Ops.push_back(DAG.getTargetConstant(GASS::sub1, DL, MVT::i32));
+      return SDValue(
+        DAG.getMachineNode(TargetOpcode::REG_SEQUENCE, DL, MVT::v4f16, Ops), 0);
+    } else if (VT == MVT::v8f16) {
+      unsigned RegClassID = GASS::VReg128RegClassID;
+      Ops.push_back(DAG.getTargetConstant(RegClassID, DL, MVT::i32));
+      SDValue Op0 = Op.getOperand(0);
+      SDValue Op1 = Op.getOperand(1);
+      SDValue Op2 = Op.getOperand(2);
+      SDValue Op3 = Op.getOperand(3);
+      SDValue Op4 = Op.getOperand(4);
+      SDValue Op5 = Op.getOperand(5);
+      SDValue Op6 = Op.getOperand(6);
+      SDValue Op7 = Op.getOperand(7);
+      SDValue T0 = DAG.getNode(ISD::BUILD_VECTOR, DL, MVT::v2f16, {Op0, Op1});
+      SDValue T1 = DAG.getNode(ISD::BUILD_VECTOR, DL, MVT::v2f16, {Op2, Op3});
+      SDValue T2 = DAG.getNode(ISD::BUILD_VECTOR, DL, MVT::v2f16, {Op4, Op5});
+      SDValue T3 = DAG.getNode(ISD::BUILD_VECTOR, DL, MVT::v2f16, {Op6, Op7});
+      Ops.push_back(T0);
+      Ops.push_back(DAG.getTargetConstant(GASS::sub0, DL, MVT::i32));
+      Ops.push_back(T1);
+      Ops.push_back(DAG.getTargetConstant(GASS::sub1, DL, MVT::i32));
+      Ops.push_back(T2);
+      Ops.push_back(DAG.getTargetConstant(GASS::sub2, DL, MVT::i32));
+      Ops.push_back(T3);
+      Ops.push_back(DAG.getTargetConstant(GASS::sub3, DL, MVT::i32));
+      return SDValue(
+        DAG.getMachineNode(TargetOpcode::REG_SEQUENCE, DL, MVT::v8f16, Ops), 0);
+    } else
       return Op;
-    
-    APInt E0 =
-      cast<ConstantFPSDNode>(Op->getOperand(0))->getValueAPF().bitcastToAPInt();
-    APInt E1 =
-      cast<ConstantFPSDNode>(Op->getOperand(1))->getValueAPF().bitcastToAPInt();
-    APInt E2 =
-      cast<ConstantFPSDNode>(Op->getOperand(2))->getValueAPF().bitcastToAPInt();
-    APInt E3 =
-      cast<ConstantFPSDNode>(Op->getOperand(3))->getValueAPF().bitcastToAPInt();
-    APInt E4 =
-      cast<ConstantFPSDNode>(Op->getOperand(4))->getValueAPF().bitcastToAPInt();
-    APInt E5 =
-      cast<ConstantFPSDNode>(Op->getOperand(5))->getValueAPF().bitcastToAPInt();
-    APInt E6 =
-      cast<ConstantFPSDNode>(Op->getOperand(6))->getValueAPF().bitcastToAPInt();
-    APInt E7 =
-      cast<ConstantFPSDNode>(Op->getOperand(7))->getValueAPF().bitcastToAPInt();
-    SDValue Const =
-      DAG.getConstant(
-          E7.zext(128).shl(112) | E6.zext(128).shl(96) | 
-          E5.zext(128).shl(80) | E4.zext(128).shl(64) | 
-          E3.zext(128).shl(48) | E2.zext(128).shl(32) | 
-          E1.zext(128).shl(16) | E0.zext(128), SDLoc(Op), MVT::i128);
-    return DAG.getNode(ISD::BITCAST, SDLoc(Op), MVT::v8f16, Const);
   }
-
-  llvm_unreachable("Shouldn't be here.");
   return Op;
 }
 

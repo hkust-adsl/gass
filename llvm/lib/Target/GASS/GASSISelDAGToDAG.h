@@ -30,6 +30,7 @@ private:
   bool tryLDC(SDNode *N);
   bool tryEXTRACT_VECTOR_ELT(SDNode *N);
   bool tryEXTRACT_SUBVECTOR(SDNode *N);
+  bool tryBUILD_VECTOR(SDNode *N);
   bool trySHFL(SDNode *N);
 
 private:

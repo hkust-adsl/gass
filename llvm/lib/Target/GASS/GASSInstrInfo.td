@@ -459,10 +459,17 @@ def SHL2MUL32 : SDNodeXForm<imm, [{
 def : Pat<(shl (sext i32:$a), (i64 imm:$b)),
                (IMUL_WIDEri VReg32:$a, (SHL2MUL32 node:$b))>;
 
-// // LOP3
-// multiclass LOP3 {
-//   def rrr;
-// }
+// PRMT
+multiclass PRMT {
+  def rrr : GASSInstOp3rrr<(outs VReg32:$dst),
+                           (ins VReg32:$src0, VReg32:$src1, VReg32:$src2),
+                           0x216, "PRMT \t$dst, $src0, $src1, $src2;", []>;
+  
+  def rir : GASSInstOp3rir<(outs VReg32:$dst),
+                           (ins VReg32:$src0, i32imm:$src1, VReg32:$src2),
+                           0x816, "PRMT \t$dst, $src0, $src1, $src2;", []>;
+}
+defm PRMT : PRMT, Sched<[WriteINT]>;
 
 //=---------------------------------=//
 // float-point
@@ -791,6 +798,7 @@ multiclass MOV<RegisterClass RC, int Width, Operand ImmCls, Operand FpImmCls> {
 defm MOV32 : MOV<VReg32, 32, i32imm, f32imm>, Sched<[WriteINT]>;
 defm MOV64 : MOV<VReg64, 64, i64imm, f64imm>, Sched<[WriteINT]>; // Really need to support this?
 
+
 // TODO: this can't be right?
 def : Pat<(i32 (imm:$src0)),   (MOV32i imm:$src0)>;
 def : Pat<(f32 (fpimm:$src0)), (MOV32f fpimm:$src0)>;
@@ -855,7 +863,7 @@ multiclass LDS<RegisterClass RC, int Width> {
                        Width>;
 }
 }
-
+defm LDS16 : LDS<VReg32, 16>, Sched<[WriteLD]>;
 defm LDS32 : LDS<VReg32, 32>, Sched<[WriteLD]>;
 defm LDS64 : LDS<VReg64, 64>, Sched<[WriteLD]>;
 defm LDS128 : LDS<VReg128, 128>, Sched<[WriteLD]>;
@@ -979,16 +987,40 @@ defm SHFL : SHFL, Sched<[WriteLD]>;
 //=----------------------------------=//
 //-------- Conversion -------------
 //=----------------------------------=//
-// Ref: PPCInstrAltivec.td
-def MOV128 : GASSPseudoInst<(outs VReg128:$dst), (ins VReg128:$src), []>, 
-             Sched<[WriteINT]>;
-def : Pat<(v8f16 (bitconvert (i128 VReg128:$src))), (MOV128 VReg128:$src)>;
-def : Pat<(v8f16 (bitconvert (i128 imm:$src))), (MOV128 imm:$src)>;
+// Ref: AMDGPU (AMDGPUInstructions.td:587)
+// 32-bit
+def : Pat<(v2f16 (bitconvert (i32 VReg32:$src))), (v2f16 VReg32:$src)>;
+// 128-bit
+def : Pat<(v8f16 (bitconvert (i128 VReg128:$src))), (v8f16 VReg128:$src)>;
+// def : Pat<(v8f16 (bitconvert (i128 VReg128:$src))), (MOV128 VReg128:$src)>;
+// def : Pat<(v8f16 (bitconvert (i128 imm:$src))), (MOV128 imm:$src)>;
+
+// For constants:
+def MOV128 : GASSPseudoInst<(outs VReg128:$dst), (ins VReg128:$src0),
+                            [(set i128:$dst, (imm:$src0))]>, Sched<[WriteINT]>;
+
 
 //-------- Type Conversion---------
 // multiclass F2F : {}
 
 
+//-------- extract_vector_elt ------
+// EXTRACT_VECTOR_ELT -> EXTRACT_SUBREG
+// class Extract_Element <> : Pat<>;
+def : Pat<(i32 (extractelt v2i32:$src, 0)), (EXTRACT_SUBREG $src, sub0)>;
+def : Pat<(i32 (extractelt v2i32:$src, 1)), (EXTRACT_SUBREG $src, sub1)>;
+// v4
+def : Pat<(i32 (extractelt v4i32:$src, 0)), (EXTRACT_SUBREG $src, sub0)>;
+def : Pat<(i32 (extractelt v4i32:$src, 1)), (EXTRACT_SUBREG $src, sub1)>;
+def : Pat<(i32 (extractelt v4i32:$src, 2)), (EXTRACT_SUBREG $src, sub2)>;
+def : Pat<(i32 (extractelt v4i32:$src, 3)), (EXTRACT_SUBREG $src, sub3)>;
+
+//--------- BUILD_VECTOR -----------
+// sub-reg (f16, i16) (TODO: i8, i4, i1)
+def : Pat<(v2f16 (build_vector (f16 VReg32:$src0), (f16 VReg32:$src1))),
+          (v2f16 (PRMTrir VReg32:$src0, (i32 0x5410), VReg32:$src1))>;
+def : Pat<(v2i16 (build_vector (i16 VReg32:$src0), (i16 VReg32:$src1))),
+          (v2i16 (PRMTrir VReg32:$src0, (i32 0x5410), VReg32:$src1))>;
 
 //=---------------------------------=//
 // Miscellaneous

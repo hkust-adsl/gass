@@ -86,9 +86,9 @@ class GASSInstLdst<dag outs, dag ins, bits<12> opcode, string asmstr,
   // Width encoding
   bits<3> WidthEncoding = 
     !cond(
-      // ignore .u8/.u16 versions
-      !eq(width, 8) : 1, 
-      !eq(width, 16) : 3,
+      // ignore .s8/.s16 versions
+      !eq(width, 8) : 0, 
+      !eq(width, 16) : 2,
       !eq(width, 32) : 4,
       !eq(width, 64) : 5,
       !eq(width, 128) : 6,

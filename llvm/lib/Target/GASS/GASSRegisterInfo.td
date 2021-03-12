@@ -11,10 +11,6 @@ let Namespace = "GASS" in {
   def sub1 : SubRegIndex<32>;
   def sub2 : SubRegIndex<32>;
   def sub3 : SubRegIndex<32>;
-  def sub4 : SubRegIndex<32>;
-  def sub5 : SubRegIndex<32>;
-  def sub6 : SubRegIndex<32>;
-  def sub7 : SubRegIndex<32>;
 }
 
 foreach Index = 0-64 in {
@@ -78,8 +74,8 @@ class GASSRegTuples<list<SubRegIndex> Indices, RegisterClass RC,
 // Register Classes
 def VReg1  : GASSRegClass<[i1], 1, (add (sequence "PR%u", 0, 7), 
                                         PT, NPT)>; 
-def VReg32 : GASSRegClass<[i32,f32,v2f16], 32, (add (sequence "VGPR%u", 0, 255), 
-                                                    RZ32)>;
+def VReg32 : GASSRegClass<[i32,f32,v2f16, v2i16, f16, i16], 
+                           32, (add (sequence "VGPR%u", 0, 255), RZ32)>;
 
 // def : RegisterWithSubRegs<"", 
 //                           [VREG0, VREG1], [VREG2, VREG3], ...>;
@@ -91,8 +87,8 @@ def VReg128Tuple : GASSRegTuples<[sub0, sub1, sub2, sub3],
 def VReg128 : GASSRegClass<[v2i64, v2f64, v4i32, v4f32, 
                             v8f16, v8i16, i128, f128], 128, 
                            (add VReg128Tuple)>;
-// Required by mma.m8n8k4.f32.f32
-def VReg256Tuple : 
-    GASSRegTuples<[sub0, sub1, sub2, sub3, sub4, sub5, sub6, sub7],
-                  VReg32, 255, 8, 8, "R">;
-def VReg256 : GASSRegClass<[v8f32], 256, (add VReg256Tuple)>;
+// // Required by mma.m8n8k4.f32.f32
+// def VReg256Tuple : 
+//     GASSRegTuples<[sub0, sub1, sub2, sub3, sub4, sub5, sub6, sub7],
+//                   VReg32, 255, 8, 8, "R">;
+// def VReg256 : GASSRegClass<[v8f32], 256, (add VReg256Tuple)>;

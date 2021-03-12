@@ -61,43 +61,8 @@ void GASSDAGToDAGISel::Select(SDNode *N) {
       return;
     break;
   case ISD::BUILD_VECTOR: {
-    SDLoc DL(N);
-    EVT VT = N->getValueType(0);
-    unsigned NumVectorElts = VT.getVectorNumElements();
-    unsigned VTWidth = VT.getFixedSizeInBits();
-    assert(VTWidth % 32 == 0 && "Do not know how to select this BUILD_VECTOR,"
-                                " should lower it first.");
-    // RegClass created by REG_SEQUENCE
-    unsigned RegClassID;
-    switch (VTWidth) {
-    default: llvm_unreachable("error");
-    // TODO: shouldn't be here? (32 is weird)
-    case 32: RegClassID = GASS::VReg32RegClassID; break;
-    case 64: RegClassID = GASS::VReg64RegClassID; break;
-    case 128: RegClassID = GASS::VReg128RegClassID; break;
-    }
-
-    SDNode *RegSeq = nullptr;
-    SmallVector<SDValue, 4*2> Ops;
-    assert(VT.getScalarSizeInBits() % 32 == 0);
-    Ops.push_back(CurDAG->getTargetConstant(RegClassID, DL, MVT::i32));
-    for (unsigned i = 0; i < NumVectorElts; ++i) {
-      unsigned Sub = 0;
-      switch (i) {
-      default: llvm_unreachable("error");
-      case 0: Sub = GASS::sub0; break;
-      case 1: Sub = GASS::sub1; break;
-      case 2: Sub = GASS::sub2; break;
-      case 3: Sub = GASS::sub3; break;
-      }
-      Ops.push_back(N->getOperand(i));
-      Ops.push_back(CurDAG->getTargetConstant(Sub, DL, MVT::i32));
-    }
-    RegSeq = CurDAG->getMachineNode(TargetOpcode::REG_SEQUENCE, DL, 
-                                    N->getVTList(), Ops);
-
-    ReplaceNode(N, RegSeq);
-    return;
+    if (tryBUILD_VECTOR(N))
+      return;
   } break;
   case ISD::EXTRACT_SUBVECTOR:
     if (tryEXTRACT_SUBVECTOR(N))
@@ -236,6 +201,7 @@ bool GASSDAGToDAGISel::tryLoad(SDNode *N) {
     if (selectADDRri(N1, Base, Offset)) {
       switch (ValueWidth) {
       default: llvm_unreachable("Invaild lds width");
+      case 16: Opcode = GASS::LDS16ri; break;
       case 32: Opcode = GASS::LDS32ri; break;
       case 64: Opcode = GASS::LDS64ri; break;
       case 128: Opcode = GASS::LDS128ri; break;
@@ -245,6 +211,7 @@ bool GASSDAGToDAGISel::tryLoad(SDNode *N) {
     } else {
       switch (ValueWidth) {
       default: llvm_unreachable("Invalid lds width");
+      case 16: Opcode = GASS::LDS16r; break;
       case 32: Opcode = GASS::LDS32r; break;
       case 64: Opcode = GASS::LDS64r; break;
       case 128: Opcode = GASS::LDS128r; break;
@@ -376,8 +343,9 @@ bool GASSDAGToDAGISel::tryEXTRACT_VECTOR_ELT(SDNode *N) {
 
   MVT VectorTy = Vector.getSimpleValueType();
   // FIXME: we should support more types
-  assert(VectorTy == MVT::v2f32 || VectorTy == MVT::v2i32 ||
-         VectorTy == MVT::v4f32 || VectorTy == MVT::v4f32);
+  if (!(VectorTy == MVT::v2f32 || VectorTy == MVT::v2i32 ||
+         VectorTy == MVT::v4f32 || VectorTy == MVT::v4f32))
+    return false;
   assert(isa<ConstantSDNode>(Idx));
   unsigned IdxValue = dyn_cast<ConstantSDNode>(Idx)->getSExtValue();
   unsigned SubRegValue = 0;
@@ -467,9 +435,9 @@ bool GASSDAGToDAGISel::tryEXTRACT_SUBVECTOR(SDNode *N) {
         SDValue Ops[] = 
           {CurDAG->getTargetConstant(GASS::VReg64RegClassID, DL, MVT::i32), 
            Sub2, 
-           CurDAG->getTargetConstant(GASS::sub2, DL, MVT::i32),
+           CurDAG->getTargetConstant(GASS::sub0, DL, MVT::i32),
            Sub3,
-           CurDAG->getTargetConstant(GASS::sub3, DL, MVT::i32)};
+           CurDAG->getTargetConstant(GASS::sub1, DL, MVT::i32)};
         MachineNode = 
           CurDAG->getMachineNode(TargetOpcode::REG_SEQUENCE, DL, N->getVTList(), 
                                  Ops);
@@ -480,6 +448,48 @@ bool GASSDAGToDAGISel::tryEXTRACT_SUBVECTOR(SDNode *N) {
 
   ReplaceNode(N, MachineNode);
   return true;
+}
+
+bool GASSDAGToDAGISel::tryBUILD_VECTOR(SDNode *N) {
+    SDLoc DL(N);
+    EVT VT = N->getValueType(0);
+    unsigned NumVectorElts = VT.getVectorNumElements();
+    unsigned VTWidth = VT.getFixedSizeInBits();
+    assert(VTWidth % 32 == 0 && "Do not know how to select this BUILD_VECTOR,"
+                                " should lower it first.");
+    // RegClass created by REG_SEQUENCE
+    unsigned RegClassID;
+    switch (VTWidth) {
+    default: llvm_unreachable("error");
+    // TODO: shouldn't be here? (32 is weird)
+    case 32: RegClassID = GASS::VReg32RegClassID; break;
+    case 64: RegClassID = GASS::VReg64RegClassID; break;
+    case 128: RegClassID = GASS::VReg128RegClassID; break;
+    }
+
+    SDNode *RegSeq = nullptr;
+    SmallVector<SDValue, 4*2> Ops;
+    // sub-reg BUILD_VECTOR is handled by Tablegen'd code.
+    if (VT.getScalarSizeInBits() % 32 != 0) 
+      return false;
+    Ops.push_back(CurDAG->getTargetConstant(RegClassID, DL, MVT::i32));
+    for (unsigned i = 0; i < NumVectorElts; ++i) {
+      unsigned Sub = 0;
+      switch (i) {
+      default: llvm_unreachable("error");
+      case 0: Sub = GASS::sub0; break;
+      case 1: Sub = GASS::sub1; break;
+      case 2: Sub = GASS::sub2; break;
+      case 3: Sub = GASS::sub3; break;
+      }
+      Ops.push_back(N->getOperand(i));
+      Ops.push_back(CurDAG->getTargetConstant(Sub, DL, MVT::i32));
+    }
+    RegSeq = CurDAG->getMachineNode(TargetOpcode::REG_SEQUENCE, DL, 
+                                    N->getVTList(), Ops);
+
+    ReplaceNode(N, RegSeq);
+    return true;
 }
 
 static unsigned getOpcode3Op(SDValue &Src0, SDValue &Src1, SDValue &Src2,
