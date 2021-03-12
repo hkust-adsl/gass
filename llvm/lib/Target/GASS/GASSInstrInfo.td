@@ -235,9 +235,21 @@ multiclass IADD64 {
 defm IADD64 : IADD64, Sched<[WriteINT]>;
 
 multiclass SUB {
-  def rr : GASSPseudoInst<(outs VReg32:$dst),
+  // TODO: Keep this as pseudo instr and add <negsrc1> to IADD3
+  def rr : GASSInstOp2rr<(outs VReg32:$dst),
                           (ins VReg32:$src0, VReg32:$src1),
-                          [(set i32:$dst, (sub i32:$src0, i32:$src1))]>;
+                          0x210, "IADD3 $dst, $src0, -$src1, RZ;",
+                          [(set i32:$dst, (sub i32:$src0, i32:$src1))]> {
+    let Src2 = 0xff;
+
+    let Inst{16-13} = 0xf; // no ps1
+    let Inst{26-23} = 0xf; // no ps0
+
+    let Inst{19-17} = 0x7; // no pd0
+    let Inst{22-20} = 0x7; // no pd1
+
+    let Inst{127} = 1; // - negsrc1
+  }
 
   def ri : GASSPseudoInst<(outs VReg32:$dst),
                           (ins VReg32:$src0, i32imm:$src1),
@@ -646,7 +658,7 @@ multiclass SETP<string OpcStr, RegisterClass RC, Operand ImmCls,
     let Inst{6-4} = 0x7; // ?
   }
 }
-defm ISETP : SETP<"ISETP", VReg32, i32imm, 0x20c, 0x40c>, Sched<[WriteISETP]>;
+defm ISETP : SETP<"ISETP", VReg32, i32imm, 0x20c, 0x80c>, Sched<[WriteISETP]>;
 
 // Patterns
 // unsigned compare
@@ -765,9 +777,9 @@ multiclass HMMA884 {
 // dst, src0, src1, src2, src0layout, src1layout, step
   def _f32_f32 : 
     HMMA884Base<(outs VReg64:$dst), 
-                (ins VReg64:$src0, VReg64:$src1, VReg64:$src2,
-                 MmaLayout:$s0layout, MmaLayout:$s1layout, MmaStep:$step), 0x236, 
-                 "HMMA.F32.F32$step \t$dst, $src0$s0layout, $src1$s1layout, $src2;">;
+          (ins VReg64:$src0, VReg64:$src1, VReg64:$src2,
+          MmaLayout:$s0layout, MmaLayout:$s1layout, MmaStep:$step), 0x236, 
+          "HMMA.884.F32.F32$step \t$dst, $src0$s0layout, $src1$s1layout, $src2;">;
 
   // TODO
   // def _f16_f16 : ;
@@ -1003,13 +1015,15 @@ defm SHFL : SHFL, Sched<[WriteLD]>;
 // 32-bit
 def : Pat<(v2f16 (bitconvert (i32 VReg32:$src))), (v2f16 VReg32:$src)>;
 // 128-bit
+// TODO: we need more patterns here
 def : Pat<(v8f16 (bitconvert (i128 VReg128:$src))), (v8f16 VReg128:$src)>;
+def : Pat<(v8f16 (bitconvert (v2i64 VReg128:$src))), (v8f16 VReg128:$src)>;
 // def : Pat<(v8f16 (bitconvert (i128 VReg128:$src))), (MOV128 VReg128:$src)>;
 // def : Pat<(v8f16 (bitconvert (i128 imm:$src))), (MOV128 imm:$src)>;
 
 // For constants:
-def MOV128 : GASSPseudoInst<(outs VReg128:$dst), (ins VReg128:$src0),
-                            [(set i128:$dst, (imm:$src0))]>, Sched<[WriteINT]>;
+def MOV128i : GASSPseudoInst<(outs VReg128:$dst), (ins VReg128:$src0),
+                             [(set i128:$dst, (imm:$src0))]>, Sched<[WriteINT]>;
 
 
 //-------- Type Conversion---------

@@ -247,6 +247,8 @@ GASSTargetLowering::lowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const {
             E1.zext(64).shl(16) | E0.zext(64), SDLoc(Op), MVT::i64);
       return DAG.getNode(ISD::BITCAST, SDLoc(Op), MVT::v4f16, Const);
     } else if (VT == MVT::v8f16) {
+      // split i128 result into 2 i64
+      // TODO: update GASSISelLowering::tryBUILD_VECTOR to support 64-bit vector
       APInt E0 =
         cast<ConstantFPSDNode>(Op->getOperand(0))->getValueAPF()
                                                    .bitcastToAPInt();
@@ -271,13 +273,27 @@ GASSTargetLowering::lowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const {
       APInt E7 =
         cast<ConstantFPSDNode>(Op->getOperand(7))->getValueAPF()
                                                    .bitcastToAPInt();
-      SDValue Const =
-        DAG.getConstant(
-            E7.zext(128).shl(112) | E6.zext(128).shl(96) | 
-            E5.zext(128).shl(80) | E4.zext(128).shl(64) | 
-            E3.zext(128).shl(48) | E2.zext(128).shl(32) | 
-            E1.zext(128).shl(16) | E0.zext(128), SDLoc(Op), MVT::i128);
-      return DAG.getNode(ISD::BITCAST, SDLoc(Op), MVT::v8f16, Const);
+      SDValue Const0 = DAG.getConstant(E1.zext(32).shl(16) | E0.zext(32), 
+                                       DL, MVT::i32);
+      SDValue Const1 = DAG.getConstant(E3.zext(32).shl(16) | E2.zext(32), 
+                                       DL, MVT::i32);
+      SDValue Const2 = DAG.getConstant(E5.zext(32).shl(16) | E4.zext(32), 
+                                       DL, MVT::i32);
+      SDValue Const3 = DAG.getConstant(E7.zext(32).shl(16) | E6.zext(32), 
+                                       DL, MVT::i32);
+      SDValue Res0 = DAG.getNode(ISD::BITCAST, DL, MVT::i32, Const0);
+      SDValue Res1 = DAG.getNode(ISD::BITCAST, DL, MVT::i32, Const1);
+      SDValue Res2 = DAG.getNode(ISD::BITCAST, DL, MVT::i32, Const2);
+      SDValue Res3 = DAG.getNode(ISD::BITCAST, DL, MVT::i32, Const3);
+
+      SDValue Ops[] = {DAG.getTargetConstant(GASS::VReg128RegClassID, DL, 
+                                             MVT::i32),
+                       Res0, DAG.getTargetConstant(GASS::sub0, DL, MVT::i32),
+                       Res1, DAG.getTargetConstant(GASS::sub1, DL, MVT::i32),
+                       Res2, DAG.getTargetConstant(GASS::sub2, DL, MVT::i32),
+                       Res3, DAG.getTargetConstant(GASS::sub3, DL, MVT::i32)};
+      return SDValue(
+          DAG.getMachineNode(TargetOpcode::REG_SEQUENCE, DL, MVT::v8f16, Ops), 0);
     } else 
       return Op;
   }
