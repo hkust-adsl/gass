@@ -117,6 +117,13 @@ enum MmaLayout : unsigned {
   ROW = 0,
   COL = 1,
 };
+
+enum STEP : unsigned {
+  STEP0 = 0,
+  STEP1 = 1,
+  STEP2 = 2,
+  STEP3 = 3,
+};
 } // namespace TensorCore
 
 } // namespace GASS

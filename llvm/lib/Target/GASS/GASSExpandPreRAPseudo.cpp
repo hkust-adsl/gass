@@ -170,6 +170,149 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
       case GASS::ZEXT: {
         llvm_unreachable("Not implemented");
       } break;
+      case GASS::HMMA884_f32_f32_Pseudo: {
+        // mma.sync.aligned.m8n8k4.f32.f16.f16.f32 
+        //    $d:8xf32, $a:2xv2f16, $b:2xv2f16, $c:8xf32
+        //  ==>
+        // HMMA.884.F32.F32.STEP0 $d[0:1]:v2f32, $a:v4f16, $b:v4f16, $c[0:1]:v2f32
+        // HMMA.884.F32.F32.STEP1 $d[2:3]:v2f32, $a:v4f16, $b:v4f16, $c[2:3]:v2f32
+        // HMMA.884.F32.F32.STEP2 $d[4:5]:v2f32, $a:v4f16, $b:v4f16, $c[4:5]:v2f32
+        // HMMA.884.F32.F32.STEP3 $d[6:7]:v2f32, $a:v4f16, $b:v4f16, $c[6:7]:v2f32
+
+        // 1. Prepare input data
+        Register D0 = MRI.createVirtualRegister(&GASS::VReg64RegClass);
+        Register D1 = MRI.createVirtualRegister(&GASS::VReg64RegClass);
+        Register D2 = MRI.createVirtualRegister(&GASS::VReg64RegClass);
+        Register D3 = MRI.createVirtualRegister(&GASS::VReg64RegClass);
+        Register A = MRI.createVirtualRegister(&GASS::VReg64RegClass);
+        Register B = MRI.createVirtualRegister(&GASS::VReg64RegClass);
+        Register C0 = MRI.createVirtualRegister(&GASS::VReg64RegClass);
+        Register C1 = MRI.createVirtualRegister(&GASS::VReg64RegClass);
+        Register C2 = MRI.createVirtualRegister(&GASS::VReg64RegClass);
+        Register C3 = MRI.createVirtualRegister(&GASS::VReg64RegClass);
+
+        Register AReg0 = MI.getOperand(8).getReg();
+        Register AReg1 = MI.getOperand(9).getReg();
+        Register BReg0 = MI.getOperand(10).getReg();
+        Register BReg1 = MI.getOperand(11).getReg();
+        Register CReg0 = MI.getOperand(12).getReg();
+        Register CReg1 = MI.getOperand(13).getReg();
+        Register CReg2 = MI.getOperand(14).getReg();
+        Register CReg3 = MI.getOperand(15).getReg();
+        Register CReg4 = MI.getOperand(16).getReg();
+        Register CReg5 = MI.getOperand(17).getReg();
+        Register CReg6 = MI.getOperand(18).getReg();
+        Register CReg7 = MI.getOperand(19).getReg();
+
+        assert(MI.getOperand(20).isImm() && MI.getOperand(21).isImm());
+        unsigned ALayout = MI.getOperand(20).getImm();
+        unsigned BLayout = MI.getOperand(21).getImm();
+
+        BuildMI(MBB, MI, DL, TII->get(TargetOpcode::REG_SEQUENCE), A)
+          .addReg(AReg0)
+          .addImm(GASS::sub0)
+          .addReg(AReg1)
+          .addImm(GASS::sub1); // Do not need PredMask;
+        
+        BuildMI(MBB, MI, DL, TII->get(TargetOpcode::REG_SEQUENCE), B)
+          .addReg(BReg0)
+          .addImm(GASS::sub0)
+          .addReg(BReg1)
+          .addImm(GASS::sub1);
+
+        BuildMI(MBB, MI, DL, TII->get(TargetOpcode::REG_SEQUENCE), C0)
+          .addReg(CReg0)
+          .addImm(GASS::sub0)
+          .addReg(CReg1)
+          .addImm(GASS::sub1);
+        BuildMI(MBB, MI, DL, TII->get(TargetOpcode::REG_SEQUENCE), C1)
+          .addReg(CReg2)
+          .addImm(GASS::sub0)
+          .addReg(CReg3)
+          .addImm(GASS::sub1);
+        BuildMI(MBB, MI, DL, TII->get(TargetOpcode::REG_SEQUENCE), C2)
+          .addReg(CReg4)
+          .addImm(GASS::sub0)
+          .addReg(CReg5)
+          .addImm(GASS::sub1);
+        BuildMI(MBB, MI, DL, TII->get(TargetOpcode::REG_SEQUENCE), C3)
+          .addReg(CReg6)
+          .addImm(GASS::sub0)
+          .addReg(CReg7)
+          .addImm(GASS::sub1);
+
+        // 2. MMA
+        BuildMI(MBB, MI, DL, TII->get(GASS::HMMA884_f32_f32), D0)
+          .addReg(A)
+          .addReg(B)
+          .addReg(C0)
+          .addImm(ALayout)
+          .addImm(BLayout)
+          .addImm(GASS::TensorCore::STEP0)
+          .addReg(GASS::PT); // PredMask
+        BuildMI(MBB, MI, DL, TII->get(GASS::HMMA884_f32_f32), D1)
+          .addReg(A)
+          .addReg(B)
+          .addReg(C1)
+          .addImm(ALayout)
+          .addImm(BLayout)
+          .addImm(GASS::TensorCore::STEP1)
+          .addReg(GASS::PT); // PredMask
+        BuildMI(MBB, MI, DL, TII->get(GASS::HMMA884_f32_f32), D2)
+          .addReg(A)
+          .addReg(B)
+          .addReg(C2)
+          .addImm(ALayout)
+          .addImm(BLayout)
+          .addImm(GASS::TensorCore::STEP2)
+          .addReg(GASS::PT); // PredMask
+        BuildMI(MBB, MI, DL, TII->get(GASS::HMMA884_f32_f32), D3)
+          .addReg(A)
+          .addReg(B)
+          .addReg(C3)
+          .addImm(ALayout)
+          .addImm(BLayout)
+          .addImm(GASS::TensorCore::STEP3)
+          .addReg(GASS::PT); // PredMask
+
+        // 3. extract data
+        Register DReg0 = MRI.createVirtualRegister(&GASS::VReg32RegClass);
+        Register DReg1 = MRI.createVirtualRegister(&GASS::VReg32RegClass);
+        Register DReg2 = MRI.createVirtualRegister(&GASS::VReg32RegClass);
+        Register DReg3 = MRI.createVirtualRegister(&GASS::VReg32RegClass);
+        Register DReg4 = MRI.createVirtualRegister(&GASS::VReg32RegClass);
+        Register DReg5 = MRI.createVirtualRegister(&GASS::VReg32RegClass);
+        Register DReg6 = MRI.createVirtualRegister(&GASS::VReg32RegClass);
+        Register DReg7 = MRI.createVirtualRegister(&GASS::VReg32RegClass);
+        // Note: TargetOpcode::EXTRACT_SUBREG won't work here.
+        BuildMI(MBB, MI, DL, TII->get(TargetOpcode::COPY), DReg0)
+          .addReg(D0, 0, GASS::sub0);
+        BuildMI(MBB, MI, DL, TII->get(TargetOpcode::COPY), DReg1)
+          .addReg(D0, 0, GASS::sub1);
+        BuildMI(MBB, MI, DL, TII->get(TargetOpcode::COPY), DReg2)
+          .addReg(D1, 0, GASS::sub0);
+        BuildMI(MBB, MI, DL, TII->get(TargetOpcode::COPY), DReg3)
+          .addReg(D1, 0, GASS::sub1);
+        BuildMI(MBB, MI, DL, TII->get(TargetOpcode::COPY), DReg4)
+          .addReg(D2, 0, GASS::sub0);
+        BuildMI(MBB, MI, DL, TII->get(TargetOpcode::COPY), DReg5)
+          .addReg(D2, 0, GASS::sub1);
+        BuildMI(MBB, MI, DL, TII->get(TargetOpcode::COPY), DReg6)
+          .addReg(D3, 0, GASS::sub0);
+        BuildMI(MBB, MI, DL, TII->get(TargetOpcode::COPY), DReg7)
+          .addReg(D3, 0, GASS::sub1);
+
+        MRI.replaceRegWith(MI.getOperand(0).getReg(), DReg0);
+        MRI.replaceRegWith(MI.getOperand(1).getReg(), DReg1);
+        MRI.replaceRegWith(MI.getOperand(2).getReg(), DReg2);
+        MRI.replaceRegWith(MI.getOperand(3).getReg(), DReg3);
+        MRI.replaceRegWith(MI.getOperand(4).getReg(), DReg4);
+        MRI.replaceRegWith(MI.getOperand(5).getReg(), DReg5);
+        MRI.replaceRegWith(MI.getOperand(6).getReg(), DReg6);
+        MRI.replaceRegWith(MI.getOperand(7).getReg(), DReg7);
+
+        ToDeletInstrs.push_back(&*MII);
+      } break;
       }
     }
   }
