@@ -273,15 +273,18 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     char ImmLut = 0;
     // OR -> LOP3 
     // a or b; --> a or b or rz;
-    ImmLut = makeLop3Lut(std::bit_or<char>(), std::bit_or<char>());
-
-    // XOR -> LOP3
-    // a xor b; --> a xor b or rz;
-    ImmLut = makeLop3Lut(std::bit_xor<char>(), std::bit_or<char>());
-
-    // AND -> LOP3
-    // a and b; --> a and b or rz;
-    ImmLut = makeLop3Lut(std::bit_and<char>(), std::bit_or<char>());
+    if (Opc == GASS::OR32rr || Opc == GASS::OR32ri) {
+      ImmLut = makeLop3Lut(std::bit_or<char>(), std::bit_or<char>());
+    } else if (Opc == GASS::XOR32rr || Opc == GASS::XOR32ri) {
+      // XOR -> LOP3
+      // a xor b; --> a xor b or rz;
+      ImmLut = makeLop3Lut(std::bit_xor<char>(), std::bit_or<char>());
+    } else if (Opc == GASS::AND32rr || Opc == GASS::AND32ri) {
+      // AND -> LOP3
+      // a and b; --> a and b or rz;
+      ImmLut = makeLop3Lut(std::bit_and<char>(), std::bit_or<char>());
+    } else
+      llvm_unreachable("Error");
 
     BuildMI(MBB, MI, DL, get(Opcode), Dst)
       .add(MI.getOperand(1))

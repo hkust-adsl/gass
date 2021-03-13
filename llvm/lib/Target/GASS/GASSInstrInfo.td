@@ -360,23 +360,35 @@ multiclass LOP3 {
   def rrr : GASSInstOp3rrr<(outs VReg32:$dst),
                      (ins VReg32:$src0, VReg32:$src1, VReg32:$src2, 
                           i8imm:$immLut),
-                     0x212,
-                     "LOP3.LUT $dst, $src0, $src1, $src2, $immLut;",
-                     []>;
+                     0x212, "LOP3.LUT $dst, $src0, $src1, $src2, $immLut;",
+                     []> {
+    bits<8> immLut;
+    let Inst{26-23} = 0xf; // no ps0;
+    let Inst{19-17} = 0x7; // no pd0;
+    let Inst{15-8} = immLut;
+  }
 
   def rri : GASSInstOp3rri<(outs VReg32:$dst),
                      (ins VReg32:$src0, VReg32:$src1, i32imm:$src2,
                           i8imm:$immLut),
-                     0x412,
-                     "LOP3.LUT $dst, $src0, $src1, $src2, $immLut;",
-                     []>;
+                     0x412, "LOP3.LUT $dst, $src0, $src1, $src2, $immLut;",
+                     []> {
+    bits<8> immLut;
+    let Inst{26-23} = 0xf; // no ps0;
+    let Inst{19-17} = 0x7; // no pd0;
+    let Inst{15-8} = immLut;
+  }
 
   def rir : GASSInstOp3rir<(outs VReg32:$dst),
                      (ins VReg32:$src0, i32imm:$src1, VReg32:$src2,
                           i8imm:$immLut),
-                     0x812,
-                     "LOP3.LUT $dst, $src0, $src1, $src2, $immLut;",
-                     []>;
+                     0x812, "LOP3.LUT $dst, $src0, $src1, $src2, $immLut;",
+                     []> {
+    bits<8> immLut;
+    let Inst{26-23} = 0xf; // no ps0;
+    let Inst{19-17} = 0x7; // no pd0;
+    let Inst{15-8} = immLut;
+  }
 
   // def rrc : ;
 }
@@ -1035,9 +1047,18 @@ def MOV128i : GASSPseudoInst<(outs VReg128:$dst), (ins VReg128:$src0),
 
 //-------- Type Conversion---------
 multiclass F2F {
-  def _F16_F32 : GASSInstOp1r<(outs VReg32:$dst), (ins VReg32:$src0),
+  // Note: Cannot be GASSInstOp1 (the only source is src1)
+  def _F16_F32 : GASSInst<(outs VReg32:$dst), (ins VReg32:$src0),
                               0x304, "F2F.F16.F32 \t$dst, $src0;",
-                              [(set f16:$dst, (fpround f32:$src0))]>;
+                              [(set f16:$dst, (fpround f32:$src0))]> {
+    let Inst{23-0} = 0x200800; // .F16.F32
+
+    bits<8> dst;
+    bits<8> src0;
+
+    let Dst = dst;
+    let Src1 = src0;
+  }
 
   // def _F32_F16rr : 
 
