@@ -1,6 +1,7 @@
 #include "GASS.h"
 #include "GASSMCTargetDesc.h"
 #include "GASSMCCodeEmitter.h"
+#include "llvm/ADT/APFloat.h"
 #include "llvm/Support/EndianStream.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
@@ -55,7 +56,9 @@ GASSMCCodeEmitter::getMachineOpValue(const MCInst &MI, const MCOperand &MO,
     Op = Ctx.getRegisterInfo()->getEncodingValue(MO.getReg());
   else if (MO.isImm()) { 
     Op = MO.getImm();
-  } else 
+  } else if (MO.isFPImm()) {
+    Op = APFloat(MO.getFPImm()).bitcastToAPInt();
+  } else
     llvm_unreachable("Unhandled MachineOperand type");
 
   return;    

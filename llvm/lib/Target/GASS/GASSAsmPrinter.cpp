@@ -282,7 +282,7 @@ bool GASSAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
   StallSetter = &getAnalysis<GASSStallSetting>();
   TII = MF.getSubtarget().getInstrInfo();
 
-  // MF.dump();
+  // MF.viewCFG();
   scanFunction(&MF);
 
   SetupMachineFunction(MF);

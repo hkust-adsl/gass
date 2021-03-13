@@ -313,6 +313,37 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
 
         ToDeletInstrs.push_back(&*MII);
       } break;
+      case GASS::MOV64i: {
+        // MOV64i $dst, $src;
+        //  ->
+        // MOV32i $dst.sub0, $src[63-32];
+        // MOV32i $dst.sub1, $src[31-0];
+        Register Dst = MI.getOperand(0).getReg();
+        const MachineOperand &Constant = MI.getOperand(1);
+        assert(Constant.isImm());
+
+        uint64_t ConstantValue = Constant.getImm();
+        uint32_t ConstantHi = uint32_t(ConstantValue >> 32);
+        uint32_t ConstantLo = uint32_t(ConstantValue & 0xffffffff);
+
+        Register NewDst = MRI.createVirtualRegister(&GASS::VReg64RegClass);
+        Register NewDst0 = MRI.createVirtualRegister(&GASS::VReg32RegClass);
+        Register NewDst1 = MRI.createVirtualRegister(&GASS::VReg32RegClass);
+
+        BuildMI(MBB, MI, DL, TII->get(GASS::MOV32i), NewDst0)
+          .addImm(ConstantHi)
+          .addReg(GASS::PT);
+        BuildMI(MBB, MI, DL, TII->get(GASS::MOV32i), NewDst1)
+          .addImm(ConstantLo)
+          .addReg(GASS::PT);
+        BuildMI(MBB, MI, DL, TII->get(TargetOpcode::REG_SEQUENCE), NewDst)
+          .addReg(NewDst0).addImm(GASS::sub0)
+          .addReg(NewDst1).addImm(GASS::sub1);
+
+        MRI.replaceRegWith(Dst, NewDst);
+
+        ToDeletInstrs.push_back(&*MII);
+      } break;
       }
     }
   }

@@ -779,7 +779,11 @@ multiclass HMMA884 {
     HMMA884Base<(outs VReg64:$dst), 
           (ins VReg64:$src0, VReg64:$src1, VReg64:$src2,
           MmaLayout:$s0layout, MmaLayout:$s1layout, MmaStep:$step), 0x236, 
-          "HMMA.884.F32.F32$step \t$dst, $src0$s0layout, $src1$s1layout, $src2;">;
+          "HMMA.884.F32.F32$step \t$dst, $src0$s0layout, $src1$s1layout, $src2;"> {
+      // .F32.F32
+      let Inst{12} = 1;
+      let Inst{14} = 1;
+    }
 
   // TODO
   // def _f16_f16 : ;
@@ -795,32 +799,34 @@ defm HMMA884 : HMMA884, Sched<[WriteTC]>;
 //=---------------------------------=//
 multiclass MOV<RegisterClass RC, int Width, Operand ImmCls, Operand FpImmCls> {
   def r : GASSInstOp1r<(outs RC:$dst),
-                   (ins RC:$src),
-                   0x202, "MOV."#Width#" \t$dst, $src;", []> {
+                   (ins RC:$src0),
+                   0x202, "MOV."#Width#" \t$dst, $src0;", []> {
     let Inst{11-8} = 0xf;
   }
 
   def i : GASSInstOp1i<(outs RC:$dst),
-                   (ins ImmCls:$src),
-                   0x802, "MOV."#Width#" \t$dst, $src;", []> {
+                   (ins ImmCls:$src0),
+                   0x802, "MOV."#Width#" \t$dst, $src0;", []> {
     let Inst{11-8} = 0xf;
   }
   
   def f : GASSInstOp1i<(outs RC:$dst),
-                   (ins FpImmCls:$src),
-                   0x802, "MOV."#Width#" \t$dst, $src;", []> {
+                   (ins FpImmCls:$src0),
+                   0x802, "MOV."#Width#" \t$dst, $src0;", []> {
     let Inst{11-8} = 0xf;
   }
 
   def c : GASSInstOp1c<(outs RC:$dst),
-                   (ins constantmem:$src), // Not true.
-                   0xa02, "MOV."#Width#" \t$dst, $src;", []> {
+                   (ins constantmem:$src0), // Not true.
+                   0xa02, "MOV."#Width#" \t$dst, $src0;", []> {
     let Inst{11-8} = 0xf;
   }
 }
 
 defm MOV32 : MOV<VReg32, 32, i32imm, f32imm>, Sched<[WriteINT]>;
-defm MOV64 : MOV<VReg64, 64, i64imm, f64imm>, Sched<[WriteINT]>; // Really need to support this?
+let isPseudo = true in {
+defm MOV64 : MOV<VReg64, 64, i64imm, f64imm>, Sched<[WriteINT]>;
+}
 
 
 // TODO: this can't be right?
@@ -923,7 +929,7 @@ multiclass STS<RegisterClass RC, int Width> {
                         0x388,
                         "STS."#Width#" \t[$ptr+$offset], $src;", [], Width>;
 }
-
+defm STS16 : STS<VReg32, 16>, Sched<[WriteST]>;
 defm STS32 : STS<VReg32, 32>, Sched<[WriteST]>;
 defm STS64 : STS<VReg64, 64>, Sched<[WriteST]>;
 defm STS128 : STS<VReg128, 128>, Sched<[WriteST]>;
@@ -981,17 +987,17 @@ def BAR : GASSInst<(outs), (ins),
 // Pattern in C++
 let isFixLat = false in {
 multiclass SHFL {
-  def rrr : GASSInst<(outs VReg32:$dst),
+  def rrr : GASSInstOp3rrr<(outs VReg32:$dst),
                      (ins VReg32:$src0, VReg32:$src1, VReg32:$src2,
                           ShflMode:$shfl),
                      0x389, "SHFL$shfl $dst, $src0, $src1, $src2;", []>;
 
-  def rri : GASSInst<(outs VReg32:$dst),
+  def rri : GASSInstOp3rri<(outs VReg32:$dst),
                     (ins VReg32:$src0, VReg32:$src1, i32imm:$src2,
                         ShflMode:$shfl),
                     0x589, "SHFL$shfl $dst, $src0, $src1, $src2;", []>;
 
-  def rir : GASSInst<(outs VReg32:$dst),
+  def rir : GASSInstOp3rir<(outs VReg32:$dst),
                      (ins VReg32:$src0, i32imm:$src1, VReg32:$src2,
                           ShflMode:$shfl),
                      0x989, "SHFL$shfl $dst, $src0, $src1, $src2;", []>;
@@ -1022,12 +1028,21 @@ def : Pat<(v8f16 (bitconvert (v2i64 VReg128:$src))), (v8f16 VReg128:$src)>;
 // def : Pat<(v8f16 (bitconvert (i128 imm:$src))), (MOV128 imm:$src)>;
 
 // For constants:
+def : Pat<(v4f16 (bitconvert (i64 imm:$src0))), (MOV64i imm:$src0)>;
 def MOV128i : GASSPseudoInst<(outs VReg128:$dst), (ins VReg128:$src0),
                              [(set i128:$dst, (imm:$src0))]>, Sched<[WriteINT]>;
 
 
 //-------- Type Conversion---------
-// multiclass F2F : {}
+multiclass F2F {
+  def _F16_F32 : GASSInstOp1r<(outs VReg32:$dst), (ins VReg32:$src0),
+                              0x304, "F2F.F16.F32 \t$dst, $src0;",
+                              [(set f16:$dst, (fpround f32:$src0))]>;
+
+  // def _F32_F16rr : 
+
+}
+defm F2F : F2F, Sched<[WriteFP32]>; // TODO: maybe SFU
 
 
 //-------- extract_vector_elt ------

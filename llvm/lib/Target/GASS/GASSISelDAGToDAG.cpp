@@ -309,6 +309,7 @@ bool GASSDAGToDAGISel::tryStore(SDNode *N) {
     if (selectADDRri(BasePtr, Base, Offset)) {
       switch (ValueWidth) {
       default: llvm_unreachable("Invalid sts width");
+      case 16: Opcode = GASS::STS16ri; break;
       case 32: Opcode = GASS::STS32ri; break;
       case 64: Opcode = GASS::STS64ri; break;
       case 128: Opcode = GASS::STS128ri; break;
@@ -318,6 +319,7 @@ bool GASSDAGToDAGISel::tryStore(SDNode *N) {
     } else {
       switch (ValueWidth) {
       default: llvm_unreachable("Invalid sts width");
+      case 16: Opcode = GASS::STS16r; break;
       case 32: Opcode = GASS::STS32r; break;
       case 64: Opcode = GASS::STS64r; break;
       case 128: Opcode = GASS::STS128r; break;

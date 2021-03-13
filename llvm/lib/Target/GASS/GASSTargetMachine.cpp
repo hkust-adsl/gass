@@ -10,6 +10,7 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/ConstantHoisting.h"
+#include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Vectorize.h"
 #include <memory>
 
@@ -97,6 +98,11 @@ void GASSPassConfig::addIRPasses() {
   // Following the practice in AArch64
   // TODO: disable it for now.
   // addPass(createLICMPass());
+
+  // Can be useful (following NVPTX)
+  // addPass(createGVNPass());
+  // or
+  addPass(createEarlyCSEPass());
 }
 
 bool GASSPassConfig::addInstSelector() {

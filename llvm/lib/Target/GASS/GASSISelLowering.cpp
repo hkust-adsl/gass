@@ -74,6 +74,12 @@ GASSTargetLowering::GASSTargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::BUILD_VECTOR, MVT::v4f16, Custom);
   setOperationAction(ISD::BUILD_VECTOR, MVT::v8f16, Custom);
 
+  // Turn FP truncstore into trunc + store.
+  // FIXME: vector types should also be expanded
+  setTruncStoreAction(MVT::f32, MVT::f16, Expand);
+  setTruncStoreAction(MVT::f64, MVT::f16, Expand);
+  setTruncStoreAction(MVT::f64, MVT::f32, Expand);
+
   computeRegisterProperties(Subtarget.getRegisterInfo());
 }
 
