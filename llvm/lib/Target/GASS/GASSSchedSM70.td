@@ -19,7 +19,6 @@ def SM70UintTensorCore : ProcResource<1> { let BufferSize = 0; }
 // Other
 
 
-
 // WriteRes
 // 4. Map processor resources to SchedWrites
 // Integer arithmetic and logic

@@ -935,13 +935,13 @@ defm STG64 : STG<VReg64, 64>, Sched<[WriteSTG]>;
 defm STG128 : STG<VReg128, 128>, Sched<[WriteSTG]>;
 
 multiclass STS<RegisterClass RC, int Width> {
-  def r : GASSInstLdst<(outs), (ins RC:$src, VReg32:$ptr),
+  def r : GASSInstLdst<(outs), (ins RC:$src1, VReg32:$ptr),
                        0x388,
-                       "STS."#Width#" \t[$ptr], $src;", [], Width>;
+                       "STS."#Width#" \t[$ptr], $src1;", [], Width>;
   
-  def ri : GASSInstLdstOff<(outs), (ins RC:$src, VReg32:$ptr, i16imm:$offset),
+  def ri : GASSInstLdstOff<(outs), (ins RC:$src1, VReg32:$ptr, i16imm:$offset),
                         0x388,
-                        "STS."#Width#" \t[$ptr+$offset], $src;", [], Width>;
+                        "STS."#Width#" \t[$ptr+$offset], $src1;", [], Width>;
 }
 defm STS16 : STS<VReg32, 16>, Sched<[WriteSTS]>;
 defm STS32 : STS<VReg32, 32>, Sched<[WriteSTS]>;
