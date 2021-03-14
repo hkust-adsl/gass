@@ -253,6 +253,8 @@ class GASSInstOp2rc<dag oops, dag iops, bits<12> opcode, string asm,
 //=--------------------------------------------------------------------------=//
 // 1-operand template
 //=--------------------------------------------------------------------------=//
+// 1-operand instrs use Src1 to encode $src0
+// examples: MOV, F2F
 class GASSInstOp1r<dag oops, dag iops, bits<12> opcode, string asm, 
                   list<dag> pattern> 
     : GASSInst<oops, iops, opcode, asm, pattern> {
@@ -260,7 +262,7 @@ class GASSInstOp1r<dag oops, dag iops, bits<12> opcode, string asm,
   bits<8> src0;
 
   let Dst = dst;
-  let Src0 = src0;
+  let Src1 = src0;
 }
 
 class GASSInstOp1i<dag oops, dag iops, bits<12> opcode, string asm, 

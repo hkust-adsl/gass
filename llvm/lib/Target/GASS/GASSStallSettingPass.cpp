@@ -35,7 +35,7 @@ bool GASSStallSetting::runOnMachineFunction(MachineFunction &MF) {
 
   SchedModel.init(&ST);
   if (!SchedModel.hasInstrSchedModel())
-    return false;
+    llvm_unreachable("GASS requires InstrSchedModel.");
 
   for (MachineBasicBlock &MBB : MF) {
     // Record activate regs

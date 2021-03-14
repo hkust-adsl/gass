@@ -273,7 +273,7 @@ multiclass IMUL {
                          (ins VReg32:$src0, i32imm:$src1),
                          []>;
 }
-defm IMUL : IMUL, Sched<[WriteINT]>;
+defm IMUL : IMUL, Sched<[WriteIMUL]>;
 
 // IMAD
 multiclass IMAD<bit IsSigned> {
@@ -282,28 +282,28 @@ multiclass IMAD<bit IsSigned> {
                      0x224,
                      "IMAD \t$dst, $src0, $src1, $src2;",
                      [(set i32:$dst, (add (mul i32:$src0, i32:$src1), 
-                                          i32:$src2))]>;
+                                          i32:$src2))]>, Sched<[WriteIMUL]>;
 
   def rri : GASSInstOp3rri<(outs VReg32:$dst),
                      (ins VReg32:$src0, VReg32:$src1, i32imm:$src2),
                      0x424,
                      "IMAD \t$dst, $src0, $src1, $src2;",
                      [(set i32:$dst, (add (mul i32:$src0, i32:$src1),
-                                          imm:$src2))]>;
+                                          imm:$src2))]>, Sched<[WriteIMUL]>;
 
   def rir : GASSInstOp3rir<(outs VReg32:$dst),
                      (ins VReg32:$src0, i32imm:$src1, VReg32:$src2),
                      0x824,
                      "IMAD \t$dst, $src0, $src1, $src2;",
                      [(set i32:$dst, (add (mul i32:$src0, imm:$src1),
-                                          i32:$src2))]>;
+                                          i32:$src2))]>, Sched<[WriteIMUL]>;
 
   def _WIDErrr : GASSInstOp3rrr<(outs VReg64:$dst),
                           (ins VReg32:$src0, VReg32:$src1, VReg64:$src2),
                           0x225,
                           "IMAD.WIDE \t$dst, $src0, $src1, $src2;",
                           // Does this work?
-                          []>;
+                          []>, Sched<[WriteIMULWIDE]>;
 
   // def _WIDErri : ;
 
@@ -311,12 +311,12 @@ multiclass IMAD<bit IsSigned> {
                           (ins VReg32:$src0, i32imm:$src1, VReg64:$src2),
                           0x825,
                           "IMAD.WIDE \t$dst, $src0, $src1, $src2;",
-                          []>;
+                          []>, Sched<[WriteIMULWIDE]>;
 
   // TODO: fill this.
   // def _HIrrr : ;
 }
-defm IMAD_S32 : IMAD<true>, Sched<[WriteFP32]>;
+defm IMAD_S32 : IMAD<true>;
 // defm IMAD_U32 : IMAD<false>, Sched<[WriteFP32]>;
 
 // SHF
@@ -744,7 +744,7 @@ def HMMA884_f32_f32_Pseudo :
                       VReg32:$c0, VReg32:$c1, VReg32:$c2, VReg32:$c3,
                       VReg32:$c4, VReg32:$c5, VReg32:$c6, VReg32:$c7,
                       MmaLayout:$s0layout, MmaLayout:$s1layout), []>, 
-  Sched<[WriteTC]>;
+  Sched<[WriteHMMA884]>;
 
 def : Pat<(int_nvvm_mma_m8n8k4_row_row_f32_f32 
              v2f16:$a0, v2f16:$a1, v2f16:$b0, v2f16:$b1,
@@ -784,6 +784,8 @@ class HMMA884Base<dag oops, dag iops, bits<12> opcode, string asm> :
   let Inst{9} = s0layout;
   let Inst{10} = s1layout;
   let Inst{16-15} = step;
+
+  let isFixLat = false;
 }
 multiclass HMMA884 {
 // dst, src0, src1, src2, src0layout, src1layout, step
@@ -803,7 +805,7 @@ multiclass HMMA884 {
   // TODO
   // def _f16_f32 : ;
 }
-defm HMMA884 : HMMA884, Sched<[WriteTC]>;
+defm HMMA884 : HMMA884, Sched<[WriteHMMA884]>;
 
 
 //=---------------------------------=//
@@ -865,8 +867,8 @@ multiclass LDC<RegisterClass RC, int Width> {
   // def rc : ;
 }
 
-defm LDC32 : LDC<VReg32, 32>, Sched<[WriteLD]>;
-defm LDC64 : LDC<VReg64, 64>, Sched<[WriteLD]>;
+defm LDC32 : LDC<VReg32, 32>, Sched<[WriteINT]>; // Sched?
+defm LDC64 : LDC<VReg64, 64>, Sched<[WriteINT]>;
 
 let mayLoad = true in {
 multiclass LDG<RegisterClass RC, int Width> {
@@ -889,9 +891,9 @@ multiclass LDG<RegisterClass RC, int Width> {
 }
 }
 
-defm LDG32 : LDG<VReg32, 32>, Sched<[WriteLD]>;
-defm LDG64 : LDG<VReg64, 64>, Sched<[WriteLD]>;
-defm LDG128 : LDG<VReg128, 128>, Sched<[WriteLD]>;
+defm LDG32 : LDG<VReg32, 32>, Sched<[WriteLDG]>;
+defm LDG64 : LDG<VReg64, 64>, Sched<[WriteLDG]>;
+defm LDG128 : LDG<VReg128, 128>, Sched<[WriteLDG]>;
 
 // LDS
 let mayLoad = true in {
@@ -905,10 +907,10 @@ multiclass LDS<RegisterClass RC, int Width> {
                        Width>;
 }
 }
-defm LDS16 : LDS<VReg32, 16>, Sched<[WriteLD]>;
-defm LDS32 : LDS<VReg32, 32>, Sched<[WriteLD]>;
-defm LDS64 : LDS<VReg64, 64>, Sched<[WriteLD]>;
-defm LDS128 : LDS<VReg128, 128>, Sched<[WriteLD]>;
+defm LDS16 : LDS<VReg32, 16>, Sched<[WriteLDS]>;
+defm LDS32 : LDS<VReg32, 32>, Sched<[WriteLDS]>;
+defm LDS64 : LDS<VReg64, 64>, Sched<[WriteLDS]>;
+defm LDS128 : LDS<VReg128, 128>, Sched<[WriteLDS]>;
 
 
 // STG
@@ -928,9 +930,9 @@ multiclass STG<RegisterClass RC, int Width> {
   }
 }
 
-defm STG32 : STG<VReg32, 32>, Sched<[WriteST]>;
-defm STG64 : STG<VReg64, 64>, Sched<[WriteST]>;
-defm STG128 : STG<VReg128, 128>, Sched<[WriteST]>;
+defm STG32 : STG<VReg32, 32>, Sched<[WriteSTG]>;
+defm STG64 : STG<VReg64, 64>, Sched<[WriteSTG]>;
+defm STG128 : STG<VReg128, 128>, Sched<[WriteSTG]>;
 
 multiclass STS<RegisterClass RC, int Width> {
   def r : GASSInstLdst<(outs), (ins RC:$src, VReg32:$ptr),
@@ -941,10 +943,10 @@ multiclass STS<RegisterClass RC, int Width> {
                         0x388,
                         "STS."#Width#" \t[$ptr+$offset], $src;", [], Width>;
 }
-defm STS16 : STS<VReg32, 16>, Sched<[WriteST]>;
-defm STS32 : STS<VReg32, 32>, Sched<[WriteST]>;
-defm STS64 : STS<VReg64, 64>, Sched<[WriteST]>;
-defm STS128 : STS<VReg128, 128>, Sched<[WriteST]>;
+defm STS16 : STS<VReg32, 16>, Sched<[WriteSTS]>;
+defm STS32 : STS<VReg32, 32>, Sched<[WriteSTS]>;
+defm STS64 : STS<VReg64, 64>, Sched<[WriteSTS]>;
+defm STS128 : STS<VReg128, 128>, Sched<[WriteSTS]>;
 
 //=---------------------------------=//
 // Control Flow
@@ -1023,7 +1025,7 @@ multiclass SHFL {
 }
 }
 
-defm SHFL : SHFL, Sched<[WriteLD]>;
+defm SHFL : SHFL, Sched<[WriteLDS]>;
 
 
 //=----------------------------------=//
@@ -1047,24 +1049,16 @@ def MOV128i : GASSPseudoInst<(outs VReg128:$dst), (ins VReg128:$src0),
 
 //-------- Type Conversion---------
 multiclass F2F {
-  // Note: Cannot be GASSInstOp1 (the only source is src1)
-  def _F16_F32 : GASSInst<(outs VReg32:$dst), (ins VReg32:$src0),
+  def _F16_F32 : GASSInstOp1r<(outs VReg32:$dst), (ins VReg32:$src0),
                               0x304, "F2F.F16.F32 \t$dst, $src0;",
                               [(set f16:$dst, (fpround f32:$src0))]> {
     let Inst{23-0} = 0x200800; // .F16.F32
-
-    bits<8> dst;
-    bits<8> src0;
-
-    let Dst = dst;
-    let Src1 = src0;
   }
 
   // def _F32_F16rr : 
 
 }
-defm F2F : F2F, Sched<[WriteFP32]>; // TODO: maybe SFU
-
+defm F2F : F2F, Sched<[WriteF2F]>;
 
 //-------- extract_vector_elt ------
 // EXTRACT_VECTOR_ELT -> EXTRACT_SUBREG
@@ -1109,7 +1103,7 @@ class READ_SREG_R32<string RegName, Intrinsic IntOp, bits<8>RegEnc>
   : GASSInstOp0<(outs VReg32:$dst), (ins), 
                 0x919, 
                 "S2R \t$dst, "#RegName#";",
-                [(set VReg32:$dst, (IntOp))]>, Sched<[WriteLD]> {
+                [(set VReg32:$dst, (IntOp))]>, Sched<[WriteLDS]> {
   let isFixLat = false;
 
   // TODO: move this to ISel
@@ -1131,8 +1125,6 @@ def READ_LANEID : READ_SREG_R32<"laneid", int_nvvm_read_ptx_sreg_laneid, 0>;
 
 // TODO: SReg: smid, nsmid, gridid, lanemask_eq, 
 
-
-// def CS2R : GASSInst<>, Sched<[]>;
 
 // For GlobalAddress
 def SDTWrapper : SDTypeProfile<1, 1, [SDTCisSameAs<0, 1>, SDTCisPtrTy<0>]>;
