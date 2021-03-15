@@ -86,6 +86,12 @@ TargetPassConfig *GASSTargetMachine::createPassConfig(PassManagerBase &PM) {
 
 void GASSPassConfig::addIRPasses() {
   addPass(createDeadCodeEliminationPass());
+
+  // Can be useful (following NVPTX)
+  // addPass(createGVNPass());
+  // or
+  addPass(createEarlyCSEPass());
+  
   addPass(createGASSAddrSpacePass()); // required by infer address space
   addPass(createSROAPass());
   addPass(createInferAddressSpacesPass());
@@ -98,11 +104,6 @@ void GASSPassConfig::addIRPasses() {
   // Following the practice in AArch64
   // TODO: disable it for now.
   // addPass(createLICMPass());
-
-  // Can be useful (following NVPTX)
-  // addPass(createGVNPass());
-  // or
-  addPass(createEarlyCSEPass());
 }
 
 bool GASSPassConfig::addInstSelector() {

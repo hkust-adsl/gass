@@ -239,6 +239,7 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     llvm_unreachable("Not implemented");
   } break;
   case GASS::IMUL_WIDEri: {
+    llvm_unreachable("Not implemented");
     Register Dst = MI.getOperand(0).getReg();
     BuildMI(MBB, MI, DL, get(GASS::IMAD_S32_WIDErir), Dst)
       .add(MI.getOperand(1))
@@ -263,7 +264,7 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     switch (Opc) {
     llvm_unreachable("Shouldn't be here");
     case GASS::OR32rr: case GASS::XOR32rr: case GASS::AND32rr:
-      Opcode = GASS::LOP3rir; 
+      Opcode = GASS::LOP3rrr; 
       break;
     case GASS::OR32ri: case GASS::XOR32ri: case GASS::AND32ri:
       Opcode = GASS::LOP3rir;
