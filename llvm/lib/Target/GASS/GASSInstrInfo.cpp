@@ -239,6 +239,7 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     llvm_unreachable("Not implemented");
   } break;
   case GASS::IMUL_WIDEri: {
+    llvm_unreachable("Not implemented");
     Register Dst = MI.getOperand(0).getReg();
     BuildMI(MBB, MI, DL, get(GASS::IMAD_S32_WIDErir), Dst)
       .add(MI.getOperand(1))
@@ -263,7 +264,7 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     switch (Opc) {
     llvm_unreachable("Shouldn't be here");
     case GASS::OR32rr: case GASS::XOR32rr: case GASS::AND32rr:
-      Opcode = GASS::LOP3rir; 
+      Opcode = GASS::LOP3rrr; 
       break;
     case GASS::OR32ri: case GASS::XOR32ri: case GASS::AND32ri:
       Opcode = GASS::LOP3rir;
@@ -428,6 +429,7 @@ bool GASSInstrInfo::isLDS(const MachineInstr &MI) {
   case GASS::READ_TID_X: case GASS::READ_TID_Y: case GASS::READ_TID_Z:
   case GASS::READ_CTAID_X: case GASS::READ_CTAID_Y: case GASS::READ_CTAID_Z:
   case GASS::READ_LANEID:
+  case GASS::LDS16r: case GASS::LDS16ri:
   case GASS::LDS32r: case GASS::LDS32ri:
   case GASS::LDS64r: case GASS::LDS64ri:
   case GASS::LDS128r: case GASS::LDS128ri:
@@ -457,14 +459,13 @@ bool GASSInstrInfo::isSTG(const MachineInstr &MI) {
 
 bool GASSInstrInfo::isSTS(const MachineInstr &MI) {
   switch (MI.getOpcode()) {
-  default:
-    break;
+  default: return false;
+  case GASS::STS16r: case GASS::STS16ri:
   case GASS::STS32r: case GASS::STS32ri:
   case GASS::STS64r: case GASS::STS64ri:
   case GASS::STS128r: case GASS::STS128ri:
     return true;
   }
-  return false;
 }
 
 MachineOperand* GASSInstrInfo::getMemOperandReg(MachineInstr &MI) {

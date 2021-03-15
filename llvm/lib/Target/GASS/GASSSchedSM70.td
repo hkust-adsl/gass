@@ -23,6 +23,8 @@ def SM70UintTensorCore : ProcResource<1> { let BufferSize = 0; }
 // 4. Map processor resources to SchedWrites
 // Integer arithmetic and logic
 def : WriteRes<WriteINT, [SM70UnitALU]> { let Latency = 5; }
+def : WriteRes<WriteSHIFT, [SM70UnitALU]> { let Latency = 6; }
+def : WriteRes<WriteLOP3, [SM70UnitALU]> { let Latency = 8; } // Maybe 6?
 def : WriteRes<WriteISETP, [SM70UnitALU]> { let Latency = 12; }
 // Uses FP32 pipeline
 def : WriteRes<WriteIMUL, [SM70UnitFP32ALU]> { let Latency = 5; }
