@@ -1,5 +1,7 @@
 // 3. SchedWrite(s) (& SchedRead(s))?
 def WriteINT : SchedWrite; 
+def WriteSHIFT : SchedWrite;
+def WriteLOP3 : SchedWrite;
 def WriteISETP : SchedWrite;
 
 // Integer mulitplication

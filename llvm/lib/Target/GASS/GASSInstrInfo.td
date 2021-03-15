@@ -352,7 +352,7 @@ multiclass SHF {
     let Inst{16} = hi;
   }
 }
-defm SHF : SHF, Sched<[WriteINT]>;
+defm SHF : SHF, Sched<[WriteSHIFT]>;
 
 // LOP3
 //   LOP3 $dst, $src1, $src2, $src3, $immLut;
@@ -392,7 +392,7 @@ multiclass LOP3 {
 
   // def rrc : ;
 }
-defm LOP3 : LOP3, Sched<[WriteINT]>;
+defm LOP3 : LOP3, Sched<[WriteLOP3]>;
 
 multiclass SELECT<string OpcStr, ValueType VT, Operand ImmCls, ValueType ImmVT,
                   bits<12> rrEnc, bits<12> riEnc> {
@@ -467,9 +467,9 @@ multiclass SHIFT<SDNode OpNode> {
                             [(set i32:$dst, (OpNode i32:$src0,
                                                     (i32 imm:$src1)))]>;
 }
-defm SHL : SHIFT<shl>, Sched<[WriteINT]>;
-defm SRA : SHIFT<sra>, Sched<[WriteINT]>;
-defm SRL : SHIFT<srl>, Sched<[WriteINT]>;
+defm SHL : SHIFT<shl>, Sched<[WriteSHIFT]>;
+defm SRA : SHIFT<sra>, Sched<[WriteSHIFT]>;
+defm SRL : SHIFT<srl>, Sched<[WriteSHIFT]>;
 
 // SIGN_EXTEND
 // i32->i64

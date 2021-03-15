@@ -429,6 +429,7 @@ bool GASSInstrInfo::isLDS(const MachineInstr &MI) {
   case GASS::READ_TID_X: case GASS::READ_TID_Y: case GASS::READ_TID_Z:
   case GASS::READ_CTAID_X: case GASS::READ_CTAID_Y: case GASS::READ_CTAID_Z:
   case GASS::READ_LANEID:
+  case GASS::LDS16r: case GASS::LDS16ri:
   case GASS::LDS32r: case GASS::LDS32ri:
   case GASS::LDS64r: case GASS::LDS64ri:
   case GASS::LDS128r: case GASS::LDS128ri:
@@ -458,14 +459,13 @@ bool GASSInstrInfo::isSTG(const MachineInstr &MI) {
 
 bool GASSInstrInfo::isSTS(const MachineInstr &MI) {
   switch (MI.getOpcode()) {
-  default:
-    break;
+  default: return false;
+  case GASS::STS16r: case GASS::STS16ri:
   case GASS::STS32r: case GASS::STS32ri:
   case GASS::STS64r: case GASS::STS64ri:
   case GASS::STS128r: case GASS::STS128ri:
     return true;
   }
-  return false;
 }
 
 MachineOperand* GASSInstrInfo::getMemOperandReg(MachineInstr &MI) {
