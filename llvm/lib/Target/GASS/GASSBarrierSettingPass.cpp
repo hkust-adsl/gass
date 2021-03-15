@@ -445,10 +445,10 @@ namespace llvm {
 }
 
 INITIALIZE_PASS_BEGIN(GASSBarrierSetting, DEBUG_TYPE,
-                      GASS_BARRIERSETTING_NAME, false, false);
+                      GASS_BARRIERSETTING_NAME, false, false)
 INITIALIZE_PASS_DEPENDENCY(LiveIntervals)
 INITIALIZE_PASS_END(GASSBarrierSetting, DEBUG_TYPE,
-                    GASS_BARRIERSETTING_NAME, false, false);
+                    GASS_BARRIERSETTING_NAME, false, false)
 
 bool GASSBarrierSetting::runOnMachineFunction(MachineFunction &MF) {
   const GASSSubtarget &ST = MF.getSubtarget<GASSSubtarget>();

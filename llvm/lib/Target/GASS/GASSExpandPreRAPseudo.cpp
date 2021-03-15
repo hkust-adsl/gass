@@ -68,6 +68,8 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
 
   std::vector<MachineInstr*> ToDeletInstrs;
 
+  bool Modified = false;
+
   for (MachineBasicBlock &MBB : MF) {
     for (MachineBasicBlock::iterator MII = MBB.begin();
                                      MII != MBB.end(); ++MII) {
@@ -350,8 +352,11 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
 
   // erase deleted MIs
   for (MachineInstr *MI : ToDeletInstrs) {
+    Modified = true;
     MI->eraseFromParent();
   }
+
+  return Modified;
 }
 
 FunctionPass *llvm::createGASSExpandPreRAPseudoPass() {
