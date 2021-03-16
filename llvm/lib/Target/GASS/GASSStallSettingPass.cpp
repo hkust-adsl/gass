@@ -63,7 +63,7 @@ bool GASSStallSetting::runOnMachineFunction(MachineFunction &MF) {
           }
         }
       } else {
-        // We stall instructions with var latency to stall for at least 2 cycles
+        // We let instructions with var latency to stall for at least 2 cycles
         Stalls = 2;
       }
 

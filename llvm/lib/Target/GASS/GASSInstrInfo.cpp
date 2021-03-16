@@ -239,7 +239,6 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     llvm_unreachable("Not implemented");
   } break;
   case GASS::IMUL_WIDEri: {
-    llvm_unreachable("Not implemented");
     Register Dst = MI.getOperand(0).getReg();
     BuildMI(MBB, MI, DL, get(GASS::IMAD_S32_WIDErir), Dst)
       .add(MI.getOperand(1))
