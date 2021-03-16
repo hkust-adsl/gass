@@ -403,14 +403,9 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
 //=----------------------------------------------=//
 // Query instr type
 //=----------------------------------------------=//
-// bool GASSInstrInfo::needsRAWBarrier(const MachineInstr &MI) {
-//   if (isLoad(MI))
-//     return true;
-//   switch (MI.getOpcode()) {
-//     default: return false;
-//     case 
-//   }
-// }
+bool GASSInstrInfo::needsRAWBarrier(const MachineInstr &MI) {
+  return isLoad(MI) | isTC(MI) | isSFU(MI);
+}
 
 bool GASSInstrInfo::isLoad(const MachineInstr &MI) {
   return isLDG(MI) | isLDS(MI) | isLDC(MI);
@@ -472,6 +467,22 @@ bool GASSInstrInfo::isSTS(const MachineInstr &MI) {
   case GASS::STS32r: case GASS::STS32ri:
   case GASS::STS64r: case GASS::STS64ri:
   case GASS::STS128r: case GASS::STS128ri:
+    return true;
+  }
+}
+
+bool GASSInstrInfo::isTC(const MachineInstr &MI) {
+  switch (MI.getOpcode()) {
+  default: return false;
+  case GASS::HMMA884_f32_f32:
+    return true;
+  }
+}
+
+bool GASSInstrInfo::isSFU(const MachineInstr &MI) {
+  switch (MI.getOpcode()) {
+  default: return false;
+  case GASS::F2F_F16_F32:
     return true;
   }
 }

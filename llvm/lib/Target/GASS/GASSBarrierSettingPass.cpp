@@ -56,6 +56,8 @@ enum BarrierType {
   RAW_S,
   RAW_G,
   RAW_C,
+  RAW_TC,
+  RAW_SFU,
   WAR_S,
   WAR_G,
   WAR_MEM,
@@ -124,6 +126,10 @@ public:
         BT = RAW_S;
       } else if (GII->isLDC(MI)) {
         BT = RAW_C;
+      } else if (GII->isTC(MI)) {
+        BT = RAW_TC;
+      } else if (GII->isSFU(MI)) {
+        BT = RAW_SFU;
       } else if (GII->isSTS(MI)) {
         BT = WAR_S;
       } else if (GII->isSTG(MI)) {
@@ -133,7 +139,8 @@ public:
       }
     }
 
-    if (BT == RAW_S || BT == RAW_G || BT == RAW_C)
+    if (BT == RAW_S || BT == RAW_G || BT == RAW_C || BT == RAW_TC || 
+        BT == RAW_SFU)
       IsRAW = true;
     else
       IsRAW = false;
@@ -144,7 +151,9 @@ public:
   // Merge two barriers
   void merge(const Barrier &Other) {
     assert(IsRAW == Other.isRAW() && "Cannot merge RAW & WAR barriers");
-    if (BT == RAW_S && Other.getBarrierType() == RAW_S) {
+    if ((BT == RAW_S && Other.getBarrierType() == RAW_S) ||
+        (BT == RAW_TC && Other.getBarrierType() == RAW_TC) ||
+        (BT == RAW_SFU && Other.getBarrierType() == RAW_SFU)) {
       // Since LDSs are executed in order, we only need one start point
       assert(Starts.size() == 1 && Other.getStarts().size() == 1);
       Starts[0] = std::max(Starts[0], Other.getStarts()[0]);
@@ -223,6 +232,8 @@ private:
   case RAW_C : return "RAW_C";
   case RAW_S : return "RAW_S";
   case RAW_G : return "RAW_G";
+  case RAW_TC : return "RAW_TC";
+  case RAW_SFU : return "RAW_SFU";
   case WAR_G : return "WAR_G";
   case WAR_S : return "WAR_S";
   case WAR_MEM : return "WAR_MEM";
@@ -359,6 +370,7 @@ public:
 
   // Main interface to choose barrier pair to merge
   std::pair<Barrier*, Barrier*> pickBarrierPairToMerge() {
+    // We only merge barriers, whos degree is > kNumBarriers
     std::set<Barrier*> Candidates;
     for (auto iter = Edges.begin(); iter != Edges.end(); ++iter) 
       if (iter->second.size() > kNumBarriers)
@@ -418,6 +430,24 @@ private:
 // TODO: We need more theoretical support here.
 std::pair<Barrier*, Barrier*> 
 LiveBarGraph::pickBarrierPairToMergeOrdered(std::set<Barrier*> &Candidates) {
+  // Both are RAW_TC
+  for (Barrier *Candidate : Candidates) {
+    if (Candidate->getBarrierType() == RAW_TC) {
+      for (Edge const &E : Edges[Candidate]) {
+        if (E.Dst->getBarrierType() == RAW_TC)
+          return {Candidate, E.Dst};
+      }
+    }
+  }
+  // Both are RAW_SFU
+  for (Barrier *Candidate : Candidates) {
+    if (Candidate->getBarrierType() == RAW_SFU) {
+      for (Edge const &E : Edges[Candidate]) {
+        if (E.Dst->getBarrierType() == RAW_SFU)
+          return {Candidate, E.Dst};
+      }
+    }
+  }
   // First merge LDC, then LDS, then LDG
   for (Barrier *Candidate : Candidates) {
     if (Candidate->getBarrierType() == RAW_C) {
@@ -546,8 +576,7 @@ void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
     // MI.dump();
 
     // Check RAW dependency
-    if (GII->isLoad(MI)) {
-      // outs() << "isLoad, scan downward\n";
+    if (GII->needsRAWBarrier(MI)) {
       // Check all defs (dsts) of load (requires RAW barriers)
       for (MachineOperand const &Def : MI.defs()) {
         if (Def.isReg()) {
