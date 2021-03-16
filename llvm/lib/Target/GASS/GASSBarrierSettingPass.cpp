@@ -580,7 +580,29 @@ void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
       // Create WAR for MemOperand
     } else if (GII->isStore(MI)) {
       // Create WAR for store instructions
-      // TODO TODO TODO: fill this
+      MachineOperand &MO = MI->getOperand(0);
+      assert(MO.isReg() && "Expect Register from Store instr");
+
+      SlotIndex SIStart = LIS->getInstructionIndex(MI);
+
+      // if current instr writes to it, we don't need to care about that
+      std::vector<MachineInstr *> ScanRange = getScanRange(MBB, iter);
+      for (MachineInstr *probe : ScanRange) {
+        // The last inst must wait on this. (TODO: only if next BB writes to it)
+        if (probe == ScanRange.back()) {
+            SlotIndex SIEnd = LIS->getInstructionIndex(*probe);
+            Barriers.emplace_back(MI, SIStart, SIEnd, true, LIS, GII);
+            break;
+        }
+        for (MachineOperand &Def : probe->defs()) {
+          if (Def.isReg() && GRI->regsOverlap(BSrc->getReg(), Def.getReg())) {
+            SlotIndex SIEnd = LIS->getInstructionIndex(*probe);
+            Barriers.emplace_back(MI, SIStart, SIEnd, true, LIS, GII);
+            goto TheEnd; // double break
+          }
+        }
+      }
+      TheEnd: {}
     }
 
     // Check WAR dependency

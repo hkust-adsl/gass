@@ -486,7 +486,7 @@ MachineOperand* GASSInstrInfo::getMemOperandReg(MachineInstr &MI) {
   case GASS::STG32r: case GASS::STG32ri:
   case GASS::STG64r: case GASS::STG64ri:
   case GASS::STG128r: case GASS::STG128ri:
-    return &MI.getOperand(0);
+    return &MI.getOperand(1); // First operand is src
   }
 }
 

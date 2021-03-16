@@ -40,7 +40,7 @@ def : WriteRes<WriteFP64, [SM70UnitFP64ALU]> { let Latency = 8; }
 def : WriteRes<WriteF2F, [SM70UnitSFU]> { let Latency = 8; } // TODO: check this
 
 // TensorCore
-def : WriteRes<WriteHMMA884, [SM70UintTensorCore]> { let Latency = 14; }
+def : WriteRes<WriteHMMA884, [SM70UintTensorCore]> { let Latency = 8; }
 
 // Memory
 def : WriteRes<WriteLDS, [SM70UnitLDST]> { let Latency = 20; }
