@@ -37,7 +37,7 @@ def : WriteRes<WriteFP32, [SM70UnitFP32ALU]> { let Latency = 5; }
 def : WriteRes<WriteFP64, [SM70UnitFP64ALU]> { let Latency = 8; }
 
 // SFU (e.g., F2F, ...)
-def : WriteRes<WriteF2F, [SM70UnitSFU]> { let Latency = 8; } // TODO: check this
+def : WriteRes<WriteF2F, [SM70UnitSFU]> { let Latency = 12; } // TODO: check this
 
 // TensorCore
 def : WriteRes<WriteHMMA884, [SM70UintTensorCore]> { let Latency = 8; }

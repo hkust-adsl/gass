@@ -580,9 +580,10 @@ void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
       // Create WAR for MemOperand
     } else if (GII->isStore(MI)) {
       // Create WAR for store instructions
-      MachineOperand &MO = MI->getOperand(0);
+      MachineOperand &MO = MI.getOperand(0);
       assert(MO.isReg() && "Expect Register from Store instr");
 
+      // TODO: merge this with MemOperand WAR
       SlotIndex SIStart = LIS->getInstructionIndex(MI);
 
       // if current instr writes to it, we don't need to care about that
@@ -595,14 +596,14 @@ void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
             break;
         }
         for (MachineOperand &Def : probe->defs()) {
-          if (Def.isReg() && GRI->regsOverlap(BSrc->getReg(), Def.getReg())) {
+          if (Def.isReg() && GRI->regsOverlap(MO.getReg(), Def.getReg())) {
             SlotIndex SIEnd = LIS->getInstructionIndex(*probe);
             Barriers.emplace_back(MI, SIStart, SIEnd, true, LIS, GII);
-            goto TheEnd; // double break
+            goto TheEndStoreWAR; // double break
           }
         }
       }
-      TheEnd: {}
+      TheEndStoreWAR: {}
     }
 
     // Check WAR dependency
