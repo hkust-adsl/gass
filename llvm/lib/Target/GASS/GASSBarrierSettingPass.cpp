@@ -196,9 +196,11 @@ public:
   }
 
   void dump() const {
-    dbgs() << "(line " << LBR.beginIndex() << ") -> "
-           << "(line " << LBR.endIndex() << ") "
-            << " \t[PhysBarIdx: " << PhysBarIdx << ", " << getBTStr() << "]\n";
+    dbgs() << "(line " << LBR.beginIndex() << ")\n";
+    LIS->getInstructionFromIndex(LBR.beginIndex())->dump();
+    dbgs() << "(line " << LBR.endIndex() << ") ";
+    LIS->getInstructionFromIndex(LBR.endIndex())->dump();
+    dbgs() << " \t[PhysBarIdx: " << PhysBarIdx << ", " << getBTStr() << "]\n";
   }
 
   const std::vector<SlotIndex>& getStarts() const { return Starts; }
@@ -528,6 +530,7 @@ getScanRange(MachineBasicBlock &MBB, MachineBasicBlock::iterator iter) {
 
 void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
   CurMBB = &MBB;
+  LLVM_DEBUG(MBB.dump());
 
   // Recored Barriers
   std::vector<Barrier> Barriers;
@@ -585,8 +588,7 @@ void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
       SlotIndex SIStart = LIS->getInstructionIndex(MI);
 
       // if current instr writes to it, we don't need to care about that
-      std::vector<MachineInstr *> ScanRange = getScanRange(MBB, 
-                                                           std::next(iter));
+      std::vector<MachineInstr *> ScanRange = getScanRange(MBB, iter);
       for (MachineInstr *probe : ScanRange) {
         // The last inst must wait on this.
         if (probe == ScanRange.back()) {
