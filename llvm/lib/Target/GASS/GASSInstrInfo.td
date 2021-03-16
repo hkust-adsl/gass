@@ -505,7 +505,7 @@ multiclass PRMT {
                            (ins VReg32:$src0, i32imm:$src1, VReg32:$src2),
                            0x816, "PRMT \t$dst, $src0, $src1, $src2;", []>;
 }
-defm PRMT : PRMT, Sched<[WriteINT]>;
+defm PRMT : PRMT, Sched<[WritePRMT]>;
 
 //=---------------------------------=//
 // float-point

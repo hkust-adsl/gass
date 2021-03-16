@@ -26,6 +26,7 @@ def : WriteRes<WriteINT, [SM70UnitALU]> { let Latency = 5; }
 def : WriteRes<WriteSHIFT, [SM70UnitALU]> { let Latency = 6; }
 def : WriteRes<WriteLOP3, [SM70UnitALU]> { let Latency = 8; } // Maybe 6?
 def : WriteRes<WriteISETP, [SM70UnitALU]> { let Latency = 12; }
+def : WriteRes<WritePRMT, [SM70UnitALU]> { let Latency = 9; }
 // Uses FP32 pipeline
 def : WriteRes<WriteIMUL, [SM70UnitFP32ALU]> { let Latency = 5; }
 def : WriteRes<WriteIMULWIDE, [SM70UnitFP32ALU]> { let Latency = 8; }
@@ -37,10 +38,10 @@ def : WriteRes<WriteFP32, [SM70UnitFP32ALU]> { let Latency = 5; }
 def : WriteRes<WriteFP64, [SM70UnitFP64ALU]> { let Latency = 8; }
 
 // SFU (e.g., F2F, ...)
-def : WriteRes<WriteF2F, [SM70UnitSFU]> { let Latency = 12; } // TODO: check this
+def : WriteRes<WriteF2F, [SM70UnitSFU]> { let Latency = 14; } // TODO: check this
 
 // TensorCore
-def : WriteRes<WriteHMMA884, [SM70UintTensorCore]> { let Latency = 8; }
+def : WriteRes<WriteHMMA884, [SM70UintTensorCore]> { let Latency = 14; }
 
 // Memory
 def : WriteRes<WriteLDS, [SM70UnitLDST]> { let Latency = 20; }

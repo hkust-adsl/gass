@@ -103,9 +103,11 @@ bool GASSStallSetting::runOnMachineFunction(MachineFunction &MF) {
         }
       }
 
-      // Special rule for BRA
+      // Special rules
       if (MI.isBranch())
-        Stalls = std::max(Stalls, int(7));
+        Stalls = std::max(Stalls, 7);
+      if (MI.getOpcode() == GASS::BAR)
+        Stalls = std::max(Stalls, 5);
 
       // (Optional) Debug
       LLVM_DEBUG(MI.dump());
