@@ -5,7 +5,7 @@ def SM70Model : SchedMachineModel {
   let IssueWidth = 1; // In-order
   let MicroOpBufferSize = 0; // AArch64 = 0; AMDGPU (SI) = 1;
 
-  let CompleteModel = true;
+  let CompleteModel = false; // Required by postRAScheduelr
 }
 
 // 2. Processor resources
@@ -40,7 +40,7 @@ def : WriteRes<WriteFP64, [SM70UnitFP64ALU]> { let Latency = 8; }
 def : WriteRes<WriteF2F, [SM70UnitSFU]> { let Latency = 8; } // TODO: check this
 
 // TensorCore
-def : WriteRes<WriteHMMA884, [SM70UintTensorCore]> { let Latency = 8; }
+def : WriteRes<WriteHMMA884, [SM70UintTensorCore]> { let Latency = 14; }
 
 // Memory
 def : WriteRes<WriteLDS, [SM70UnitLDST]> { let Latency = 20; }

@@ -40,6 +40,9 @@ public:
     return &FrameLowering;
   }
 
+  // Note: Only PPC and Mips use PostRAScheduler
+  bool enablePostRAScheduler() const override { return false; }
+
   unsigned getConstantOffset(unsigned IntNo) const;
 
 protected:

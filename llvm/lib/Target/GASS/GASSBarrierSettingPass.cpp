@@ -51,6 +51,7 @@ static cl::opt<PickBarAlg> PickBarPairAlg(
                "pick barrier pair with max degree in the interference graph")),
   cl::init(PB_ALG_ORDERED));
 
+// TODO: should query SchedulerModel
 enum BarrierType {
   RAW_S,
   RAW_G,
@@ -146,7 +147,7 @@ public:
     if (BT == RAW_S && Other.getBarrierType() == RAW_S) {
       // Since LDSs are executed in order, we only need one start point
       assert(Starts.size() == 1 && Other.getStarts().size() == 1);
-      Starts[0] = std::min(Starts[0], Other.getStarts()[0]);
+      Starts[0] = std::max(Starts[0], Other.getStarts()[0]);
     } // TODO: merge can be different depending on Barrier Type
     else {
       Starts.insert(Starts.end(), 
@@ -228,6 +229,7 @@ private:
 };
 
 class LiveBarGraph {
+  // TODO: should query ScheduleModel
   enum InterferenceType {
     IFTY_RAW_C,
     IFTY_RAW_S,
@@ -292,64 +294,64 @@ public:
 
   void mergeBarriers() {
     // 1. find the barrier pair to merge
-    Barrier *Node = nullptr;
-    Barrier *Other = nullptr; // The node to be removed
-    std::tie(Node, Other) = pickBarrierPairToMerge();
+    Barrier *A = nullptr;
+    Barrier *B = nullptr; // The node to be removed
+    std::tie(A, B) = pickBarrierPairToMerge();
+
+    LLVM_DEBUG(outs() << "To merge:\n");
+    LLVM_DEBUG(A->dump());
+    LLVM_DEBUG(B->dump());
 
     // 2. update the graph (a, b)
-    //   a. delete note (other)
-    Nodes.erase(std::remove(Nodes.begin(), Nodes.end(), Other), Nodes.end());
-    //   b. delete edges
-    std::set<Barrier*> OtherWorkSet;
-    for (Edge const&e : Edges[Other]) {
-      OtherWorkSet.insert(e.Dst);
-      // remove edges from Other's work set
-      std::set<Edge> &WorkSetEdge = Edges[e.Dst];
-      for (auto iter = WorkSetEdge.begin(); iter != WorkSetEdge.end(); ) {
-        if (iter->Dst == Other)
-          iter = WorkSetEdge.erase(iter);
+    //   a. delete note (A & B)
+    Nodes.erase(std::remove(Nodes.begin(), Nodes.end(), A), Nodes.end());
+    Nodes.erase(std::remove(Nodes.begin(), Nodes.end(), B), Nodes.end());
+
+    //   b. delete edges (AB's neighbors)
+    std::set<Barrier*> ABNeighbors;
+    for (Edge const &e : Edges[A])
+      if (e.Dst != B)
+        ABNeighbors.insert(e.Dst);
+    for (Edge const &e : Edges[B])
+      if (e.Dst != A)
+        ABNeighbors.insert(e.Dst);
+    for (Barrier *Neighbor : ABNeighbors) {
+      std::set<Edge> &NeighborsEdges = Edges[Neighbor];
+      for (auto iter = NeighborsEdges.begin(); iter != NeighborsEdges.end(); ) {
+        if (iter->Dst == A || iter->Dst == B)
+          iter = NeighborsEdges.erase(iter);
         else 
           ++iter;
       }
     }
-    Edges.erase(Other);
+    Edges.erase(A);
+    Edges.erase(B);
 
     // 3. merge!
     LLVM_DEBUG(dbgs() << "Merge two barriers\n");
-    Node->merge(*Other);
+    A->merge(*B);
+
+    LLVM_DEBUG(outs() << "After merge: \n");
+    LLVM_DEBUG(A->dump());
+    // 3.1 Insert A
+    Nodes.push_back(A);
+    Edges[A];
 
     // 4. update edges
-    //   e.g., if we merge two LDSs, some edges may no longer exist
-    // remove then add Node-linked edges
-    std::set<Barrier*> WorkSet(OtherWorkSet);
-    for (Edge const &e : Edges[Node]) {
-      WorkSet.insert(e.Dst);
-      // detach existing edges
-      std::set<Edge> &WorkSetEdge = Edges[e.Dst];
-      for (auto iter = WorkSetEdge.begin(); iter != WorkSetEdge.end(); ++iter) {
-        if (iter->Dst == Node)
-          iter = WorkSetEdge.erase(iter);
-        else
-          ++iter;
-      }
-    }
-    Edges.erase(Node);
-    // add back
-    for (Barrier *Bar : WorkSet) {
-      if (!Node->overlaps(*Bar)) 
+    // Add new edges that are linked to merged A
+    // We only need to care about original neighbors
+    for (Barrier *Neighbor : ABNeighbors) {
+      if (!A->overlaps(*Neighbor)) 
         continue; // No longer overlaps
 
       unsigned Cost = 0; // TODO: update cost;
 
-      if (Edges.find(Node) == Edges.end()) 
-        Edges[Node] = std::set<Edge>{{Bar, Cost}};
-      else
-        Edges[Node].emplace(Bar, Cost);
+      Edges[A].emplace(Neighbor, Cost);
 
-      if (Edges.find(Bar) == Edges.end())
-        Edges[Bar] = std::set<Edge>{{Node, Cost}};
+      if (Edges.find(Neighbor) == Edges.end())
+        Edges[Neighbor] = std::set<Edge>{{A, Cost}};
       else
-        Edges[Bar].emplace(Node, Cost);
+        Edges[Neighbor].emplace(A, Cost);
     }
   }
 
@@ -380,6 +382,24 @@ public:
     return Result;
   }
 
+  void dump() const {
+    outs() << "************* LiveBarGraph **************\n";
+    outs() << "Nodes: \n";
+    for (Barrier *B : Nodes) 
+      B->dump();
+    outs() << "\n";
+    outs() << "Edges: \n";
+    for (auto iter : Edges) {
+      // Src
+      iter.first->dump();
+      for (const Edge &E : iter.second) {
+        outs() << "-->";
+        E.Dst->dump();
+        outs() << "[Cost]: " << E.Cost << "\n";
+      }
+    }
+  }
+
 private:
   std::pair<Barrier*, Barrier*> 
   pickBarrierPairToMergeOrdered(std::set<Barrier*> &Candiates);
@@ -393,6 +413,7 @@ private:
 //=------------------------------------------------------------------------=//
 // pick barrier pair algorithm
 //=------------------------------------------------------------------------=//
+// TODO: We need more theoretical support here.
 std::pair<Barrier*, Barrier*> 
 LiveBarGraph::pickBarrierPairToMergeOrdered(std::set<Barrier*> &Candidates) {
   // First merge LDC, then LDS, then LDG
@@ -420,6 +441,16 @@ LiveBarGraph::pickBarrierPairToMergeOrdered(std::set<Barrier*> &Candidates) {
     if (Candidate->getBarrierType() == RAW_G) {
       for (Edge const &E : Edges[Candidate]) {
         if (E.Dst->getBarrierType() == RAW_G)
+          return {Candidate, E.Dst};
+      }
+    }
+  }
+
+  // try WAR_MEM
+  for (Barrier *Candidate : Candidates) {
+    if (Candidate->getBarrierType() == WAR_MEM) {
+      for (Edge const &E : Edges[Candidate]) {
+        if (E.Dst->getBarrierType() == WAR_MEM)
           return {Candidate, E.Dst};
       }
     }
@@ -577,6 +608,7 @@ void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
 
   // 1. Build interference graph
   LiveBarGraph TheGraph(Barriers);
+  LLVM_DEBUG(TheGraph.dump());
   // 2. Merge if necessary
   while (TheGraph.getMaxDegree() > kNumBarriers)
     TheGraph.mergeBarriers();

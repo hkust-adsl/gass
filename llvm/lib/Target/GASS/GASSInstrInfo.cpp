@@ -472,10 +472,18 @@ MachineOperand* GASSInstrInfo::getMemOperandReg(MachineInstr &MI) {
   MachineOperand *Ret = nullptr;
   switch (MI.getOpcode()) {
   default: return Ret;
+  case GASS::LDS16r: case GASS::LDS16ri:
+  case GASS::LDS32r: case GASS::LDS32ri:
+  case GASS::LDS64r: case GASS::LDS64ri:
+  case GASS::LDS128r: case GASS::LDS128ri:
   case GASS::LDG32r: case GASS::LDG32ri:
   case GASS::LDG64r: case GASS::LDG64ri:
   case GASS::LDG128r: case GASS::LDG128ri:
     return &MI.getOperand(1);
+  case GASS::STS16r: case GASS::STS16ri:
+  case GASS::STS32r: case GASS::STS32ri:
+  case GASS::STS64r: case GASS::STS64ri:
+  case GASS::STS128r: case GASS::STS128ri:
   case GASS::STG32r: case GASS::STG32ri:
   case GASS::STG64r: case GASS::STG64ri:
   case GASS::STG128r: case GASS::STG128ri:
