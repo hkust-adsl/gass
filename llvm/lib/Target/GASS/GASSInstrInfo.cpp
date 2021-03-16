@@ -403,6 +403,15 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
 //=----------------------------------------------=//
 // Query instr type
 //=----------------------------------------------=//
+// bool GASSInstrInfo::needsRAWBarrier(const MachineInstr &MI) {
+//   if (isLoad(MI))
+//     return true;
+//   switch (MI.getOpcode()) {
+//     default: return false;
+//     case 
+//   }
+// }
+
 bool GASSInstrInfo::isLoad(const MachineInstr &MI) {
   return isLDG(MI) | isLDS(MI) | isLDC(MI);
 }
