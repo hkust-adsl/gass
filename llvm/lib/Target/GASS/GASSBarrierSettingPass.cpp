@@ -176,7 +176,14 @@ public:
 
   // accessors
   bool isRAW() const { return IsRAW; }
+
   BarrierType getBarrierType() const { return BT; }
+
+  bool isInOrderRAW() const {
+    if (BT == RAW_C || BT == RAW_S || BT == RAW_TC || BT == RAW_SFU)
+      return true;
+  }
+
   void encodeBarrierInfo(const GASSInstrInfo *GII) const {
     // MachineInstr has a field named flags (uint16_t)
     for (SlotIndex SIStart : Starts) {
@@ -373,8 +380,12 @@ public:
     // We only merge barriers, whos degree is > kNumBarriers
     std::set<Barrier*> Candidates;
     for (auto iter = Edges.begin(); iter != Edges.end(); ++iter) 
-      if (iter->second.size() > kNumBarriers)
+      if (iter->second.size() > kNumBarriers) {
         Candidates.insert(iter->first);
+        // Insert its neighbors
+        for (const Edge &E : Edges[iter->first])
+          Candidates.insert(E.Dst);
+      }
 
     // different strategies
     switch (PickBarPairAlg) {
@@ -487,6 +498,13 @@ LiveBarGraph::pickBarrierPairToMergeOrdered(std::set<Barrier*> &Candidates) {
       }
     }
   }
+
+  // else try to merge RAW (not RAW_G)
+  for (Barrier *Candidate : Candidates)
+    if (Candidate->isInOrderRAW())
+      for (Edge const &E : Edges[Candidate])
+        if (E.Dst->isInOrderRAW())
+          return {Candidate, E.Dst};
 
 
   llvm_unreachable("Should have returned");
