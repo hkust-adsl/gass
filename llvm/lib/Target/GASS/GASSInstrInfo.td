@@ -960,6 +960,7 @@ let isTerminator = true, isBranch = true in {
                              0x947, 
                              "BRA \t$target;", 
                              [(br bb:$target)]>, Sched<[]> {
+      let Inst{79-76} = 0x7; // Predicate Mask: PT
       let Inst{26-23} = 0x7; // predicate PT
 
       bits<32> target;
