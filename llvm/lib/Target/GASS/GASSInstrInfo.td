@@ -900,11 +900,15 @@ let mayLoad = true in {
 multiclass LDS<RegisterClass RC, int Width> {
   def r : GASSInstLdst<(outs RC:$dst), (ins VReg32:$ptr),
                        0x984, "LDS."#Width#" \t$dst, [$ptr];", [],
-                       Width>;
+                       Width> {
+    let Inst{12} = 1; // .U
+  }
 
   def ri: GASSInstLdstOff<(outs RC:$dst), (ins VReg32:$ptr, i16imm:$offset),
                        0x984, "LDS."#Width#" \t$dst, [$ptr+$offset];", [],
-                       Width>;
+                       Width> {
+    let Inst{12} = 1; // .U
+  }
 }
 }
 defm LDS16 : LDS<VReg32, 16>, Sched<[WriteLDS]>;

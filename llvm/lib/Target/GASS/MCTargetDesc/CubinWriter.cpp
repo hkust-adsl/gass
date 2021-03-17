@@ -382,6 +382,7 @@ void CubinObjectWriter::writeSectionHeader() {
 
     uint64_t Link = 0;
     uint64_t Info = 0;
+    uint64_t Flags = Section->getFlags();
 
     switch (Section->getType()) {
     default: break;
@@ -407,11 +408,15 @@ void CubinObjectWriter::writeSectionHeader() {
       uint32_t FuncSymbolIndex = 
           SymbolIndexStringMap.lookup(Name.drop_front(6));
       Info = (NumRegisters << 24) | FuncSymbolIndex;
+      
+      // Number of Barriers
+      uint64_t NumBarriers = 1; // TODO: query module
+      Flags |= (NumBarriers << 20);
     }
 
     writeSectionHeaderEntry(StrTabBuilder.getOffset(Section->getName()),
                             Section->getType(),
-                            Section->getFlags(),
+                            Flags,
                             /*Addr*/0,
                             Offset, Size, Link, Info, 
                             Section->getAlignment(),
