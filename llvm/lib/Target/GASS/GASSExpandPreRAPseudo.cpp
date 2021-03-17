@@ -333,10 +333,10 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
         Register NewDst1 = MRI.createVirtualRegister(&GASS::VReg32RegClass);
 
         BuildMI(MBB, MI, DL, TII->get(GASS::MOV32i), NewDst0)
-          .addImm(ConstantHi)
+          .addImm(ConstantLo)
           .addReg(GASS::PT);
         BuildMI(MBB, MI, DL, TII->get(GASS::MOV32i), NewDst1)
-          .addImm(ConstantLo)
+          .addImm(ConstantHi)
           .addReg(GASS::PT);
         BuildMI(MBB, MI, DL, TII->get(TargetOpcode::REG_SEQUENCE), NewDst)
           .addReg(NewDst0).addImm(GASS::sub0)
