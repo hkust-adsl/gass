@@ -149,6 +149,11 @@ bool GASSInstrInfo::PredicateInstruction(MachineInstr &MI,
   return false;
 }
 
+/// Remove the branching code at the end of the specific MBB.
+/// This is only invoked in cases where analyzeBranch returns success. It
+/// returns the number of instructions that were removed.
+/// If \p BytesRemoved is non-null, report the change in code size from the
+/// removed instructions.
 unsigned GASSInstrInfo::removeBranch(MachineBasicBlock &MBB,
                                      int *BytesRemoved) const {
   assert(!BytesRemoved && "code size not handled");
