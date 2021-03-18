@@ -576,6 +576,46 @@ getScanRange(MachineBasicBlock &MBB, MachineBasicBlock::iterator iter) {
   return Res;
 }
 
+// One instruction may set multiple WAR barriers. We need to discard one, and
+// keep the barrier that ends earlier
+// TODO: Can one instruction set multiple RAW barriers?
+static void removeDuplicatedWAR(std::vector<Barrier> &Bar) {
+  std::map<SlotIndex, std::vector<Barrier*>> Idx2Barriers;
+  for (Barrier &B : Bar) {
+    if (!B.isRAW()) {
+      assert(B.getStarts().size() == 1 && "We haven't merge barriers");
+      SlotIndex StartIdx = B.getStarts()[0];
+      Idx2Barriers[StartIdx].push_back(&B);
+    }
+  }
+
+  // Remove duplicated
+  std::vector<Barrier*> ToBeRemoved;
+  for (auto const Idx2Bar : Idx2Barriers) {
+    if (Idx2Bar.second.size() > 1) {
+      assert(Idx2Bar.second.size() == 2);
+      // Remove the barrier that ends latter
+      if (Idx2Bar.second[0]->getEnd() < Idx2Bar.second[1]->getEnd())
+        ToBeRemoved.push_back(Idx2Bar.second[1]);
+      else
+        ToBeRemoved.push_back(Idx2Bar.second[0]);
+    }
+  }
+  std::vector<size_t> ToBeRemovedIdx;
+  for (Barrier *Probe : ToBeRemoved) {
+    for (size_t i = 0; i < Bar.size(); ++i) {
+      if (Probe == &Bar[i]) {
+        ToBeRemovedIdx.push_back(i);
+        break;
+      }
+    }
+  }
+  std::sort(ToBeRemovedIdx.rbegin(), ToBeRemovedIdx.rend());
+  for (size_t Probe : ToBeRemovedIdx)
+    Bar.erase(Bar.begin() + Probe);
+
+}
+
 void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
   CurMBB = &MBB;
   LLVM_DEBUG(MBB.dump());
@@ -590,8 +630,6 @@ void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
     // TODO: get rid of this.
     // Provide default flag encoding
     GII->initializeFlagsEncoding(MI);
-    // outs() << "\n\nScan:\n";
-    // MI.dump();
 
     // Check RAW dependency
     if (GII->needsRAWBarrier(MI)) {
@@ -658,6 +696,14 @@ void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
       SlotIndex SIStart = LIS->getInstructionIndex(MI);
 
       // if current instr writes to it, we don't need to care about that
+      if (GII->isLDG(MI) || GII->isLDS(MI)) {
+        Register Dst = MI.getOperand(0).getReg();
+        Register Src = MI.getOperand(1).getReg();
+        if (GRI->regsCover(Dst, Src, *MRI)) {
+          continue;
+        }
+      } 
+      // Record WAR barriers
       std::vector<MachineInstr *> ScanRange = getScanRange(MBB, iter);
       for (MachineInstr *probe : ScanRange) {
         // The last inst must wait on this.
@@ -675,12 +721,16 @@ void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
         }
       }
       TheEnd: {}
-    }
+    } // if (MachineOperand *BSrc = GII->getMemOperandReg(MI))
   }
 
+  // 0. If multiple WAR barriers start with the same instruction, remove one
+  removeDuplicatedWAR(Barriers);
+  
   // 1. Build interference graph
   LiveBarGraph TheGraph(Barriers);
   LLVM_DEBUG(TheGraph.dump());
+
   // 2. Merge if necessary
   while (TheGraph.getMaxDegree() > kNumBarriers)
     TheGraph.mergeBarriers();
@@ -748,8 +798,19 @@ void GASSBarrierSetting::allocatePhysBarriers(std::vector<Barrier> &Barriers) {
     }
 
     // 2. Allocate new
+    bool HasRAW = false;
+    bool HasWAR = false;
     for (auto it = RemainingBarriers.begin(); it != RemainingBarriers.end(); ) {
+      // Now we meet a barrier that starts at CurSI
       if ((*it)->getLiveBarRange().liveAt(CurSI)) {
+        // Make sure that one instruction can not set more than one RAW/WAR
+        if ((*it)->isRAW()) {
+          assert(HasRAW == false);
+          HasRAW = true;
+        } else {
+          assert(HasWAR == false);
+          HasWAR = true;
+        }
         auto free_phys_bar = FreePhysBar.begin();
         ActiveBarriers.emplace(*it, *free_phys_bar);
         // Set PhysBarIdx

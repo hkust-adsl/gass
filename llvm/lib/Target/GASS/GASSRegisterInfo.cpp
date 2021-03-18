@@ -44,3 +44,13 @@ void GASSRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
 Register GASSRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
   return GASS::VGPR1;
 }
+
+bool 
+GASSRegisterInfo::regsCover(const Register &Reg, const Register &Other,
+                            const MachineRegisterInfo &MRI) const {
+  if (regsOverlap(Reg, Other) && 
+      getRegSizeInBits(Reg, MRI) >= getRegSizeInBits(Other, MRI))
+    return true;
+  else
+    return false;
+}

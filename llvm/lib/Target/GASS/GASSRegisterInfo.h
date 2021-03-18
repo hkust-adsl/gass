@@ -21,6 +21,10 @@ public:
                            RegScavenger *RS = nullptr) const override;
   Register getFrameRegister(const MachineFunction &MF) const override;
   // end of pure virtual functions
+
+  // Return true if Reg completely covers Other
+  bool regsCover(const Register &Reg, const Register &Other,
+                 const MachineRegisterInfo &MRI) const;
 };
 
 } // namespace llvm
