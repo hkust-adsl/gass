@@ -80,6 +80,11 @@ GASSTargetLowering::GASSTargetLowering(const TargetMachine &TM,
   setTruncStoreAction(MVT::f64, MVT::f16, Expand);
   setTruncStoreAction(MVT::f64, MVT::f32, Expand);
 
+  // Custom DAG combine patterns
+  setTargetDAGCombine(ISD::AND);
+  setTargetDAGCombine(ISD::XOR);
+  setTargetDAGCombine(ISD::OR);
+
   computeRegisterProperties(Subtarget.getRegisterInfo());
 }
 
@@ -90,15 +95,105 @@ const char *GASSTargetLowering::getTargetNodeName(unsigned Opcode) const {
   case GASSISD::EXIT: return "GASSISD::EXIT";
   case GASSISD::MOV:  return "GASSISD::MOV";
   case GASSISD::LDC:  return "GASSISD::LDC";
+  case GASSISD::SETCC_LOGIC: return "GASSISD::SETCC_LOGIC";
   }
 }
 
 //=------------------------------------------=//
 // DAG combine
 //=------------------------------------------=//
+/// This method will be invoked for all target nodes and for any
+/// target-independent nodes that the target has registered with invoke it
+/// for.
+///
+/// The semantics are as follows:
+/// Return Value:
+///   SDValue.Val == 0   - No change was made
+///   SDValue.Val == N   - N was replaced, is dead, and is already handled.
+///   otherwise          - N should be replaced by the returned Operand.
+///
+/// In addition, methods provided by DAGCombinerInfo may be used to perform
+/// more complex transformations.
+///
 SDValue GASSTargetLowering::PerformDAGCombine(SDNode *N, 
                                               DAGCombinerInfo &DCI) const {
-  // TODO: fill this.
+  switch (N->getOpcode()) {
+  default: break;
+  case ISD::XOR: case ISD::AND: case ISD::OR:
+    return performLogicCombine(N, DCI);
+  }
+  return SDValue();
+}
+
+
+static std::pair<GASS::GASSCC::CondCode, GASS::GASSCC::CondCodeSign> 
+getGASSCC(ISD::CondCode CC) {
+  switch (CC) {
+  default: llvm_unreachable("Error");
+  case ISD::SETEQ: return std::make_pair(GASS::GASSCC::EQ, GASS::GASSCC::S32);
+  case ISD::SETNE: return std::make_pair(GASS::GASSCC::NE, GASS::GASSCC::S32);
+  case ISD::SETLT: return std::make_pair(GASS::GASSCC::LT, GASS::GASSCC::S32);
+  case ISD::SETLE: return std::make_pair(GASS::GASSCC::LE, GASS::GASSCC::S32);
+  case ISD::SETGT: return std::make_pair(GASS::GASSCC::GT, GASS::GASSCC::S32);
+  case ISD::SETGE: return std::make_pair(GASS::GASSCC::GE, GASS::GASSCC::S32);
+  case ISD::SETUEQ: return std::make_pair(GASS::GASSCC::EQU, GASS::GASSCC::U32);
+  case ISD::SETUNE: return std::make_pair(GASS::GASSCC::NEU, GASS::GASSCC::U32);
+  case ISD::SETULT: return std::make_pair(GASS::GASSCC::LTU, GASS::GASSCC::U32);
+  case ISD::SETULE: return std::make_pair(GASS::GASSCC::LEU, GASS::GASSCC::U32);
+  case ISD::SETUGT: return std::make_pair(GASS::GASSCC::GTU, GASS::GASSCC::U32);
+  case ISD::SETUGE: return std::make_pair(GASS::GASSCC::GEU, GASS::GASSCC::U32);
+  }
+}
+/// (and (setp a, b), lop) -> (setp.and a, b, lop)
+/// (xor (setp a, b), lop) -> (setp.xor a, b, lop)
+/// (or  (setp a, b), lop) -> (setp.or  a, b, lop)
+SDValue GASSTargetLowering::performLogicCombine(SDNode *N, 
+                                                DAGCombinerInfo &DCI) const {
+  SDLoc DL(N);
+  SDValue Op0 = N->getOperand(0);
+  SDValue Op1 = N->getOperand(1);
+  MVT VT = N->getSimpleValueType(0);
+  // We only combine i1 bool op
+  if (VT != MVT::i1)
+    return SDValue();
+
+  SelectionDAG &DAG = DCI.DAG;
+  GASS::GASSCC::LogicOp LogicOp;
+  switch (N->getOpcode()) {
+  default: llvm_unreachable("Error");
+  case ISD::AND: LogicOp = GASS::GASSCC::AND; break;
+  case ISD::XOR: LogicOp = GASS::GASSCC::XOR; break;
+  case ISD::OR:  LogicOp = GASS::GASSCC::OR;  break;
+  }
+  SDValue LogicOpVal = DAG.getConstant(LogicOp, DL, MVT::i32);
+
+  GASS::GASSCC::CondCode GCC;
+  GASS::GASSCC::CondCodeSign GCCSign;
+  // try Op0
+  if (Op0.getOpcode() == ISD::SETCC) {
+    ISD::CondCode CC = cast<CondCodeSDNode>(Op0.getOperand(2))->get();
+    std::tie(GCC, GCCSign) = getGASSCC(CC);
+    SDValue GCCOp = DAG.getConstant(GCC, DL, MVT::i32);
+    SDValue GCCSignOp = DAG.getConstant(GCCSign, DL, MVT::i32);
+    // Combine success. Do the folding.
+    SDValue Ops[] = {Op0.getOperand(0), Op0.getOperand(1), Op1, 
+                     GCCOp, GCCSignOp, LogicOpVal};
+    return DAG.getNode(GASSISD::SETCC_LOGIC, DL, VT, Ops);
+  }
+
+  // try Op1
+  if (Op1.getOpcode() == ISD::SETCC) {
+    ISD::CondCode CC = cast<CondCodeSDNode>(Op0.getOperand(2))->get();
+    std::tie(GCC, GCCSign) = getGASSCC(CC);
+    // Combine Success
+    SDValue GCCOp = DAG.getConstant(GCC, DL, MVT::i32);
+    SDValue GCCSignOp = DAG.getConstant(GCCSign, DL, MVT::i32);
+    SDValue Ops[] = {Op1.getOperand(0), Op1.getOperand(1), Op0, 
+                     GCCOp, GCCSignOp, LogicOpVal};
+    return DAG.getNode(GASSISD::SETCC_LOGIC, DL, VT, Ops);
+  }
+
+  /// Combine failed
   return SDValue();
 }
 

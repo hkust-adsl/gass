@@ -82,6 +82,12 @@ enum CondCodeSign : unsigned {
   U32 = 0,
   S32 = 1,
 };
+
+enum LogicOp : unsigned {
+  AND = 0,
+  XOR = 1,
+  OR = 2,
+};
 } // namespace GASSCC
 
 namespace SHF_FLAGS {

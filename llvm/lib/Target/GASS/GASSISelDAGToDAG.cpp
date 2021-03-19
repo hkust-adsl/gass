@@ -68,10 +68,6 @@ void GASSDAGToDAGISel::Select(SDNode *N) {
     if (tryEXTRACT_SUBVECTOR(N))
       return;
     break;
-  case GASSISD::LDC:
-    if (tryLDC(N))
-      return;
-    break;
   case ISD::INTRINSIC_W_CHAIN: {
     unsigned IntNo = cast<ConstantSDNode>(N->getOperand(1))->getZExtValue();
     switch (IntNo) {
@@ -114,7 +110,15 @@ void GASSDAGToDAGISel::Select(SDNode *N) {
     }
     break;
   }
-
+  // GASS ISD
+  case GASSISD::LDC:
+    if (tryLDC(N))
+      return;
+    break;
+  case GASSISD::SETCC_LOGIC: 
+    if (trySETCC_LOGIC(N))
+      return;
+    break;
   default:
     break;
   }
@@ -569,11 +573,49 @@ bool GASSDAGToDAGISel::trySHFL(SDNode *N) {
   // src0, src1, src2, ShflMode
   // var,  LaneMask, Width, 
   // Do we need chain?
-    Opcode = getOpcode3Op(Val, LaneMask, Width, CurDAG,
+  Opcode = getOpcode3Op(Val, LaneMask, Width, CurDAG,
                         GASS::SHFLrrr, GASS::SHFLrri, 
                         GASS::SHFLrir, GASS::SHFLrii);
   SDValue Ops[] = {Val, LaneMask, Width, ShflMode, PredMask, Chain};
   GASSSHFL = CurDAG->getMachineNode(Opcode, DL, TargetVT, MVT::Other, Ops);
   ReplaceNode(N, GASSSHFL);
+  return true;
+}
+
+bool GASSDAGToDAGISel::trySETCC_LOGIC(SDNode *N) {
+  // SETCC_LOGIC:
+  // (outs VReg1:$dst)
+  // (ins VReg32:$src0, VReg32:$src1, VReg1:$psrc0, GASSCC, GASSCCSign, Logic)
+  SDLoc DL(N);
+  SDNode *GASSSETCC_LOGIC = nullptr;
+  unsigned Opcode = 0;
+  MVT VT = N->getSimpleValueType(0);
+  assert(VT == MVT::i1);
+  assert(N->getNumOperands() == 6);
+  SDValue PredMask = CurDAG->getRegister(GASS::PT, MVT::i1);
+
+  SDValue Op0 = N->getOperand(0);
+  SDValue Op1 = N->getOperand(1);
+  SDValue Op2 = N->getOperand(2);
+  if (isa<ConstantSDNode>(Op1))
+    Opcode = GASS::ISETPLogicri;
+  else
+    Opcode = GASS::ISETPLogicrr;
+
+  SDValue CC = N->getOperand(3);
+  SDValue Sign = N->getOperand(4);
+  SDValue Logic = N->getOperand(5);
+  assert(isa<ConstantSDNode>(CC) && isa<ConstantSDNode>(Sign) && 
+         isa<ConstantSDNode>(Logic));
+  
+  SDValue CmpMode = CurDAG->getTargetConstant(
+      dyn_cast<ConstantSDNode>(CC)->getZExtValue(), DL, MVT::i32);
+  SDValue CmpSign = CurDAG->getTargetConstant(
+      dyn_cast<ConstantSDNode>(Sign)->getSExtValue(), DL, MVT::i32);
+  SDValue CmpLogic = CurDAG->getTargetConstant(
+      dyn_cast<ConstantSDNode>(Logic)->getSExtValue(), DL, MVT::i32);
+  SDValue Ops[] = {Op0, Op1, Op2, CmpMode, CmpSign, CmpLogic, PredMask};
+  GASSSETCC_LOGIC = CurDAG->getMachineNode(Opcode, DL, VT, Ops);
+  ReplaceNode(N, GASSSETCC_LOGIC);
   return true;
 }

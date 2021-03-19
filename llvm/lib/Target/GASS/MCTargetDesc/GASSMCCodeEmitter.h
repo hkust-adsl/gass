@@ -41,6 +41,10 @@ public:
   void encodeCmpModeSign(const MCInst &MI, unsigned OpIdx, APInt &Op, 
                          SmallVectorImpl<MCFixup> &Fixups,
                          const MCSubtargetInfo &STI) const;  
+  /// SETP{.AND|.XOR|.OR}
+  void encodeCmpLogic(const MCInst &MI, unsigned OpIdx, APInt &Op, 
+                      SmallVectorImpl<MCFixup> &Fixups,
+                      const MCSubtargetInfo &STI) const;  
 
   /// SHF.{.L|.R}
   void encodeShiftDir(const MCInst &MI, unsigned OpIdx, APInt &Op, 

@@ -32,6 +32,7 @@ private:
   bool tryEXTRACT_SUBVECTOR(SDNode *N);
   bool tryBUILD_VECTOR(SDNode *N);
   bool trySHFL(SDNode *N);
+  bool trySETCC_LOGIC(SDNode *N);
 
 private:
   // other helper functions 

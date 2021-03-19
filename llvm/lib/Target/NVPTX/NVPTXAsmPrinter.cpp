@@ -486,7 +486,6 @@ bool NVPTXAsmPrinter::runOnMachineFunction(MachineFunction &F) {
   // We need to emit the closing brace here because we don't have function that
   // finished emission of the function body.
   OutStreamer->emitRawText(StringRef("}\n"));
-  F.viewCFG();
   return Result;
 }
 

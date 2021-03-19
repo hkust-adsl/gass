@@ -95,6 +95,19 @@ void GASSInstPrinter::printCmpModeSign(const MCInst *MI,
   }
 }
 
+void GASSInstPrinter::printCmpLogic(const MCInst *MI, 
+                                    unsigned OpNo, raw_ostream &O) {
+  const MCOperand &Op = MI->getOperand(OpNo);
+  assert(Op.isImm());
+  unsigned Value = Op.getImm();
+  switch (Value) {
+  default: llvm_unreachable("error");
+  case GASS::GASSCC::AND: O << ".AND"; return;
+  case GASS::GASSCC::XOR: O << ".XOR"; return;
+  case GASS::GASSCC::OR:  O << ".OR"; return;
+  }
+}
+
 void GASSInstPrinter::printShflMode(const MCInst *MI, 
                                     unsigned OpNo, raw_ostream &O) {
   const MCOperand &Op = MI->getOperand(OpNo);

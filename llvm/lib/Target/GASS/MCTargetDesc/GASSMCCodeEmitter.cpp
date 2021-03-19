@@ -104,6 +104,24 @@ void GASSMCCodeEmitter::encodeCmpModeSign(const MCInst &MI, unsigned int OpIdx,
   Op = Enc;
 }
 
+void GASSMCCodeEmitter::encodeCmpLogic(const MCInst &MI, unsigned int OpIdx, 
+                                       APInt &Op, 
+                                       SmallVectorImpl<MCFixup> &Fixups, 
+                                       const MCSubtargetInfo &STI) const {
+  APInt Enc(2, 0);
+  const MCOperand &MO = MI.getOperand(OpIdx);
+  assert(MO.isImm());
+
+  switch (MO.getImm()) {
+  default: llvm_unreachable("Invalid cmp logic");
+  case GASS::GASSCC::AND: Enc = 0; break;
+  case GASS::GASSCC::OR:  Enc = 1; break;
+  case GASS::GASSCC::XOR: Enc = 2; break;
+  }
+
+  Op = Enc;
+}
+
 void GASSMCCodeEmitter::encodeShiftDir(const MCInst &MI, unsigned int OpIdx, 
                                        APInt &Op, 
                                        SmallVectorImpl<MCFixup> &Fixups, 

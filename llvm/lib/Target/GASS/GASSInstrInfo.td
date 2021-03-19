@@ -7,7 +7,10 @@ include "GASSInstrFormats.td"
 def GASSexit : SDNode<"GASSISD::EXIT", SDTNone, 
     [SDNPHasChain, SDNPOptInGlue]>; // AMDGPU does this.
 
-def GASSldc : SDNode<"GASSISD::LDC", SDTLoad, []>; // Constant load
+def GASSSDSetccLogicOp : SDTypeProfile<1, 6, [
+  SDTCisSameAs<1, 2> // Do we need this?
+]>;
+def GASSsetcc_logic : SDNode<"GASSISD::SETCC_LOGIC", GASSSDSetccLogicOp, []>;
 
 //=---------------------------------=//
 // Operands
@@ -27,6 +30,11 @@ def CmpMode : Operand<i32> {
 def CmpModeSign : Operand<i32> {
   let PrintMethod = "printCmpModeSign";
   let EncoderMethod = "encodeCmpModeSign";
+}
+
+def CmpLogic : Operand<i32> {
+  let PrintMethod = "printCmpLogic";
+  let EncoderMethod = "encodeCmpLogic";
 }
 
 // .xor .or .and
@@ -95,6 +103,10 @@ def CmpNAN  : PatLeaf<(i32 17)>;
 // Sign of *SETP
 def CmpU : PatLeaf<(i32 0)>;
 def CmpS : PatLeaf<(i32 1)>;
+// logic op
+def CmpAnd : PatLeaf<(i32 0)>;
+def CmpXor : PatLeaf<(i32 1)>;
+def CmpOr  : PatLeaf<(i32 2)>;
 
 //=---------------------------------=//
 // Integer
@@ -706,6 +718,68 @@ def : Pat<(setne i1:$a, i1:$b), (XOR1rr VReg1:$a, VReg1:$b)>;
 def : Pat<(setne i1:$a, imm:$b), (XOR1ri VReg1:$a, imm:$b)>;
 // def Pat<(set)
 
+//=---------------------------------=//
+// Compare with logic op
+//=---------------------------------=//
+multiclass SETPLogic<string OpcStr, RegisterClass RC, Operand ImmCls,
+                     bits<12> rrEnc, bits<12> riEnc> {
+  def rr : GASSInstOp2rr<
+      (outs VReg1:$pdst), // TODO: 2 dsts (no?)
+      (ins RC:$src0, RC:$src1, VReg1:$psrc0, CmpMode:$cmp, CmpModeSign:$sign, CmpLogic:$logic),
+      rrEnc,
+      !strconcat(OpcStr, "$cmp$sign$logic \t$pdst, $src0, $src1, $psrc0;"),
+      []> {
+    let dst = 0; // no $dst
+    bits<3> pdst;
+    bits<3> cmp;
+    bit sign;
+    
+    let Inst{19-17} = pdst;
+    let Inst{22-20} = 0x7; // pdst1
+    let Inst{14-12} = cmp;
+    let Inst{9} = sign;
+
+    bits<3> psrc0;
+    let Inst{25-23} = psrc0; // ps0
+    let Inst{6-4} = 0x7; // ?
+
+    bits<2> logic;
+    let Inst{11-10} = logic;
+  }
+
+  def ri : GASSInstOp2ri<
+      (outs VReg1:$pdst),
+      (ins RC:$src0, ImmCls:$src1, VReg1:$psrc0, CmpMode:$cmp, CmpModeSign:$sign, CmpLogic:$logic),
+      riEnc,
+      !strconcat(OpcStr, "$cmp$sign$logic \t$pdst, $src0, $src1, $psrc0;"),
+      []> {
+    let dst = 0;
+    bits<3> pdst;
+    bits<3> cmp;
+    bit sign;
+    
+    let Inst{19-17} = pdst;
+    let Inst{22-20} = 0x7; // pdst1
+    let Inst{14-12} = cmp;
+    let Inst{9} = sign;
+
+    bits<3> psrc0;
+    let Inst{25-23} = psrc0; // ps0
+    let Inst{6-4} = 0x7; // ?
+    bits<2> logic;
+    let Inst{11-10} = logic;
+  }
+}
+defm ISETPLogic : SETPLogic<"ISETP", VReg32, i32imm, 0x20c, 0x80c>, 
+                  Sched<[WriteISETP]>;
+// def : Pat<(i1 (GASSsetcc_logic i32:$a, i32:$b, i1:$c, i32imm:$cmpMode, 
+//                                i32imm:$cmpSign, i32imm:$cmpLogic)),
+//               (ISETPLogicrr VReg32:$a, VReg32:$b, VReg1:$c, i32imm:$cmpMode,
+//                             i32imm:$cmpSign, i32imm:$cmpLogic)>;
+// def : Pat<(i1 (GASSsetcc_logic i32:$a, imm:$b, i1:$c, i32imm:$cmpMode, 
+//                                i32imm:$cmpSign, i32imm:$cmpLogic)),
+//               (ISETPLogicri VReg32:$a, imm:$b, VReg1:$c, i32imm:$cmpMode,
+//                             i32imm:$cmpSign, i32imm:$cmpLogic)>;
 
 //=---------------------------------=//
 // Conversion
@@ -717,6 +791,19 @@ def : Pat<(setne i1:$a, imm:$b), (XOR1ri VReg1:$a, imm:$b)>;
 // Predicate
 //=---------------------------------=//
 // PLOP3, P2R, R2P
+def PLOP3 : GASSInst<(outs VReg1:$dst),
+                     (ins VReg1:$src0, VReg1:$src1, VReg1:$src2, i8imm:$immLut),
+                     0x819, "PLOP3.LUT $dst, $src0, $src1, $src2, $immLut;", []> {
+  bits<8> immLut;
+  bits<3> dst;
+  let Inst{19-17} = dst; // pd0
+  let Inst{22-20} = 0x7; // pd1
+
+  // XXX:
+  let Inst{16-13} = 0xf; // no ps1
+  let Inst{26-23} = 0xf; // no ps0
+  let Inst{15-8} = immLut;
+}
 
 
 //=---------------------------------=//
@@ -1129,7 +1216,16 @@ def READ_CTAID_W : READ_SREG_R32<"ctaid.w", int_nvvm_read_ptx_sreg_ctaid_w, 40>;
 def READ_LANEID : READ_SREG_R32<"laneid", int_nvvm_read_ptx_sreg_laneid, 0>;
 
 // TODO: SReg: smid, nsmid, gridid, lanemask_eq, 
-
+// def EXTRACT_VECTOR_ELT_PSEUDO : 
+//   GASSPseudoInst<(outs VReg32:$dst), (ins VReg128:$src), []>;
+// def : Pat<(f16 (extractelt v8f16:$src, 0)), (EXTRACT_VECTOR_ELT_PSEUDO v8f16:$src)>;
+// def : Pat<(f16 (extractelt v8f16:$src, 1)), (EXTRACT_VECTOR_ELT_PSEUDO v8f16:$src)>;
+// def : Pat<(f16 (extractelt v8f16:$src, 2)), (EXTRACT_VECTOR_ELT_PSEUDO v8f16:$src)>;
+// def : Pat<(f16 (extractelt v8f16:$src, 3)), (EXTRACT_VECTOR_ELT_PSEUDO v8f16:$src)>;
+// def : Pat<(f16 (extractelt v8f16:$src, 4)), (EXTRACT_VECTOR_ELT_PSEUDO v8f16:$src)>;
+// def : Pat<(f16 (extractelt v8f16:$src, 5)), (EXTRACT_VECTOR_ELT_PSEUDO v8f16:$src)>;
+// def : Pat<(f16 (extractelt v8f16:$src, 6)), (EXTRACT_VECTOR_ELT_PSEUDO v8f16:$src)>;
+// def : Pat<(f16 (extractelt v8f16:$src, 7)), (EXTRACT_VECTOR_ELT_PSEUDO v8f16:$src)>;
 
 // For GlobalAddress
 def SDTWrapper : SDTypeProfile<1, 1, [SDTCisSameAs<0, 1>, SDTCisPtrTy<0>]>;

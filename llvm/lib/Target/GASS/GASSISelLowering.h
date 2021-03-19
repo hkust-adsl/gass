@@ -22,6 +22,8 @@ enum NodeType : unsigned {
   LDL,
 
   MOV,
+
+  SETCC_LOGIC,
 };
 } // namespace GASSISD
 
@@ -64,6 +66,10 @@ public:
   MVT getScalarShiftAmountTy(const DataLayout &, EVT) const override {
     return MVT::i32;
   }
+
+private:
+  // Custom combining
+  SDValue performLogicCombine(SDNode *N, DAGCombinerInfo &DCI) const;
 
 private:
   // Custom lowering
