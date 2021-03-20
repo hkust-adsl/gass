@@ -714,8 +714,8 @@ def : Pat<(i1 (setge i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpGE, CmpS)>
 
 
 // i1 compares
-def : Pat<(setne i1:$a, i1:$b), (XOR1rr VReg1:$a, VReg1:$b)>;
-def : Pat<(setne i1:$a, imm:$b), (XOR1ri VReg1:$a, imm:$b)>;
+// def : Pat<(setne i1:$a, i1:$b), (XOR1rr VReg1:$a, VReg1:$b)>;
+// def : Pat<(setne i1:$a, imm:$b), (XOR1ri VReg1:$a, imm:$b)>;
 // def Pat<(set)
 
 //=---------------------------------=//
@@ -1067,8 +1067,35 @@ let isTerminator = true, isBranch = true in {
 
     bits<32> target;
     let Inst{127-96} = target;
+
+    // PredMask
+    bits<3> a;
+    let Inst{78-76} = a;
+  }
+
+  def CBRAOther : GASSInstNoPred<(outs), 
+                            (ins VReg1:$a, brtarget:$target),
+                            0x947,
+                            "@!$a BRA \t$target;",
+                            [(brcond VReg1:$a, bb:$target)]>, Sched<[]> {
+    let Inst{26-23} = 0x7; // predicate PT
+
+    bits<32> target;
+    let Inst{127-96} = target;
+
+    // PredMask
+    bits<3> a;
+    let Inst{79} = 1; // @!$a
+    let Inst{78-76} = a;
   }
 }
+// SelectionDAGBuilder::visitSWitchCase() will invert the condition of a
+// conditional branch if the target block is the next block so that the code
+// can fall through to the target block.  The invertion is done by 'xor
+// condition, 1', which will be translated to (setne condition, -1).  Since ptx
+// supports '@!pred bra target', we should use it.
+def : Pat<(brcond (i1 (setne VReg1:$a, -1)), bb:$target),
+          (CBRAOther VReg1:$a, bb:$target)>;
 
 // TODO: This is a dirty fix for tailing bra
 def TailBRA : GASSInst<(outs), (ins), 
