@@ -39,7 +39,7 @@ bool GASSStallSetting::runOnMachineFunction(MachineFunction &MF) {
 
   for (MachineBasicBlock &MBB : MF) {
     // Record activate regs
-    std::map<Register*, int> ActivateRegs;
+    std::map<Register, int> ActivateRegs;
     for (auto iter = MBB.begin(); iter != MBB.end(); ++iter) {
       MachineInstr &MI = *iter;
       // minimum stall cycle: 2 (Maybe we can change this to 1?)
@@ -56,10 +56,10 @@ bool GASSStallSetting::runOnMachineFunction(MachineFunction &MF) {
             // We don't consider WAW here (why?)
             Register Reg = MOP.getReg();
             // Update
-            if (ActivateRegs.find(&Reg) == ActivateRegs.end()) 
-              ActivateRegs[&Reg] = Lat;
+            if (ActivateRegs.find(Reg) == ActivateRegs.end()) 
+              ActivateRegs[Reg] = Lat;
             else
-              ActivateRegs[&Reg] = std::max(ActivateRegs[&Reg], Lat);
+              ActivateRegs[Reg] = std::max(ActivateRegs[Reg], Lat);
           }
         }
       } else {
@@ -72,12 +72,12 @@ bool GASSStallSetting::runOnMachineFunction(MachineFunction &MF) {
       if (next_iter != MBB.end()) {
         // if the next instr reads any of the current active
         for (const auto &x : ActivateRegs) {
-          Register *ARegs = x.first;
+          Register ARegs = x.first;
           int ALat = x.second;
 
           for(const MachineOperand &MOP : next_iter->uses()) {
             if (MOP.isReg()) 
-              if (GRI->regsOverlap(MOP.getReg(), *ARegs))
+              if (GRI->regsOverlap(MOP.getReg(), ARegs))
                 Stalls = std::max(ALat, Stalls);
           }
         }

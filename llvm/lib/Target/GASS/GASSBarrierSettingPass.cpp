@@ -318,7 +318,7 @@ public:
     Barrier *B = nullptr; // The node to be removed
     std::tie(A, B) = pickBarrierPairToMerge();
 
-    LLVM_DEBUG(outs() << "To merge:\n");
+    LLVM_DEBUG(dbgs() << "To merge:\n");
     LLVM_DEBUG(A->dump());
     LLVM_DEBUG(B->dump());
 
@@ -351,7 +351,7 @@ public:
     LLVM_DEBUG(dbgs() << "Merge two barriers\n");
     A->merge(*B);
 
-    LLVM_DEBUG(outs() << "After merge: \n");
+    LLVM_DEBUG(dbgs() << "After merge: \n");
     LLVM_DEBUG(A->dump());
     // 3.1 Insert A
     Nodes.push_back(A);
@@ -377,10 +377,10 @@ public:
 
   // Main interface to choose barrier pair to merge
   std::pair<Barrier*, Barrier*> pickBarrierPairToMerge() {
-    // We only merge barriers, whos degree is > kNumBarriers
+    // We only merge barriers, whos degree is >= kNumBarriers
     std::set<Barrier*> Candidates;
     for (auto iter = Edges.begin(); iter != Edges.end(); ++iter) 
-      if (iter->second.size() > kNumBarriers) {
+      if (iter->second.size() >= kNumBarriers) {
         Candidates.insert(iter->first);
         // Insert its neighbors
         for (const Edge &E : Edges[iter->first])
@@ -408,19 +408,23 @@ public:
   }
 
   void dump() const {
-    outs() << "************* LiveBarGraph **************\n";
-    outs() << "Nodes: \n";
+    dbgs() << "************* LiveBarGraph **************\n";
+    dbgs() << "Nodes: \n";
     for (Barrier *B : Nodes) 
       B->dump();
-    outs() << "\n";
-    outs() << "Edges: \n";
+    dbgs() << "-----------------------------------------\n\n";
+    dbgs() << "Edges: \n";
     for (auto iter : Edges) {
       // Src
+      dbgs() << "-----------------------------------------\n";
+      dbgs() << "#Dsts: " << iter.second.size() << "\n";
       iter.first->dump();
+      dbgs() << "\n";
+      // Dst
       for (const Edge &E : iter.second) {
-        outs() << "-->";
+        dbgs() << "-->";
         E.Dst->dump();
-        outs() << "[Cost]: " << E.Cost << "\n";
+        dbgs() << "[Cost]: " << E.Cost << "\n";
       }
     }
   }
@@ -729,11 +733,14 @@ void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
   
   // 1. Build interference graph
   LiveBarGraph TheGraph(Barriers);
+  LLVM_DEBUG(dbgs() << "*** Build Barrier interference graph ***\n");
   LLVM_DEBUG(TheGraph.dump());
 
   // 2. Merge if necessary
-  while (TheGraph.getMaxDegree() > kNumBarriers)
+  while (TheGraph.getMaxDegree() >= kNumBarriers)
     TheGraph.mergeBarriers();
+  LLVM_DEBUG(dbgs() << "** After merging **\n");
+  LLVM_DEBUG(TheGraph.dump());
   // 3. Revert Graph back to linear barriers
   std::vector<Barrier> NewBarriers = TheGraph.getResult();
 
@@ -810,6 +817,15 @@ void GASSBarrierSetting::allocatePhysBarriers(std::vector<Barrier> &Barriers) {
         } else {
           assert(HasWAR == false);
           HasWAR = true;
+        }
+        // assert(!FreePhysBar.empty() && "No free physical barrier");
+        if (FreePhysBar.empty()) {
+          dbgs() << "Active Barriers:\n";
+          for (auto const &AB : ActiveBarriers)
+            AB.first->dump();
+          dbgs() << "Current barrier:\n";
+          (*it)->dump();
+          llvm_unreachable("No free physical barrier");
         }
         auto free_phys_bar = FreePhysBar.begin();
         ActiveBarriers.emplace(*it, *free_phys_bar);

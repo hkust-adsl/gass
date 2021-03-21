@@ -69,7 +69,7 @@ void GASSMCCodeEmitter::encodeCmpMode(const MCInst &MI, unsigned int OpIdx,
                                       APInt &Op, 
                                       SmallVectorImpl<MCFixup> &Fixups, 
                                       const MCSubtargetInfo &STI) const {
-  APInt Enc(3, 0);
+  APInt Enc(128, 0);
   
   const MCOperand &MO = MI.getOperand(OpIdx);
 
@@ -92,7 +92,7 @@ void GASSMCCodeEmitter::encodeCmpModeSign(const MCInst &MI, unsigned int OpIdx,
                                           APInt &Op, 
                                           SmallVectorImpl<MCFixup> &Fixups, 
                                           const MCSubtargetInfo &STI) const {
-  APInt Enc(1, 0);
+  APInt Enc(128, 0);
   const MCOperand &MO = MI.getOperand(OpIdx);
   assert(MO.isImm());
 
@@ -109,7 +109,7 @@ void GASSMCCodeEmitter::encodeCmpLogic(const MCInst &MI, unsigned int OpIdx,
                                        APInt &Op, 
                                        SmallVectorImpl<MCFixup> &Fixups, 
                                        const MCSubtargetInfo &STI) const {
-  APInt Enc(2, 0);
+  APInt Enc(128, 0);
   const MCOperand &MO = MI.getOperand(OpIdx);
   assert(MO.isImm());
 
@@ -127,7 +127,7 @@ void GASSMCCodeEmitter::encodeShiftDir(const MCInst &MI, unsigned int OpIdx,
                                        APInt &Op, 
                                        SmallVectorImpl<MCFixup> &Fixups, 
                                        const MCSubtargetInfo &STI) const {
-  APInt Enc(1, 0);
+  APInt Enc(128, 0);
   const MCOperand &MO = MI.getOperand(OpIdx);
 
   assert(MO.isImm());
@@ -149,7 +149,7 @@ void GASSMCCodeEmitter::encodeShiftType(const MCInst &MI, unsigned int OpIdx,
                                         APInt &Op, 
                                         SmallVectorImpl<MCFixup> &Fixups, 
                                         const MCSubtargetInfo &STI) const {
-  APInt Enc(3, 0);
+  APInt Enc(128, 0);
   const MCOperand &MO = MI.getOperand(OpIdx);
 
   assert(MO.isImm());
@@ -175,7 +175,7 @@ void GASSMCCodeEmitter::encodeShiftLoc(const MCInst &MI, unsigned int OpIdx,
                                        APInt &Op, 
                                        SmallVectorImpl<MCFixup> &Fixups, 
                                        const MCSubtargetInfo &STI) const {
-  APInt Enc(1, 0);
+  APInt Enc(128, 0);
   const MCOperand &MO = MI.getOperand(OpIdx);
 
   assert(MO.isImm());
