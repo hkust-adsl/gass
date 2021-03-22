@@ -11,14 +11,33 @@ let Namespace = "GASS" in {
   def sub1 : SubRegIndex<32>;
   def sub2 : SubRegIndex<32>;
   def sub3 : SubRegIndex<32>;
+  // 16-bit un-allocatable sub regs
+  def lo : SubRegIndex<32>;
+  def hi : SubRegIndex<32>;
+  // 8-bit byte-view
+  // def b0 : 
+  // def b1 :
+  // def b2 :
+  // def b3 :
 }
 
+// Uniform Datapath Registers
 foreach Index = 0-64 in {
   def SGPR#Index : GASSReg<"UR"#Index, Index>;
 }
 
+// 16-bit un-allocatable sub regs
 foreach Index = 0-256 in {
-  def VGPR#Index : GASSReg<"R"#Index, Index>;
+  def VGPR#Index#_LO : GASSReg<"R"#Index#"_LO", 0>;
+  def VGPR#Index#_HI : GASSReg<"R"#Index#"_HI", 0>;
+}
+
+foreach Index = 0-256 in {
+  def VGPR#Index : GASSReg<"R"#Index, Index> {
+    let SubRegs = [!cast<GASSReg>("VGPR"#Index#"_LO"), 
+                   !cast<GASSReg>("VGPR"#Index#"_HI")];
+    let SubRegIndices = [lo, hi];
+  }
 }
 
 foreach Index = 0-7 in {
@@ -74,12 +93,20 @@ class GASSRegTuples<list<SubRegIndex> Indices, RegisterClass RC,
 // Register Classes
 def VReg1  : GASSRegClass<[i1], 1, (add (sequence "PR%u", 0, 7), 
                                         PT, NPT)>; 
+
+// Each VReg32 has 2 sub registers: [lo, hi]
+// All registers are:
+//   vgpr0_lo, vgpr0_hi, vgpr1_lo, vgpr1_hi, vgpr2_lo, vgpr2_hi, ...
 def VReg32 : GASSRegClass<[i32,f32,v2f16, v2i16, f16, i16], 
                            32, (add (sequence "VGPR%u", 0, 255), RZ32)>;
 
 // def : RegisterWithSubRegs<"", 
 //                           [VREG0, VREG1], [VREG2, VREG3], ...>;
 def VReg64Tuple : GASSRegTuples<[sub0, sub1], VReg32, 255, 2, 2, "R">;
+// Subregister indices:
+//   hi, lo
+//   sub0, sub1
+//   sub1_then_lo, sub1_then_hi
 def VReg64 : GASSRegClass<[i64, f64, v2f32, v2i32, v4f16], 
                           64, (add VReg64Tuple, RZ64)>;
 def VReg128Tuple : GASSRegTuples<[sub0, sub1, sub2, sub3], 
@@ -92,3 +119,16 @@ def VReg128 : GASSRegClass<[v2i64, v2f64, v4i32, v4f32,
 //     GASSRegTuples<[sub0, sub1, sub2, sub3, sub4, sub5, sub6, sub7],
 //                   VReg32, 255, 8, 8, "R">;
 // def VReg256 : GASSRegClass<[v8f32], 256, (add VReg256Tuple)>;
+
+//=--------------------------------------------------------------------------=//
+// Virtual registers (will be eliminated after ISel)
+//=--------------------------------------------------------------------------=//
+class GASSVirtRegClass<list<ValueType> regTypes, int alignment, dag regList>
+  : GASSRegClass<regTypes, alignment, regList> {
+  let isAllocatable = false;
+}
+def VReg16 : GASSVirtRegClass<[f16], 16, 
+    (add (sequence "VGPR%u_LO", 0, 255), (sequence "VGPR%u_HI", 0, 255))>;
+def VReg16Lo : GASSVirtRegClass<[f16], 16, (sequence "VGPR%u_LO", 0, 255)>;
+def VReg16Hi : GASSVirtRegClass<[f16], 16, (sequence "VGPR%u_HI", 0, 255)>;
+//=--------------------------------------------------------------------------=//

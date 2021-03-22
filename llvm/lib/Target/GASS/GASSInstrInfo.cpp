@@ -18,6 +18,7 @@ void GASSInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                 MachineBasicBlock::iterator I,
                                 const DebugLoc &DL, MCRegister DestReg, 
                                 MCRegister SrcReg, bool KillSrc) const {
+  const MCRegisterInfo *MRI = MBB.getParent()->getSubtarget().getRegisterInfo();
   unsigned Op;
 
   if (GASS::VReg32RegClass.contains(SrcReg) &&
@@ -26,9 +27,20 @@ void GASSInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
   } else if (GASS::VReg64RegClass.contains(SrcReg) &&
              GASS::VReg64RegClass.contains(DestReg)) {
     Op = GASS::MOV64r;
-  } else {
+  } 
+  // VReg32 = VReg16
+  else if (GASS::VReg16RegClass.contains(SrcReg) &&
+           GASS::VReg32RegClass.contains(DestReg)) {
+    assert(GASS::VReg16LoRegClass.contains(SrcReg) || 
+           GASS::VReg16HiRegClass.contains(SrcReg));
+    if (GASS::VReg16LoRegClass.contains(SrcReg)) {
+      // dst = prmt 
+    } else {
+      // dst = ???
+    }
+    llvm_unreachable("Not implemented");
+  } else
     llvm_unreachable("Bad phys reg copy");
-  }
 
   BuildMI(MBB, I, DL, get(Op), DestReg)
       .addReg(SrcReg, getKillRegState(KillSrc))
@@ -397,6 +409,30 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   case GASS::SRA64rr: case GASS::SRA64ri:
   case GASS::SRL64rr: case GASS::SRL64ri: {
     llvm_unreachable("Not implemented");
+  } break;
+  case GASS::EXTRACT_ELEMENT_V2F16: {
+    // f16:$dst = extractelt v2f16:$src, 0
+    //   =>
+    // f16:$dst = prmt 
+    Register Dst = MI.getOperand(0).getReg();
+    Register Src = MI.getOperand(1).getReg();
+    const MachineOperand &IdxOp = MI.getOperand(2);
+    const MachineOperand &PredMask = MI.getOperand(3);
+    assert(IdxOp.isImm());
+    unsigned Idx = IdxOp.getImm();
+
+    unsigned PrmtMode = 0;
+    assert(Idx == 0 || Idx == 1);
+    if (Idx == 0)
+      PrmtMode = 0x5410;
+    else 
+      PrmtMode = 0x5432;
+    unsigned Opcode = GASS::PRMTrir;
+    BuildMI(MBB, MI, DL, get(Opcode), Dst)
+      .addReg(Src)
+      .addImm(PrmtMode)
+      .addReg(GASS::RZ32)
+      .add(PredMask);
   } break;
   }
 

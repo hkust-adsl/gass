@@ -339,6 +339,40 @@ bool GASSDAGToDAGISel::tryStore(SDNode *N) {
   return true;
 }
 
+bool GASSDAGToDAGISel::tryEXTRACT_VECTOR_ELT_F16(SDNode *N) {
+  // def : Pat<(f16 (extractelt v8f16:$src, 0)), (EXTRACT_SUBREG v8f16:$src, lo)>;
+  // Note: We need c++ since tablegen doesn't have sub1_then_lo
+  SDLoc DL(N);
+  SDValue Vector = N->getOperand(0);
+  SDValue Idx = N->getOperand(1);
+  assert(isa<ConstantSDNode>(Idx));
+
+  unsigned IdxValue = dyn_cast<ConstantSDNode>(Idx)->getSExtValue();
+  unsigned SubRegValue = 0;
+  switch (IdxValue) {
+  default: llvm_unreachable("error");
+  case 0: SubRegValue = GASS::lo; break;
+  case 1: SubRegValue = GASS::hi; break;
+  case 2: SubRegValue = GASS::sub1_then_lo; break;
+  case 3: SubRegValue = GASS::sub1_then_hi; break;
+  case 4: SubRegValue = GASS::sub2_then_lo; break;
+  case 5: SubRegValue = GASS::sub2_then_hi; break;
+  case 6: SubRegValue = GASS::sub3_then_lo; break;
+  case 7: SubRegValue = GASS::sub3_then_hi; break;
+  }
+
+  SDValue SubReg = CurDAG->getTargetConstant(SubRegValue, DL, MVT::i32);
+
+  MVT ResultTy = N->getSimpleValueType(0);
+
+  SDValue Ops[] = {Vector, SubReg};
+  SDNode *ExtraSubReg = CurDAG->getMachineNode(TargetOpcode::EXTRACT_SUBREG,
+                                               DL, ResultTy, Ops);
+
+  ReplaceNode(N, ExtraSubReg);
+  return true;
+}
+
 bool GASSDAGToDAGISel::tryEXTRACT_VECTOR_ELT(SDNode *N) {
   // Replace extract_vector_elt with extract_subreg
   SDLoc DL(N);
@@ -348,6 +382,15 @@ bool GASSDAGToDAGISel::tryEXTRACT_VECTOR_ELT(SDNode *N) {
   SDValue Idx = N->getOperand(1);
 
   MVT VectorTy = Vector.getSimpleValueType();
+  // XXX: Sub-reg types
+  MVT ScalarTy = VectorTy.getScalarType();
+  if (ScalarTy == MVT::f16 || 
+      ScalarTy == MVT::i16 || ScalarTy == MVT::i8) {
+    assert(ScalarTy == MVT::f16 && "Only support f16 now");
+    return false;
+    // XXX: Now use TableGen
+    // return tryEXTRACT_VECTOR_ELT_F16(N);
+  }
   // FIXME: we should support more types
   if (!(VectorTy == MVT::v2f32 || VectorTy == MVT::v2i32 ||
          VectorTy == MVT::v4f32 || VectorTy == MVT::v4f32))

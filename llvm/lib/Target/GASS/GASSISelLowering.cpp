@@ -74,6 +74,9 @@ GASSTargetLowering::GASSTargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::BUILD_VECTOR, MVT::v4f16, Custom);
   setOperationAction(ISD::BUILD_VECTOR, MVT::v8f16, Custom);
 
+  // setOperationAction(ISD::EXTRACT_VECTOR_ELT, MVT::v4f16, Expand);
+  // setOperationAction(ISD::EXTRACT_VECTOR_ELT, MVT::v8f16, Expand);
+
   // Turn FP truncstore into trunc + store.
   // FIXME: vector types should also be expanded
   setTruncStoreAction(MVT::f32, MVT::f16, Expand);

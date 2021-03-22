@@ -39,6 +39,8 @@ private:
   bool selectDirectAddr(SDValue Value, SDValue &Addr);
   bool selectADDRri(SDValue Value, SDValue &Base, SDValue &Offset);
   void selectBuildVector(SDNode *N, unsigned RegClassID);
+
+  bool tryEXTRACT_VECTOR_ELT_F16(SDNode *N);
 };
 } // namespace llvm
 

@@ -1194,8 +1194,8 @@ def : Pat<(i32 (extractelt v4i32:$src, 3)), (EXTRACT_SUBREG $src, sub3)>;
 // sub-reg (f16, i16) (TODO: i8, i4, i1)
 def : Pat<(v2f16 (build_vector (f16 VReg32:$src0), (f16 VReg32:$src1))),
           (v2f16 (PRMTrir VReg32:$src0, (i32 0x5410), VReg32:$src1))>;
-def : Pat<(v2i16 (build_vector (i16 VReg32:$src0), (i16 VReg32:$src1))),
-          (v2i16 (PRMTrir VReg32:$src0, (i32 0x5410), VReg32:$src1))>;
+// def : Pat<(v2i16 (build_vector (i16 VReg32:$src0), (i16 VReg32:$src1))),
+//           (v2i16 (PRMTrir VReg32:$src0, (i32 0x5410), VReg32:$src1))>;
 
 //=---------------------------------=//
 // Miscellaneous
@@ -1242,17 +1242,27 @@ def READ_CTAID_W : READ_SREG_R32<"ctaid.w", int_nvvm_read_ptx_sreg_ctaid_w, 40>;
 
 def READ_LANEID : READ_SREG_R32<"laneid", int_nvvm_read_ptx_sreg_laneid, 0>;
 
-// TODO: SReg: smid, nsmid, gridid, lanemask_eq, 
-// def EXTRACT_VECTOR_ELT_PSEUDO : 
-//   GASSPseudoInst<(outs VReg32:$dst), (ins VReg128:$src), []>;
-// def : Pat<(f16 (extractelt v8f16:$src, 0)), (EXTRACT_VECTOR_ELT_PSEUDO v8f16:$src)>;
-// def : Pat<(f16 (extractelt v8f16:$src, 1)), (EXTRACT_VECTOR_ELT_PSEUDO v8f16:$src)>;
-// def : Pat<(f16 (extractelt v8f16:$src, 2)), (EXTRACT_VECTOR_ELT_PSEUDO v8f16:$src)>;
-// def : Pat<(f16 (extractelt v8f16:$src, 3)), (EXTRACT_VECTOR_ELT_PSEUDO v8f16:$src)>;
-// def : Pat<(f16 (extractelt v8f16:$src, 4)), (EXTRACT_VECTOR_ELT_PSEUDO v8f16:$src)>;
-// def : Pat<(f16 (extractelt v8f16:$src, 5)), (EXTRACT_VECTOR_ELT_PSEUDO v8f16:$src)>;
-// def : Pat<(f16 (extractelt v8f16:$src, 6)), (EXTRACT_VECTOR_ELT_PSEUDO v8f16:$src)>;
-// def : Pat<(f16 (extractelt v8f16:$src, 7)), (EXTRACT_VECTOR_ELT_PSEUDO v8f16:$src)>;
+//=--------------------------------------------------------------------------=//
+// Vector type patterns (extractelt, insertelt)
+//=--------------------------------------------------------------------------=//
+def EXTRACT_ELEMENT_V2F16 : 
+    GASSPseudoInst<(outs VReg32:$dst), (ins VReg32:$vec, i32imm:$off), []>;
+def : Pat<(f16 (extractelt v8f16:$src, 0)), 
+          (f16 (EXTRACT_ELEMENT_V2F16 (v2f16 (EXTRACT_SUBREG v8f16:$src, sub0)), 0))>;
+def : Pat<(f16 (extractelt v8f16:$src, 1)), 
+          (f16 (EXTRACT_ELEMENT_V2F16 (v2f16 (EXTRACT_SUBREG v8f16:$src, sub0)), 1))>;
+def : Pat<(f16 (extractelt v8f16:$src, 2)), 
+          (f16 (EXTRACT_ELEMENT_V2F16 (v2f16 (EXTRACT_SUBREG v8f16:$src, sub1)), 0))>;
+def : Pat<(f16 (extractelt v8f16:$src, 3)), 
+          (f16 (EXTRACT_ELEMENT_V2F16 (v2f16 (EXTRACT_SUBREG v8f16:$src, sub1)), 1))>;
+def : Pat<(f16 (extractelt v8f16:$src, 4)), 
+          (f16 (EXTRACT_ELEMENT_V2F16 (v2f16 (EXTRACT_SUBREG v8f16:$src, sub2)), 0))>;
+def : Pat<(f16 (extractelt v8f16:$src, 5)), 
+          (f16 (EXTRACT_ELEMENT_V2F16 (v2f16 (EXTRACT_SUBREG v8f16:$src, sub2)), 1))>;
+def : Pat<(f16 (extractelt v8f16:$src, 6)), 
+          (f16 (EXTRACT_ELEMENT_V2F16 (v2f16 (EXTRACT_SUBREG v8f16:$src, sub3)), 0))>;
+def : Pat<(f16 (extractelt v8f16:$src, 7)), 
+          (f16 (EXTRACT_ELEMENT_V2F16 (v2f16 (EXTRACT_SUBREG v8f16:$src, sub3)), 1))>;
 
 // For GlobalAddress
 def SDTWrapper : SDTypeProfile<1, 1, [SDTCisSameAs<0, 1>, SDTCisPtrTy<0>]>;
