@@ -130,14 +130,27 @@ multiclass IADD3 {
                           (ins VReg32:$src0, i32imm:$src1, VReg32:$src2),
                           0x810,
                           "IADD3 \t$dst, $src0, $src1, $src2;",
-                          [(set i32:$dst, (add (add i32:$src0, i32:$src1),
-                                                imm:$src2))]> {
+                          [(set i32:$dst, (add (add i32:$src0, imm:$src1),
+                                                i32:$src2))]> {
     let Inst{16-13} = 0xf; // no ps1
     let Inst{26-23} = 0xf; // no ps0
 
     let Inst{19-17} = 0x7; // no pd0
     let Inst{22-20} = 0x7; // no pd1
   }
+
+  // def rri : GASSInstOp3rri<(outs VReg32:$dst),
+  //                         (ins VReg32:$src0, VReg32:$src1, i32imm:$src2),
+  //                         0x410,
+  //                         "IADD3 \t$dst, $src0, $src1, $src2;",
+  //                         [(set i32:$dst, (add (add i32:$src0, i32:$src1),
+  //                                               imm:$src2))]> {
+  //   let Inst{16-13} = 0xf; // no ps1
+  //   let Inst{26-23} = 0xf; // no ps0
+
+  //   let Inst{19-17} = 0x7; // no pd0
+  //   let Inst{22-20} = 0x7; // no pd1
+  // }
 
   // Consider this
   // def _Xrrr : ;

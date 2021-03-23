@@ -278,9 +278,14 @@ class LiveBarGraph {
 
   std::vector<Barrier*> Nodes;
   std::map<Barrier*, std::set<Edge>> Edges;
+
+  // Cache MBB, LIS
+  const MachineBasicBlock &MBB;
+  const LiveIntervals *LIS = nullptr;
 public:
   // Build Interference graph with raw barriers
-  LiveBarGraph(std::vector<Barrier> &Bars) {
+  LiveBarGraph(std::vector<Barrier> &Bars, MachineBasicBlock &MBB, 
+               const LiveIntervals *LIS) : MBB(MBB), LIS(LIS) {
     for (Barrier &CurBar : Bars) {
       for (Barrier* GraphNode : Nodes) {
         // Add interference edge
@@ -310,6 +315,22 @@ public:
       MaxDegree = std::max(MaxDegree, unsigned(iter->second.size()));
     }
     return MaxDegree;
+  }
+
+  // Max number of activate barriers required at any instrs
+  unsigned getMaxConcurrentBarriers() const {
+    // Scan the MBB, count max concurrent barriers
+    unsigned MaxConcurrentBarriers = 0;
+    for (const MachineInstr &MI : MBB) {
+      SlotIndex CurSI = LIS->getInstructionIndex(MI);
+      unsigned CurrentMaxConBar = 0;
+      for (Barrier *B : Nodes) {
+        if (B->getLiveBarRange().liveAt(CurSI))
+          CurrentMaxConBar++;
+      }
+      MaxConcurrentBarriers = std::max(MaxConcurrentBarriers, CurrentMaxConBar);
+    }
+    return MaxConcurrentBarriers;
   }
 
   void mergeBarriers() {
@@ -379,14 +400,17 @@ public:
   std::pair<Barrier*, Barrier*> pickBarrierPairToMerge() {
     // We only merge barriers, whos degree is >= kNumBarriers
     std::set<Barrier*> Candidates;
+    bool AreCandidatesValid = false;
     for (auto iter = Edges.begin(); iter != Edges.end(); ++iter) 
       if (iter->second.size() >= kNumBarriers) {
+        AreCandidatesValid = true;
         Candidates.insert(iter->first);
         // Insert its neighbors
         for (const Edge &E : Edges[iter->first])
           Candidates.insert(E.Dst);
       }
 
+    assert(AreCandidatesValid && "Candidates are invalid");
     // different strategies
     switch (PickBarPairAlg) {
     default: llvm_unreachable("Invalid algorithm");
@@ -446,7 +470,7 @@ private:
 std::pair<Barrier*, Barrier*> 
 LiveBarGraph::pickBarrierPairToMergeOrdered(std::set<Barrier*> &Candidates) {
   // Both are RAW_TC
-  for (Barrier *Candidate : Candidates) {
+  for (Barrier *Candidate  : Candidates) {
     if (Candidate->getBarrierType() == RAW_TC) {
       for (Edge const &E : Edges[Candidate]) {
         if (E.Dst->getBarrierType() == RAW_TC)
@@ -503,13 +527,21 @@ LiveBarGraph::pickBarrierPairToMergeOrdered(std::set<Barrier*> &Candidates) {
     }
   }
 
-  // else try to merge RAW (not RAW_G)
+  // else try to merge RAW (exclude RAW_G)
   for (Barrier *Candidate : Candidates)
     if (Candidate->isInOrderRAW())
       for (Edge const &E : Edges[Candidate])
         if (E.Dst->isInOrderRAW())
           return {Candidate, E.Dst};
 
+  // Finally try to merge all RAWs
+  for (Barrier *Candidate : Candidates) {
+    if (Candidate->isRAW()) {
+      for (Edge const &E : Edges[Candidate])
+        if (E.Dst->isRAW()) 
+          return {Candidate, E.Dst};
+    }
+  }
 
   llvm_unreachable("Should have returned");
 }
@@ -587,7 +619,7 @@ static void removeDuplicatedWAR(std::vector<Barrier> &Bar) {
   std::map<SlotIndex, std::vector<Barrier*>> Idx2Barriers;
   for (Barrier &B : Bar) {
     if (!B.isRAW()) {
-      assert(B.getStarts().size() == 1 && "We haven't merge barriers");
+      assert(B.getStarts().size() == 1 && "We haven't merged barriers");
       SlotIndex StartIdx = B.getStarts()[0];
       Idx2Barriers[StartIdx].push_back(&B);
     }
@@ -618,6 +650,65 @@ static void removeDuplicatedWAR(std::vector<Barrier> &Bar) {
   for (size_t Probe : ToBeRemovedIdx)
     Bar.erase(Bar.begin() + Probe);
 
+}
+
+// One instruction may wait on multiple RAW barriers.
+// If they are in-order barriers (all RAW barrier except LDG (LDL?)), we can
+// coalesce them (only keep the barrier with the latest start time)
+static void coalesceRAWs(std::vector<Barrier> &Bar) {
+  // Ref: removeDuplicatedWAR
+  size_t TotalCoalescedNum = 0;
+  for (BarrierType ValidRAWMergeTy : {RAW_S, RAW_C, RAW_TC}) {
+    std::map<SlotIndex, std::vector<Barrier*>> EndIdx2Barriers;
+    for (Barrier &B : Bar) {
+      if (B.getBarrierType() == ValidRAWMergeTy) {
+        SlotIndex EndIdx = B.getEnd();
+        EndIdx2Barriers[EndIdx].push_back(&B);
+      }
+    }
+
+    // Coalesce RAWs that end with the same instr
+    std::vector<Barrier*> ToBeRemoved;
+    for (auto const &Idx2Bar : EndIdx2Barriers) {
+      // If this instr waits on multiple RAW_S
+      const std::vector<Barrier*> &CurBarriers = Idx2Bar.second;
+      if (CurBarriers.size() > 1) {
+        assert(CurBarriers[0]->getStarts().size() == 1 && 
+              "We haven't merged barriers");
+        SlotIndex LatestSlot = CurBarriers[0]->getStarts()[0];
+        size_t LatestIdx = 0; 
+        for (size_t i=1; i<CurBarriers.size(); ++i) {
+          assert(CurBarriers[i]->getStarts().size() == 1 &&
+                "We haven't merged barriers");
+          if (CurBarriers[i]->getStarts()[0] > LatestSlot) {
+            LatestSlot = CurBarriers[i]->getStarts()[0];
+            LatestIdx = i;
+          }
+        }
+
+        // Remove all barriers except the the latest one
+        for (size_t i=0; i<CurBarriers.size(); ++i) {
+          if (i != LatestIdx)
+            ToBeRemoved.push_back(CurBarriers[i]);
+        }
+      }
+    }
+    std::vector<size_t> ToBeRemovedIdx;
+    for (Barrier *Probe : ToBeRemoved) {
+      for (size_t i=0; i<Bar.size(); ++i) {
+        if (Probe == &Bar[i]) {
+          ToBeRemovedIdx.push_back(i);
+          break;
+        }
+      }
+    }
+    TotalCoalescedNum += ToBeRemovedIdx.size();
+    // Remove from end to begin
+    std::sort(ToBeRemovedIdx.rbegin(), ToBeRemovedIdx.rend());
+    for (size_t Probe : ToBeRemovedIdx)
+      Bar.erase(Bar.begin() + Probe);
+  }
+  // outs() << "Num coalesced barriers: " << TotalCoalescedNum << "\n";
 }
 
 void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
@@ -728,16 +819,18 @@ void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
     } // if (MachineOperand *BSrc = GII->getMemOperandReg(MI))
   }
 
-  // 0. If multiple WAR barriers start with the same instruction, remove one
+  // 0.0 If multiple WAR barriers start with the same instruction, remove one
   removeDuplicatedWAR(Barriers);
+  // 0.1 If multiple RAW ends with the same instruction, coalesce them
+  coalesceRAWs(Barriers);
   
   // 1. Build interference graph
-  LiveBarGraph TheGraph(Barriers);
+  LiveBarGraph TheGraph(Barriers, MBB, LIS);
   LLVM_DEBUG(dbgs() << "*** Build Barrier interference graph ***\n");
   LLVM_DEBUG(TheGraph.dump());
 
   // 2. Merge if necessary
-  while (TheGraph.getMaxDegree() >= kNumBarriers)
+  while (TheGraph.getMaxConcurrentBarriers() > kNumBarriers)
     TheGraph.mergeBarriers();
   LLVM_DEBUG(dbgs() << "** After merging **\n");
   LLVM_DEBUG(TheGraph.dump());
