@@ -1075,7 +1075,7 @@ let isTerminator = true, isBranch = true in {
                             (ins VReg1:$a, brtarget:$target),
                             0x947,
                             "@$a BRA \t$target;",
-                            [(brcond VReg1:$a, bb:$target)]>, Sched<[]> {
+                            [(brcond i1:$a, bb:$target)]>, Sched<[]> {
     let Inst{26-23} = 0x7; // predicate PT
 
     bits<32> target;
@@ -1090,7 +1090,7 @@ let isTerminator = true, isBranch = true in {
                             (ins VReg1:$a, brtarget:$target),
                             0x947,
                             "@!$a BRA \t$target;",
-                            [(brcond VReg1:$a, bb:$target)]>, Sched<[]> {
+                            []>, Sched<[]> {
     let Inst{26-23} = 0x7; // predicate PT
 
     bits<32> target;
