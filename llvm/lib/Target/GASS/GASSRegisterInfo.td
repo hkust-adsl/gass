@@ -22,17 +22,17 @@ let Namespace = "GASS" in {
 }
 
 // Uniform Datapath Registers
-foreach Index = 0-64 in {
+foreach Index = 0-63 in {
   def SGPR#Index : GASSReg<"UR"#Index, Index>;
 }
 
 // 16-bit un-allocatable sub regs
-foreach Index = 0-256 in {
+foreach Index = 0-255 in {
   def VGPR#Index#_LO : GASSReg<"R"#Index#"_LO", 0>;
   def VGPR#Index#_HI : GASSReg<"R"#Index#"_HI", 0>;
 }
 
-foreach Index = 0-256 in {
+foreach Index = 0-255 in {
   def VGPR#Index : GASSReg<"R"#Index, Index> {
     let SubRegs = [!cast<GASSReg>("VGPR"#Index#"_LO"), 
                    !cast<GASSReg>("VGPR"#Index#"_HI")];
@@ -40,7 +40,7 @@ foreach Index = 0-256 in {
   }
 }
 
-foreach Index = 0-7 in {
+foreach Index = 0-6 in {
   def PR#Index : GASSReg<"P"#Index, Index>;
 }
 
@@ -91,7 +91,7 @@ class GASSRegTuples<list<SubRegIndex> Indices, RegisterClass RC,
 
 
 // Register Classes
-def VReg1  : GASSRegClass<[i1], 1, (add (sequence "PR%u", 0, 7), 
+def VReg1  : GASSRegClass<[i1], 1, (add (sequence "PR%u", 0, 6), 
                                         PT, NPT)>; 
 
 // Each VReg32 has 2 sub registers: [lo, hi]

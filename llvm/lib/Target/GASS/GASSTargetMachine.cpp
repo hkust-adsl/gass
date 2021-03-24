@@ -63,6 +63,11 @@ public:
   }
 
   void addIRPasses() override;
+
+  // Any "last minute" IR passes 
+  // (which are run just before instruction selector).
+  bool addPreISel() override;
+
   bool addInstSelector() override;
   // bool addILPOpts() override;
 
@@ -104,6 +109,13 @@ void GASSPassConfig::addIRPasses() {
   // Following the practice in AArch64
   // TODO: disable it for now.
   // addPass(createLICMPass());
+
+  // addPass(createSinkingPass());
+}
+
+bool GASSPassConfig::addPreISel() {
+  addPass(createGASSSinkingPass());
+  return false;
 }
 
 bool GASSPassConfig::addInstSelector() {

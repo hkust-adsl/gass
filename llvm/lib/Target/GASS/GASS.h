@@ -14,6 +14,7 @@ class FunctionPass;
 // Required by AsmPrinter
 void LowerToMCInst(const MachineInstr *MI, MCInst &Inst);
 
+FunctionPass *createGASSSinkingPass();
 FunctionPass *createGASSAddrSpacePass();
 FunctionPass *createGASSCodeGenPreparePass();
 FunctionPass *createGASSMachineFunctionCFGPrinterPass();
@@ -23,7 +24,7 @@ FunctionPass *createGASSExpandPreRAPseudoPass();
 FunctionPass *createGASSIfConversionPass();
 FunctionPass *createGASSPreEmitPreparePass();
 
-
+void initializeGASSSinkingPass(PassRegistry &);
 void initializeGASSBarrierSettingPass(PassRegistry &);
 void initializeGASSStallSettingPass(PassRegistry&);
 void initializeGASSExpandPreRAPseudoPass(PassRegistry&);
