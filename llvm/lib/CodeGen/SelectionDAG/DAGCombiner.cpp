@@ -14570,15 +14570,14 @@ SDValue DAGCombiner::visitBRCOND(SDNode *N) {
                        N1.getOperand(0), N1.getOperand(1), N2);
   }
 
-  // FIXME FIXME FIXME: should not change the master branch
-  // if (N1.hasOneUse()) {
-  //   // rebuildSetCC calls visitXor which may change the Chain when there is a
-  //   // STRICT_FSETCC/STRICT_FSETCCS involved. Use a handle to track changes.
-  //   HandleSDNode ChainHandle(Chain);
-  //   if (SDValue NewN1 = rebuildSetCC(N1))
-  //     return DAG.getNode(ISD::BRCOND, SDLoc(N), MVT::Other,
-  //                        ChainHandle.getValue(), NewN1, N2);
-  // }
+  if (N1.hasOneUse()) {
+    // rebuildSetCC calls visitXor which may change the Chain when there is a
+    // STRICT_FSETCC/STRICT_FSETCCS involved. Use a handle to track changes.
+    HandleSDNode ChainHandle(Chain);
+    if (SDValue NewN1 = rebuildSetCC(N1))
+      return DAG.getNode(ISD::BRCOND, SDLoc(N), MVT::Other,
+                         ChainHandle.getValue(), NewN1, N2);
+  }
 
   return SDValue();
 }

@@ -32,6 +32,10 @@ public:
                          APInt &Op,
                          SmallVectorImpl<MCFixup> &Fixups,
                          const MCSubtargetInfo &STI) const;
+                
+  void encodePredicateOperand(const MCInst &MI, unsigned OpIdx, APInt &Op, 
+                              SmallVectorImpl<MCFixup> &Fixups,
+                              const MCSubtargetInfo &STI) const;
 
   /// SETP{.EQ|.NE|.LT|.LE|.GT|.GE}
   void encodeCmpMode(const MCInst &MI, unsigned OpIdx, APInt &Op, 

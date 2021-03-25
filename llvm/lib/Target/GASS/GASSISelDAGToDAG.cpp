@@ -175,6 +175,7 @@ bool GASSDAGToDAGISel::tryLoad(SDNode *N) {
   // Machine-DAG
   SDValue Addr;
   SDValue Base, Offset;
+  SDValue PredFlip = CurDAG->getTargetConstant(0, dl, MVT::i32);
   SDValue PredMask = CurDAG->getRegister(GASS::PT, MVT::i1);
 
   if (AddrSpace == GASS::GENERIC) {
@@ -188,7 +189,7 @@ bool GASSDAGToDAGISel::tryLoad(SDNode *N) {
       case 64: Opcode = GASS::LDG64ri; break;
       case 128: Opcode = GASS::LDG128ri; break;
       }
-      SDValue Ops[] = {Base, Offset, PredMask, Chain};
+      SDValue Ops[] = {Base, Offset, PredFlip, PredMask, Chain};
       GASSLD = CurDAG->getMachineNode(Opcode, dl, TargetVT, MVT::Other, Ops);
     } else { // default
       switch (ValueWidth) {
@@ -197,7 +198,7 @@ bool GASSDAGToDAGISel::tryLoad(SDNode *N) {
       case 64: Opcode = GASS::LDG64r; break;
       case 128: Opcode = GASS::LDG128r; break;
       }
-      SDValue Ops[] = {N1, PredMask, Chain};
+      SDValue Ops[] = {N1, PredFlip, PredMask, Chain};
       GASSLD = CurDAG->getMachineNode(Opcode, dl, TargetVT, MVT::Other, Ops);
     }
 
@@ -210,7 +211,7 @@ bool GASSDAGToDAGISel::tryLoad(SDNode *N) {
       case 64: Opcode = GASS::LDS64ri; break;
       case 128: Opcode = GASS::LDS128ri; break;
       }
-      SDValue Ops[] = {Base, Offset, PredMask, Chain};
+      SDValue Ops[] = {Base, Offset, PredFlip, PredMask, Chain};
       GASSLD = CurDAG->getMachineNode(Opcode, dl, TargetVT, MVT::Other, Ops);
     } else {
       switch (ValueWidth) {
@@ -220,7 +221,7 @@ bool GASSDAGToDAGISel::tryLoad(SDNode *N) {
       case 64: Opcode = GASS::LDS64r; break;
       case 128: Opcode = GASS::LDS128r; break;
       }
-      SDValue Ops[] = {N1, PredMask, Chain};
+      SDValue Ops[] = {N1, PredFlip, PredMask, Chain};
       GASSLD = CurDAG->getMachineNode(Opcode, dl, TargetVT, MVT::Other, Ops);
     }
   } else if (AddrSpace == GASS::LOCAL) {
@@ -250,11 +251,13 @@ bool GASSDAGToDAGISel::tryLDC(SDNode *N) {
   case 32: 
     Opcode = GASS::LDC32c;
     Ops.push_back(CurDAG->getTargetConstant(OffsetVal, dl, MVT::i32));
+    Ops.push_back(CurDAG->getTargetConstant(0, dl, MVT::i32));
     Ops.push_back(CurDAG->getRegister(GASS::PT, MVT::i1));
     break;
   case 64: 
     Opcode = GASS::LDC64c;
     Ops.push_back(CurDAG->getTargetConstant(OffsetVal, dl, MVT::i64));
+    Ops.push_back(CurDAG->getTargetConstant(0, dl, MVT::i32));
     Ops.push_back(CurDAG->getRegister(GASS::PT, MVT::i1));
     break;
   }
@@ -283,6 +286,7 @@ bool GASSDAGToDAGISel::tryStore(SDNode *N) {
   SDValue BasePtr = ST->getBasePtr(); // Ptr.
   SDValue Addr;
   SDValue Base, Offset;
+  SDValue PredFlip = CurDAG->getTargetConstant(0, dl, MVT::i32);
   SDValue PredMask = CurDAG->getRegister(GASS::PT, MVT::i1);
 
   if (AddrSpace == GASS::GENERIC) {
@@ -295,7 +299,7 @@ bool GASSDAGToDAGISel::tryStore(SDNode *N) {
       case 64: Opcode = GASS::STG64ri; break;
       case 128: Opcode = GASS::STG128ri; break;
       }
-      SDValue Ops[] = {Value, Base, Offset, PredMask, Chain};
+      SDValue Ops[] = {Value, Base, Offset, PredFlip, PredMask, Chain};
       GASSST = CurDAG->getMachineNode(Opcode, dl, MVT::Other, Ops);
     } else {
       switch (ValueWidth) {
@@ -305,7 +309,7 @@ bool GASSDAGToDAGISel::tryStore(SDNode *N) {
       case 128: Opcode = GASS::STG128r; break;
       }
       SDValue Ops[] = {Value,
-                       BasePtr, PredMask, Chain}; // Should we pass chain as op?
+                       BasePtr, PredFlip, PredMask, Chain}; // Should we pass chain as op?
       GASSST = CurDAG->getMachineNode(Opcode, dl, MVT::Other, Ops);
     }
 
@@ -318,7 +322,7 @@ bool GASSDAGToDAGISel::tryStore(SDNode *N) {
       case 64: Opcode = GASS::STS64ri; break;
       case 128: Opcode = GASS::STS128ri; break;
       }
-      SDValue Ops[] = {Value, Base, Offset, PredMask, Chain};
+      SDValue Ops[] = {Value, Base, Offset, PredFlip, PredMask, Chain};
       GASSST = CurDAG->getMachineNode(Opcode, dl, MVT::Other, Ops);
     } else {
       switch (ValueWidth) {
@@ -328,7 +332,7 @@ bool GASSDAGToDAGISel::tryStore(SDNode *N) {
       case 64: Opcode = GASS::STS64r; break;
       case 128: Opcode = GASS::STS128r; break;
       }
-      SDValue Ops[] = {Value, BasePtr, PredMask, Chain};
+      SDValue Ops[] = {Value, BasePtr, PredFlip, PredMask, Chain};
       GASSST = CurDAG->getMachineNode(Opcode, dl, MVT::Other, Ops);
     }
   } else if (AddrSpace == GASS::LOCAL) {
@@ -591,6 +595,7 @@ bool GASSDAGToDAGISel::trySHFL(SDNode *N) {
   SDValue Width = N->getOperand(5);
   SDValue ShflMode;
 
+  SDValue PredFlip = CurDAG->getTargetConstant(0, DL, MVT::i32);
   SDValue PredMask = CurDAG->getRegister(GASS::PT, MVT::i1);
 
   switch (IntNo) {
@@ -619,7 +624,7 @@ bool GASSDAGToDAGISel::trySHFL(SDNode *N) {
   Opcode = getOpcode3Op(Val, LaneMask, Width, CurDAG,
                         GASS::SHFLrrr, GASS::SHFLrri, 
                         GASS::SHFLrir, GASS::SHFLrii);
-  SDValue Ops[] = {Val, LaneMask, Width, ShflMode, PredMask, Chain};
+  SDValue Ops[] = {Val, LaneMask, Width, ShflMode, PredFlip, PredMask, Chain};
   GASSSHFL = CurDAG->getMachineNode(Opcode, DL, TargetVT, MVT::Other, Ops);
   ReplaceNode(N, GASSSHFL);
   return true;
@@ -635,6 +640,7 @@ bool GASSDAGToDAGISel::trySETCC_LOGIC(SDNode *N) {
   MVT VT = N->getSimpleValueType(0);
   assert(VT == MVT::i1);
   assert(N->getNumOperands() == 6);
+  SDValue PredFlip = CurDAG->getTargetConstant(0, DL, MVT::i32);
   SDValue PredMask = CurDAG->getRegister(GASS::PT, MVT::i1);
 
   SDValue Op0 = N->getOperand(0);
@@ -657,7 +663,8 @@ bool GASSDAGToDAGISel::trySETCC_LOGIC(SDNode *N) {
       dyn_cast<ConstantSDNode>(Sign)->getSExtValue(), DL, MVT::i32);
   SDValue CmpLogic = CurDAG->getTargetConstant(
       dyn_cast<ConstantSDNode>(Logic)->getSExtValue(), DL, MVT::i32);
-  SDValue Ops[] = {Op0, Op1, Op2, CmpMode, CmpSign, CmpLogic, PredMask};
+  SDValue Ops[] = {Op0, Op1, Op2, CmpMode, CmpSign, CmpLogic, 
+                   PredFlip, PredMask};
   GASSSETCC_LOGIC = CurDAG->getMachineNode(Opcode, DL, VT, Ops);
   ReplaceNode(N, GASSSETCC_LOGIC);
   return true;

@@ -370,12 +370,13 @@ void GASSAsmPrinter::emitFunctionBodyEnd() {
 
 void GASSAsmPrinter::emitTailingInstructions() {
   // BRA
-  EmitToStreamer(*OutStreamer, MCInstBuilder(GASS::TailBRA).addReg(GASS::PT));
+  EmitToStreamer(*OutStreamer, 
+                 MCInstBuilder(GASS::TailBRA).addImm(0).addReg(GASS::PT));
   CurrentOffset += 16;
 
   // Padding with NOPs
   while (CurrentOffset % 128 != 0) {
-    MCInst &PaddingNOP = MCInstBuilder(GASS::NOP).addReg(GASS::PT);
+    MCInst &PaddingNOP = MCInstBuilder(GASS::NOP).addImm(0).addReg(GASS::PT);
     PaddingNOP.setFlags(0xfc000);
     EmitToStreamer(*OutStreamer, PaddingNOP);
     CurrentOffset += 16;

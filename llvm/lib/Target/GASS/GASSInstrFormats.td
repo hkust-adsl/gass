@@ -1,5 +1,7 @@
-def pred : PredicateOperand<i1, (ops VReg1), (ops PT)> {
+// Ref: ARMInstrFormats.td (PredicateOperand)
+def pred : PredicateOperand<OtherVT, (ops i32imm, VReg1), (ops (i32 0), PT)> {
   let PrintMethod = "printPredicateOperand";
+  let EncoderMethod = "encodePredicateOperand";
 }
 
 class GASSInst<dag oops, dag iops, bits<12> opcode, 
@@ -8,14 +10,7 @@ class GASSInst<dag oops, dag iops, bits<12> opcode,
 
   bits<128> Inst;
 
-  // dag PredMask = (ins VReg1:$pmask);
-
-  dag OutOperandList = oops;
-  dag InOperandList = !con(iops, (ins pred:$pmask));
-  let AsmString = !strconcat("${pmask}\t", asmstr);
-  let Pattern = pattern;
-
-  bits<4> pmask = 7;
+  bits<4> pmask;
   bits<8> Dst  = 0;
   bits<8> Src0 = 0;
   bits<8> Src1 = 0;
@@ -27,6 +22,11 @@ class GASSInst<dag oops, dag iops, bits<12> opcode,
   let Inst{79-76}  = pmask;
   let Inst{75-64}  = opcode;
   let Inst{7-0}    = Src2;
+
+  dag OutOperandList = oops;
+  dag InOperandList = !con(iops, (ins pred:$pmask));
+  let AsmString = !strconcat("${pmask}\t", asmstr);
+  let Pattern = pattern;
 
   // Schedule Info
   // Need to sync with TsflagsMask in 'GASSInstrInfo.h'

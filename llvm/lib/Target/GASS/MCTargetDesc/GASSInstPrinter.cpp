@@ -152,13 +152,16 @@ void GASSInstPrinter::printMmaStep(const MCInst *MI,
 
 void GASSInstPrinter::printPredicateOperand(const MCInst *MI, unsigned OpNo,
                                             raw_ostream &O) {
-  const MCOperand &Op = MI->getOperand(OpNo);
-  assert(Op.isReg());
+  const MCOperand &PredFlip = MI->getOperand(OpNo);
+  const MCOperand &PredMask = MI->getOperand(OpNo+1);
+  assert(PredFlip.isImm() && PredMask.isReg());
   // don't print @PT
-  if (Op.getReg() == GASS::PT) 
+  if (PredFlip.getImm() == 0 && PredMask.getReg() == GASS::PT) 
     return;
   O << "@";
-  printRegOperand(Op.getReg(), O);
+  if (PredFlip.getImm() != 0)
+    O << "!";
+  printRegOperand(PredMask.getReg(), O);
 }
 
 void GASSInstPrinter::printShiftDir(const MCInst *MI, 

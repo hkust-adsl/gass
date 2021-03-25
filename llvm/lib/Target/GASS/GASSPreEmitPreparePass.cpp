@@ -43,7 +43,7 @@ bool GASSPreEmitPrepare::runOnMachineFunction(MachineFunction &MF) {
         DebugLoc DL = MI.getDebugLoc();
         
         BuildMI(MBB, MI, DL, TII->get(GASS::NOP))
-          .addReg(GASS::PT);
+          .addImm(0).addReg(GASS::PT);
         
         ToDeletInstrs.push_back(&MI);
       }

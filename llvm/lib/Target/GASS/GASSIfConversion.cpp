@@ -22,9 +22,9 @@ STATISTIC(NumDiamondsIfCvt,  "Number of diamonds");
 
 namespace {
 // Ref: SSAIfConv
-// GASSIfCvt can convert both triangles and diamonds:
+// GASSIfCvt can convert both triangles and diamonds (Not Yet):
 //
-//   Triangle: Head              Diamond: Head
+//   Triangle: Head              Diamond: Head (Not Yet)
 //              | \                       /  \_
 //              |  \                     /    |
 //              |  [TF]BB              FBB    TBB
@@ -81,7 +81,7 @@ public:
 void GASSIfCvt::predicateBlock(MachineBasicBlock *MBB, bool ReversePredicate) {
   SmallVector<MachineOperand, 4> Condition = Cond;
   if (ReversePredicate)
-    outs() << "TII->reverseBranchCondition() not implemented\n";
+    TII->reverseBranchCondition(Condition);
   // Terminators don't need to be predicated as they will be removed.
   for (MachineBasicBlock::iterator I = MBB->begin(),
                                    E = MBB->getFirstTerminator();

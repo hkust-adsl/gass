@@ -44,7 +44,7 @@ void GASSInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
 
   BuildMI(MBB, I, DL, get(Op), DestReg)
       .addReg(SrcReg, getKillRegState(KillSrc))
-      .addReg(GASS::PT);
+      .addImm(0).addReg(GASS::PT);
 }
 
 //=----------------------------------------------------------------------=//
@@ -94,6 +94,7 @@ bool GASSInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
     } else if (LastInst.getOpcode() == GASS::CBRA) {
       // Block ends with fall-through condbranch.
       TBB = LastInst.getOperand(1).getMBB();
+      Cond.push_back(MachineOperand::CreateImm(0)); // If cond flipped
       Cond.push_back(LastInst.getOperand(0));
       return false;
     }
@@ -112,6 +113,7 @@ bool GASSInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
   if (SecondLastInst.getOpcode() == GASS::CBRA &&
       LastInst.getOpcode() == GASS::BRA) {
     TBB = SecondLastInst.getOperand(1).getMBB();
+    Cond.push_back(MachineOperand::CreateImm(0)); // If cond flipped
     Cond.push_back(SecondLastInst.getOperand(0));
     FBB = LastInst.getOperand(0).getMBB();
     return false;
@@ -137,24 +139,24 @@ bool GASSInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
 bool
 GASSInstrInfo::reverseBranchCondition(
     SmallVectorImpl<MachineOperand> &Cond) const {
-  // llvm_unreachable("Not implemented");
-  // TODO: fill this.
-  LLVM_DEBUG(dbgs() << "Fail to reverse branch.\n");
-  return true;
+  assert(Cond.size() == 2 && "Invalid branch condition!");
+  Cond[0].setImm(Cond[0].getImm() ^ 1ul);
+  return false;
 }
 
 // returns true on success
 bool GASSInstrInfo::PredicateInstruction(MachineInstr &MI, 
                                          ArrayRef<MachineOperand> Pred) const {
   assert(MI.isPredicable() && "Expect predicable instruction");
-  assert(Pred.size() == 1);
-  assert(Pred[0].isReg());
+  assert(Pred.size() == 2);
+  assert(Pred[0].isImm() && Pred[1].isReg());
 
   int PIdx = MI.findFirstPredOperandIdx();
 
   if (PIdx != -1) {
     MachineOperand &PMO = MI.getOperand(PIdx);
-    MI.getOperand(PIdx).setReg(Pred[0].getReg());
+    MI.getOperand(PIdx).setImm(Pred[0].getImm());
+    MI.getOperand(PIdx+1).setReg(Pred[1].getReg());
     return true;
   }
 
@@ -202,21 +204,21 @@ unsigned GASSInstrInfo::insertBranch(MachineBasicBlock &MBB,
 
   // Shouldn't be a fall through.
   assert(TBB && "insertBranch must not be told to insert a fallthrough");
-  assert((Cond.size() == 1 || Cond.size() == 0) &&
-         "GASS branch conditions have two components!");
+  assert((Cond.size() == 2 || Cond.size() == 0) &&
+         "GASS branch conditions invalid!");
 
   // One-way branch.
   if (!FBB) {
     if (Cond.empty()) // Unconditional branch
       BuildMI(&MBB, DL, get(GASS::BRA)).addMBB(TBB);
     else // Conditional branch
-      BuildMI(&MBB, DL, get(GASS::CBRA)).addReg(Cond[0].getReg())
+      BuildMI(&MBB, DL, get(GASS::CBRA)).addReg(Cond[1].getReg())
           .addMBB(TBB);
     return 1;
   }
 
   // Two-way Conditional Branch.
-  BuildMI(&MBB, DL, get(GASS::CBRA)).addReg(Cond[0].getReg()).addMBB(TBB);
+  BuildMI(&MBB, DL, get(GASS::CBRA)).addReg(Cond[1].getReg()).addMBB(TBB);
   BuildMI(&MBB, DL, get(GASS::BRA)).addMBB(FBB);
   return 2;
 }
@@ -245,12 +247,11 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   default: return false;
   case GASS::IMULrr: { 
     Register Dst = MI.getOperand(0).getReg();
-    MachineOperand &PredMask = MI.getOperand(3);
     BuildMI(MBB, MI, DL, get(GASS::IMAD_S32rrr), Dst)
       .add(MI.getOperand(1))
       .add(MI.getOperand(2))
       .addReg(GASS::RZ32)
-      .add(PredMask);
+      .add(MI.getOperand(3)).add(MI.getOperand(4)); // PredMask
   } break;
   case GASS::IMUL_WIDErr: {
     llvm_unreachable("Not implemented");
@@ -261,7 +262,7 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       .add(MI.getOperand(1))
       .add(MI.getOperand(2))
       .addReg(GASS::RZ64)
-      .add(MI.getOperand(3)); // PredMask
+      .add(MI.getOperand(3)).add(MI.getOperand(4)); // PredMask
   } break;
   case GASS::OR1rr: case GASS::OR1ri: 
   case GASS::XOR1rr: case GASS::XOR1ri: 
@@ -275,7 +276,6 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   case GASS::AND32rr: case GASS::AND32ri: {
     // Note: LOP3.LUT $dst, $src0, $src1, $src2, $immLut;
     Register Dst = MI.getOperand(0).getReg();
-    MachineOperand &PredMask = MI.getOperand(3);
     unsigned Opcode;
     switch (Opc) {
     llvm_unreachable("Shouldn't be here");
@@ -308,7 +308,7 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       .add(MI.getOperand(2))
       .addReg(GASS::RZ32)
       .addImm(ImmLut)
-      .add(PredMask);
+      .add(MI.getOperand(3)).add(MI.getOperand(4)); // PredMask
   } break;
   case GASS::SHL64rr: case GASS::SHL64ri: {
     // SHL64 $dst, $src, $amt;
@@ -324,7 +324,6 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     Register SrcHi = TRI->getSubReg(Src, GASS::sub1);
 
     const MachineOperand &Amount = MI.getOperand(2);
-    const MachineOperand &PredMask = MI.getOperand(3);
     unsigned Opcode;
     if (Amount.isReg()) 
       Opcode = GASS::SHFrrr;
@@ -341,7 +340,7 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       .addImm(GASS::SHF_FLAGS::L)
       .addImm(GASS::SHF_FLAGS::U64)
       .addImm(GASS::SHF_FLAGS::HI)
-      .add(PredMask);
+      .add(MI.getOperand(3)).add(MI.getOperand(4)); // PredMask
 
     // SHF.L.U32
     BuildMI(MBB, MI, DL, get(Opcode), DstLo)
@@ -351,7 +350,7 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       .addImm(GASS::SHF_FLAGS::L)
       .addImm(GASS::SHF_FLAGS::U32)
       .addImm(GASS::SHF_FLAGS::LO)
-      .add(PredMask);
+      .add(MI.getOperand(3)).add(MI.getOperand(4)); // PredMask
   } break;
   case GASS::SHL32rr: case GASS::SHL32ri: {
     // SHL32 $dst, $src, $amt;
@@ -360,7 +359,6 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     Register Dst = MI.getOperand(0).getReg();
     Register Src = MI.getOperand(1).getReg();
     const MachineOperand &Amount = MI.getOperand(2);
-    const MachineOperand &PredMask = MI.getOperand(3);
 
     unsigned Opcode;
     if (Amount.isReg()) 
@@ -377,7 +375,7 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       .addImm(GASS::SHF_FLAGS::L)
       .addImm(GASS::SHF_FLAGS::U32)
       .addImm(GASS::SHF_FLAGS::LO)
-      .add(PredMask);
+      .add(MI.getOperand(3)).add(MI.getOperand(4)); // PredMask
   } break;
   case GASS::SRL32rr: case GASS::SRL32ri: {
     // SRL32 $dst, $src, $amt;
@@ -386,7 +384,6 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     Register Dst = MI.getOperand(0).getReg();
     Register Src = MI.getOperand(1).getReg();
     const MachineOperand &Amount = MI.getOperand(2);
-    const MachineOperand &PredMask = MI.getOperand(3);
 
     unsigned Opcode;
     if (Amount.isReg()) 
@@ -403,7 +400,7 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       .addImm(GASS::SHF_FLAGS::R)
       .addImm(GASS::SHF_FLAGS::U32)
       .addImm(GASS::SHF_FLAGS::LO)
-      .add(PredMask);
+      .add(MI.getOperand(3)).add(MI.getOperand(4)); // PredMask
   } break;
   case GASS::SRA32rr: case GASS::SRA32ri: 
   case GASS::SRA64rr: case GASS::SRA64ri:
@@ -417,7 +414,6 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     Register Dst = MI.getOperand(0).getReg();
     Register Src = MI.getOperand(1).getReg();
     const MachineOperand &IdxOp = MI.getOperand(2);
-    const MachineOperand &PredMask = MI.getOperand(3);
     assert(IdxOp.isImm());
     unsigned Idx = IdxOp.getImm();
 
@@ -432,7 +428,7 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       .addReg(Src)
       .addImm(PrmtMode)
       .addReg(GASS::RZ32)
-      .add(PredMask);
+      .add(MI.getOperand(3)).add(MI.getOperand(4)); // PredMask
   } break;
   }
 

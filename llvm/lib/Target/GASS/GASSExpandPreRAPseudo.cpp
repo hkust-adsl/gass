@@ -118,13 +118,13 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
           .add(LHSSub0)
           .add(RHSSub0)
           .addImm(1).addReg(GASS::PT) // !PT
-          .addReg(GASS::PT); // PredMask
+          .addImm(0).addReg(GASS::PT); // PredMask
         BuildMI(MBB, MI, DL, TII->get(GASS::IADDXrr), DstSub1)
           .addReg(GASS::PT, RegState::Define)
           .add(LHSSub1)
           .add(RHSSub1)
           .addImm(0).addReg(CarryReg, RegState::Kill)
-          .addReg(GASS::PT);
+          .addImm(0).addReg(GASS::PT);
 
         // Merge result
         BuildMI(MBB, MI, DL, TII->get(TargetOpcode::REG_SEQUENCE), NewDst)
@@ -158,7 +158,7 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
           .addImm(GASS::SHF_FLAGS::R)
           .addImm(GASS::SHF_FLAGS::S32)
           .addImm(GASS::SHF_FLAGS::HI)
-          .addReg(GASS::PT); // PredMask
+          .addImm(0).addReg(GASS::PT); // PredMask
         BuildMI(MBB, MI, DL, TII->get(TargetOpcode::REG_SEQUENCE), NewDst)
           .addReg(DstSub0)
           .addImm(GASS::sub0)
@@ -251,7 +251,7 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
           .addImm(ALayout)
           .addImm(BLayout)
           .addImm(GASS::TensorCore::STEP0)
-          .addReg(GASS::PT); // PredMask
+          .addImm(0).addReg(GASS::PT); // PredMask
         BuildMI(MBB, MI, DL, TII->get(GASS::HMMA884_f32_f32), D1)
           .addReg(A)
           .addReg(B)
@@ -259,7 +259,7 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
           .addImm(ALayout)
           .addImm(BLayout)
           .addImm(GASS::TensorCore::STEP1)
-          .addReg(GASS::PT); // PredMask
+          .addImm(0).addReg(GASS::PT); // PredMask
         BuildMI(MBB, MI, DL, TII->get(GASS::HMMA884_f32_f32), D2)
           .addReg(A)
           .addReg(B)
@@ -267,7 +267,7 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
           .addImm(ALayout)
           .addImm(BLayout)
           .addImm(GASS::TensorCore::STEP2)
-          .addReg(GASS::PT); // PredMask
+          .addImm(0).addReg(GASS::PT); // PredMask
         BuildMI(MBB, MI, DL, TII->get(GASS::HMMA884_f32_f32), D3)
           .addReg(A)
           .addReg(B)
@@ -275,7 +275,7 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
           .addImm(ALayout)
           .addImm(BLayout)
           .addImm(GASS::TensorCore::STEP3)
-          .addReg(GASS::PT); // PredMask
+          .addImm(0).addReg(GASS::PT); // PredMask
 
         // 3. extract data
         Register DReg0 = MRI.createVirtualRegister(&GASS::VReg32RegClass);
@@ -334,10 +334,10 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
 
         BuildMI(MBB, MI, DL, TII->get(GASS::MOV32i), NewDst0)
           .addImm(ConstantLo)
-          .addReg(GASS::PT);
+          .addImm(0).addReg(GASS::PT);
         BuildMI(MBB, MI, DL, TII->get(GASS::MOV32i), NewDst1)
           .addImm(ConstantHi)
-          .addReg(GASS::PT);
+          .addImm(0).addReg(GASS::PT);
         BuildMI(MBB, MI, DL, TII->get(TargetOpcode::REG_SEQUENCE), NewDst)
           .addReg(NewDst0).addImm(GASS::sub0)
           .addReg(NewDst1).addImm(GASS::sub1);

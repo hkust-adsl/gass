@@ -154,7 +154,7 @@ void GASSPassConfig::addPreSched2() {
   // addPass(createIfConverter([](const MachineFunction &MF) {
   //   return true;
   // }));
-  // addPass(createGASSIfConversionPass());
+  addPass(createGASSIfConversionPass());
   // addPass(createGASSMachineFunctionCFGPrinterPass());
 }
 

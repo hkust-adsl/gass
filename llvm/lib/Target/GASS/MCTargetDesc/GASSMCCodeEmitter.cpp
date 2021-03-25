@@ -65,6 +65,25 @@ GASSMCCodeEmitter::getMachineOpValue(const MCInst &MI, const MCOperand &MO,
   return;    
 }
 
+void GASSMCCodeEmitter::encodePredicateOperand(
+  const MCInst &MI, unsigned OpIdx, APInt &Op, 
+  SmallVectorImpl<MCFixup> &Fixups, const MCSubtargetInfo &STI) const {
+  const MCOperand &PredFlip = MI.getOperand(OpIdx);
+  const MCOperand &PredMask = MI.getOperand(OpIdx+1);
+
+  assert(PredFlip.isImm() && PredMask.isReg());
+
+  APInt Enc(128, 0);
+  if (PredFlip.getImm() != 0)
+    Enc = 8;
+  if (PredMask.getReg() == GASS::PT)
+    Enc += 7;
+  else
+    Enc += Ctx.getRegisterInfo()->getEncodingValue(PredMask.getReg());
+
+  Op = Enc;
+}
+
 void GASSMCCodeEmitter::encodeCmpMode(const MCInst &MI, unsigned int OpIdx, 
                                       APInt &Op, 
                                       SmallVectorImpl<MCFixup> &Fixups, 
