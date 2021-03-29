@@ -280,7 +280,6 @@ multiclass SUB {
                           (ins VReg32:$src0, i32imm:$src1),
                           [(set i32:$dst, (sub i32:$src0, imm:$src1))]>;
 }
-
 defm SUB : SUB, Sched<[WriteINT]>;
 
 // IMUL
@@ -897,6 +896,10 @@ multiclass HMMA884 {
       // .F32.F32
       let Inst{12} = 1;
       let Inst{14} = 1;
+
+      // Always reuse registers
+      let Inst{58} = 1;
+      let Inst{59} = 1;
     }
 
   // TODO
@@ -970,7 +973,8 @@ multiclass LDC<RegisterClass RC, int Width> {
 defm LDC32 : LDC<VReg32, 32>, Sched<[WriteINT]>; // Sched?
 defm LDC64 : LDC<VReg64, 64>, Sched<[WriteINT]>;
 
-let mayLoad = true in {
+// setting mayLoad = false allows us to move LDGs
+let mayLoad = false in {
 multiclass LDG<RegisterClass RC, int Width> {
   def r : GASSInstLdstGlobal<(outs RC:$dst),
                        (ins VReg64:$ptr),
@@ -1034,9 +1038,11 @@ multiclass STG<RegisterClass RC, int Width> {
   }
 }
 
+let mayStore = true in {
 defm STG32 : STG<VReg32, 32>, Sched<[WriteSTG]>;
 defm STG64 : STG<VReg64, 64>, Sched<[WriteSTG]>;
 defm STG128 : STG<VReg128, 128>, Sched<[WriteSTG]>;
+}
 
 multiclass STS<RegisterClass RC, int Width> {
   def r : GASSInstLdst<(outs), (ins RC:$src1, VReg32:$ptr),
@@ -1047,17 +1053,19 @@ multiclass STS<RegisterClass RC, int Width> {
                         0x388,
                         "STS."#Width#" \t[$ptr+$offset], $src1;", [], Width>;
 }
+let mayStore = true in {
 defm STS16 : STS<VReg32, 16>, Sched<[WriteSTS]>;
 defm STS32 : STS<VReg32, 32>, Sched<[WriteSTS]>;
 defm STS64 : STS<VReg64, 64>, Sched<[WriteSTS]>;
 defm STS128 : STS<VReg128, 128>, Sched<[WriteSTS]>;
+}
 
 //=---------------------------------=//
 // Control Flow
 //=---------------------------------=//
 // BRA, CBRA (condition branch), BAR,
 // TODO: BSSY, BSYNC, WARPSYNC (?)
-let isTerminator = true, isBranch = true in {
+let isTerminator = true, isBranch = true, hasSideEffects = true in {
   let isBarrier = true in 
     def BRA : GASSInstNoPred<(outs), 
                              (ins brtarget:$target), 
@@ -1120,9 +1128,12 @@ def TailBRA : GASSInst<(outs), (ins),
 }
 
 // BAR.SYNC 0;
+// let isConvergent = true, hasSideEffects = true in {
+let hasSideEffects = true in {
 def BAR : GASSInst<(outs), (ins), 
                    0xb1d, "BAR.SYNC \t0;", 
                    [(int_nvvm_barrier0)]>, Sched<[]>;
+}
 
 //=---------------------------------=//
 // Shuffle
