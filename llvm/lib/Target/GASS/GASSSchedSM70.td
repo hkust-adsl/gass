@@ -22,32 +22,51 @@ def SM70UintTensorCore : ProcResource<1> { let BufferSize = 0; }
 // WriteRes
 // 4. Map processor resources to SchedWrites
 // Integer arithmetic and logic
-def : WriteRes<WriteINT, [SM70UnitALU]> { let Latency = 6; }
-def : WriteRes<WriteSHIFT, [SM70UnitALU]> { let Latency = 8; }
-def : WriteRes<WriteLOP3, [SM70UnitALU]> { let Latency = 8; } // Maybe 6?
-def : WriteRes<WriteISETP, [SM70UnitALU]> { let Latency = 12; }
-def : WriteRes<WritePRMT, [SM70UnitALU]> { let Latency = 10; }
+def : WriteRes<WriteINT, [SM70UnitALU]> { let Latency = 6; 
+                                          let ResourceCycles = [2]; }
+def : WriteRes<WriteSHIFT, [SM70UnitALU]> { let Latency = 8; 
+                                            let ResourceCycles = [2]; }
+def : WriteRes<WriteLOP3, [SM70UnitALU]> { let Latency = 8; 
+                                           let ResourceCycles = [2]; } // Maybe 6?
+def : WriteRes<WriteISETP, [SM70UnitALU]> { let Latency = 12; 
+                                            let ResourceCycles = [2]; }
+def : WriteRes<WritePRMT, [SM70UnitALU]> { let Latency = 10; 
+                                           let ResourceCycles = [2]; }
 // Uses FP32 pipeline
-def : WriteRes<WriteIMUL, [SM70UnitFP32ALU]> { let Latency = 5; }
-def : WriteRes<WriteIMULWIDE, [SM70UnitFP32ALU]> { let Latency = 8; }
+def : WriteRes<WriteIMUL, [SM70UnitFP32ALU]> { let Latency = 5; 
+                                               let ResourceCycles = [2]; }
+def : WriteRes<WriteIMULWIDE, [SM70UnitFP32ALU]> { let Latency = 8; 
+                                                   let ResourceCycles = [4]; }
 
 // Single precision.
-def : WriteRes<WriteFP32, [SM70UnitFP32ALU]> { let Latency = 5; }
+def : WriteRes<WriteFP32, [SM70UnitFP32ALU]> { let Latency = 5; 
+                                               let ResourceCycles = [2]; }
 
 // Double precision.
-def : WriteRes<WriteFP64, [SM70UnitFP64ALU]> { let Latency = 8; }
+def : WriteRes<WriteFP64, [SM70UnitFP64ALU]> { let Latency = 8; 
+                                               // TODO: verify this
+                                               let ResourceCycles = [4]; }
 
 // SFU (e.g., F2F, ...)
-def : WriteRes<WriteF2F, [SM70UnitSFU]> { let Latency = 14; } // TODO: check this
+def : WriteRes<WriteF2F, [SM70UnitSFU]> { let Latency = 14; 
+                                          let ResourceCycles = [8]; } // TODO: check this
 
 // TensorCore
-def : WriteRes<WriteHMMA884, [SM70UintTensorCore]> { let Latency = 14; }
+def : WriteRes<WriteHMMA884, [SM70UintTensorCore]> { let Latency = 14; 
+                                                     // TODO: verify this.
+                                                     let ResourceCycles = [8]; }
 
 // Memory
-def : WriteRes<WriteLDS, [SM70UnitLDST]> { let Latency = 20; }
-def : WriteRes<WriteSTS, [SM70UnitLDST]> { let Latency = 20; }
-def : WriteRes<WriteLDG, [SM70UnitLDST]> { let Latency = 300; }
-def : WriteRes<WriteSTG, [SM70UnitLDST]> { let Latency = 100; } // TODO: lat?
+def : WriteRes<WriteLDS, [SM70UnitLDST]> { let Latency = 20; 
+                                           // TODO: this depends on width
+                                           let ResourceCycles = [4]; }
+def : WriteRes<WriteSTS, [SM70UnitLDST]> { let Latency = 20; 
+                                           let ResourceCycles = [4]; }
+def : WriteRes<WriteLDG, [SM70UnitLDST]> { let Latency = 300; 
+                                           // TODO: verify this.
+                                           let ResourceCycles = [20]; }
+def : WriteRes<WriteSTG, [SM70UnitLDST]> { let Latency = 100; 
+                                           let ResourceCycles = [20]; } // TODO: lat?
 
 // Refine Basic Model
 // 1. InstRW is used to refine scheduling info, override the target defaults
