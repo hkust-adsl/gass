@@ -303,39 +303,49 @@ defm IMUL : IMUL, Sched<[WriteIMUL]>;
 multiclass IMAD<bit IsSigned> {
   def rrr : GASSInstOp3rrr<(outs VReg32:$dst),
                      (ins VReg32:$src0, VReg32:$src1, VReg32:$src2),
-                     0x224,
-                     "IMAD \t$dst, $src0, $src1, $src2;",
+                     0x224, "IMAD \t$dst, $src0, $src1, $src2;",
                      [(set i32:$dst, (add (mul i32:$src0, i32:$src1), 
-                                          i32:$src2))]>, Sched<[WriteIMUL]>;
+                                          i32:$src2))]>, Sched<[WriteIMUL]> {
+    let Inst{19-17} = 0x7; // pd0: PT
+    let Inst{26-23} = 0xf; // ps0: !PT
+  }
 
   def rri : GASSInstOp3rri<(outs VReg32:$dst),
                      (ins VReg32:$src0, VReg32:$src1, i32imm:$src2),
-                     0x424,
-                     "IMAD \t$dst, $src0, $src1, $src2;",
+                     0x424, "IMAD \t$dst, $src0, $src1, $src2;",
                      [(set i32:$dst, (add (mul i32:$src0, i32:$src1),
-                                          imm:$src2))]>, Sched<[WriteIMUL]>;
+                                          imm:$src2))]>, Sched<[WriteIMUL]> {
+    let Inst{19-17} = 0x7; // pd0: PT
+    let Inst{26-23} = 0xf; // ps0: !PT
+  }
 
   def rir : GASSInstOp3rir<(outs VReg32:$dst),
                      (ins VReg32:$src0, i32imm:$src1, VReg32:$src2),
-                     0x824,
-                     "IMAD \t$dst, $src0, $src1, $src2;",
+                     0x824, "IMAD \t$dst, $src0, $src1, $src2;",
                      [(set i32:$dst, (add (mul i32:$src0, imm:$src1),
-                                          i32:$src2))]>, Sched<[WriteIMUL]>;
+                                          i32:$src2))]>, Sched<[WriteIMUL]> {
+    let Inst{19-17} = 0x7; // pd0: PT
+    let Inst{26-23} = 0xf; // ps0: !PT
+  }
 
   def _WIDErrr : GASSInstOp3rrr<(outs VReg64:$dst),
                           (ins VReg32:$src0, VReg32:$src1, VReg64:$src2),
-                          0x225,
-                          "IMAD.WIDE \t$dst, $src0, $src1, $src2;",
+                          0x225, "IMAD.WIDE \t$dst, $src0, $src1, $src2;",
                           // Does this work?
-                          []>, Sched<[WriteIMULWIDE]>;
+                          []>, Sched<[WriteIMULWIDE]> {
+    let Inst{19-17} = 0x7; // pd0: PT
+    let Inst{26-23} = 0xf; // ps0: !PT
+  }
 
   // def _WIDErri : ;
 
   def _WIDErir : GASSInstOp3rir<(outs VReg64:$dst),
                           (ins VReg32:$src0, i32imm:$src1, VReg64:$src2),
-                          0x825,
-                          "IMAD.WIDE \t$dst, $src0, $src1, $src2;",
-                          []>, Sched<[WriteIMULWIDE]>;
+                          0x825, "IMAD.WIDE \t$dst, $src0, $src1, $src2;",
+                          []>, Sched<[WriteIMULWIDE]> {
+    let Inst{19-17} = 0x7; // pd0: PT
+    let Inst{26-23} = 0xf; // ps0: !PT
+  }
 
   // TODO: fill this.
   // def _HIrrr : ;
