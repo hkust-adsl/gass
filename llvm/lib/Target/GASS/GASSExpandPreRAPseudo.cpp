@@ -64,7 +64,6 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
   MachineRegisterInfo &MRI = MF.getRegInfo();
   const auto &ST = MF.getSubtarget<GASSSubtarget>();
   TII = ST.getInstrInfo();
-  const GASSRegisterInfo *TRI = ST.getRegisterInfo();
 
   std::vector<MachineInstr*> ToDeletInstrs;
 
