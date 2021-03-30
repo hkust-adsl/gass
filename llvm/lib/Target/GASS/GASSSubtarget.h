@@ -40,8 +40,11 @@ public:
     return &FrameLowering;
   }
 
+  bool enableMachineScheduler() const override;
   // Note: Only PPC and Mips use PostRAScheduler
-  bool enablePostRAScheduler() const override { return false; }
+  bool enablePostRAScheduler() const override;
+
+  bool enableEarlyIfConversion() const override;
 
   unsigned getConstantOffset(unsigned IntNo) const;
 

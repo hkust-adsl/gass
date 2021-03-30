@@ -48,6 +48,7 @@ GASSTargetMachine::getTargetTransformInfo(const Function &F) {
   return TargetTransformInfo(GASSTTIImpl(this, F));
 }
 
+
 //=---------------------------------------------=//
 // PassConfig
 //=---------------------------------------------=//
@@ -69,7 +70,7 @@ public:
   bool addPreISel() override;
 
   bool addInstSelector() override;
-  // bool addILPOpts() override;
+  bool addILPOpts() override;
 
   //=---------------------------------------=//
   // Debug, to delete
@@ -78,10 +79,19 @@ public:
   void addPreRegAlloc() override;
   //=--------------------------------------=//
 
+  // GASS needs custom regalloc pipeline. (GASSIfConvert after RegisterCoalesce)
+  void addOptimizedRegAlloc() override;
+
   void addPreSched2() override;
 
   // Set instruction control info
   void addPreEmitPass() override;
+
+  // // override MachineScheduleStrategy
+  // ScheduleDAGInstrs *
+  // createMachineScheduler(MachineSchedContext *C) const override {
+  //   return new ScheduleDAGMILive(C, std::make_unique<GASSSchedStrategy>());
+  // }
 };
 } // anonymous namespace
 
@@ -124,12 +134,73 @@ bool GASSPassConfig::addInstSelector() {
   return false;
 }
 
-// bool GASSPassConfig::addILPOpts() {
-//   // TODO: doesn't seem to work. should delete this.
-//   // addPass(&EarlyIfConverterID);
+void GASSPassConfig::addOptimizedRegAlloc() {
+  addPass(&DetectDeadLanesID, false);
 
-//   return false;
-// }
+  addPass(&ProcessImplicitDefsID, false);
+
+  // LiveVariables currently requires pure SSA form.
+  //
+  // FIXME: Once TwoAddressInstruction pass no longer uses kill flags,
+  // LiveVariables can be removed completely, and LiveIntervals can be directly
+  // computed. (We still either need to regenerate kill flags after regalloc, or
+  // preferably fix the scavenger to not depend on them).
+  // FIXME: UnreachableMachineBlockElim is a dependant pass of LiveVariables.
+  // When LiveVariables is removed this has to be removed/moved either.
+  // Explicit addition of UnreachableMachineBlockElim allows stopping before or
+  // after it with -stop-before/-stop-after.
+  addPass(&UnreachableMachineBlockElimID, false);
+  addPass(&LiveVariablesID, false);
+
+  // Edge splitting is smarter with machine loop info.
+  addPass(&MachineLoopInfoID, false);
+  addPass(&PHIEliminationID, false);
+
+  // Eventually, we want to run LiveIntervals before PHI elimination.
+  // if (EarlyLiveIntervals)
+  //   addPass(&LiveIntervalsID, false);
+
+  addPass(&TwoAddressInstructionPassID, false);
+  addPass(&RegisterCoalescerID);
+
+  // The machine scheduler may accidentally create disconnected components
+  // when moving subregister definitions around, avoid this by splitting them to
+  // separate vregs before. Splitting can also improve reg. allocation quality.
+  addPass(&RenameIndependentSubregsID);
+
+  //==***************** GASS specific *************************==//
+  // PreRA IfConvert
+  // addPass(createMachineVerifierPass("** Verify Before Early If Conversion **"));
+  addPass(createGASSIfConversionPass());
+  // FIXME: Do we need to update LiveIntervals?
+  // Now we have more chances to do CSE   
+  // Not in SSA form
+  // addPass(&MachineCSEID);
+  //==*********************************************************==//
+
+  // PreRA instruction scheduling.
+  addPass(&MachineSchedulerID);
+
+  if (addRegAssignmentOptimized()) {
+    // Allow targets to expand pseudo instructions depending on the choice of
+    // registers before MachineCopyPropagation.
+    addPostRewrite();
+
+    // Copy propagate to forward register uses and try to eliminate COPYs that
+    // were not coalesced.
+    addPass(&MachineCopyPropagationID);
+
+    // Run post-ra machine LICM to hoist reloads / remats.
+    //
+    // FIXME: can this move into MachineLateOptimization?
+    addPass(&MachineLICMID);
+  }
+}
+
+bool GASSPassConfig::addILPOpts() {
+  // addPass(&EarlyIfPredicatorID);
+  return false;
+}
 
 void GASSPassConfig::addPreRegAlloc() {
   // addPass(createGASSMachineFunctionCFGPrinterPass());
@@ -154,7 +225,7 @@ void GASSPassConfig::addPreSched2() {
   // addPass(createIfConverter([](const MachineFunction &MF) {
   //   return true;
   // }));
-  addPass(createGASSIfConversionPass());
+  // addPass(createGASSIfConversionPass());
   // addPass(createGASSMachineFunctionCFGPrinterPass());
 }
 

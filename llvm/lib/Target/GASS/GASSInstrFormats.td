@@ -35,6 +35,9 @@ class GASSInst<dag oops, dag iops, bits<12> opcode,
 
   // Almost all GASS instructions 
   let isPredicable = true;
+
+  // assume instrs have no SideEffects
+  let hasSideEffects = false;
 }
 
 class GASSInstNoPred<dag oops, dag iops, bits<12> opcode, 

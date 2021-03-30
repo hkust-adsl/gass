@@ -21,6 +21,12 @@ GASSSubtarget::GASSSubtarget(const Triple &TT, StringRef CPU, StringRef FS,
     ParseSubtargetFeatures(TargetName, /*TuneCPU*/ TargetName, FS);
 }
 
+bool GASSSubtarget::enableMachineScheduler() const { return true; }
+
+bool GASSSubtarget::enablePostRAScheduler() const { return false; }
+
+bool GASSSubtarget::enableEarlyIfConversion() const { return true; }
+
 unsigned GASSSubtarget::getParamBase() const {
   switch (SmVersion) {
   default:

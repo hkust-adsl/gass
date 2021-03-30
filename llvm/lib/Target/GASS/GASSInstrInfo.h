@@ -11,6 +11,7 @@ namespace llvm {
 class GASSSubtarget;
 
 class GASSInstrInfo : public GASSGenInstrInfo {
+  const GASSRegisterInfo RI;
 public:
   /// Emit instructions to copy a pair of physical registers.
   ///
@@ -44,7 +45,16 @@ public:
                             ArrayRef<MachineOperand> Pred) const override;
   
   // required by ifconverter
-  // TODO: update heuristic.
+  bool canInsertSelect(const MachineBasicBlock &MBB, 
+                       ArrayRef<MachineOperand> Cond,
+                       Register DstReg, Register TrueReg,
+                       Register FalseReg, int &CondCycles,
+                       int &TrueCycles, int &FalseCycles) const override;
+  void insertSelect(MachineBasicBlock &MBB, 
+                    MachineBasicBlock::iterator I, const DebugLoc &DL,
+                    Register DstReg, ArrayRef<MachineOperand> Cond,
+                    Register TrueReg, Register FalseReg) const override;
+
   bool isProfitableToDupForIfCvt(MachineBasicBlock &MBB,
                                  unsigned NumInstrs,
                                  BranchProbability Probability) const override {
@@ -53,6 +63,14 @@ public:
 
   bool isProfitableToIfCvt(MachineBasicBlock &MBB, unsigned NumCycles,
                            unsigned ExtraPredCycles, 
+                           BranchProbability Probability) const override {
+    return true;
+  }
+
+  bool isProfitableToIfCvt(MachineBasicBlock &TMBB, unsigned NumTCycles,
+                           unsigned ExtraTCcycles, 
+                           MachineBasicBlock &FMBB, unsigned NumFCycles,
+                           unsigned ExtraFCycles,
                            BranchProbability Probability) const override {
     return true;
   }

@@ -18,7 +18,6 @@ void GASSInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                 MachineBasicBlock::iterator I,
                                 const DebugLoc &DL, MCRegister DestReg, 
                                 MCRegister SrcReg, bool KillSrc) const {
-  const MCRegisterInfo *MRI = MBB.getParent()->getSubtarget().getRegisterInfo();
   unsigned Op;
 
   if (GASS::VReg32RegClass.contains(SrcReg) &&
@@ -154,7 +153,6 @@ bool GASSInstrInfo::PredicateInstruction(MachineInstr &MI,
   int PIdx = MI.findFirstPredOperandIdx();
 
   if (PIdx != -1) {
-    MachineOperand &PMO = MI.getOperand(PIdx);
     MI.getOperand(PIdx).setImm(Pred[0].getImm());
     MI.getOperand(PIdx+1).setReg(Pred[1].getReg());
     return true;
@@ -192,6 +190,72 @@ unsigned GASSInstrInfo::removeBranch(MachineBasicBlock &MBB,
   // Remove the branch.
   I->eraseFromParent();
   return 2;
+}
+
+/// Return true if it is possible to insert a select
+/// instruction that chooses between TrueReg and FalseReg based on the
+/// condition code in Cond.
+///
+/// When successful, also return the latency in cycles from TrueReg,
+/// FalseReg, and Cond to the destination register. In most cases, a select
+/// instruction will be 1 cycle, so CondCycles = TrueCycles = FalseCycles = 1
+///
+/// @param MBB         Block where select instruction would be inserted.
+/// @param Cond        Condition returned by analyzeBranch.
+/// @param DstReg      Virtual dest register that the result should write to.
+/// @param TrueReg     Virtual register to select when Cond is true.
+/// @param FalseReg    Virtual register to select when Cond is false.
+/// @param CondCycles  Latency from Cond+Branch to select output.
+/// @param TrueCycles  Latency from TrueReg to select output.
+/// @param FalseCycles Latency from FalseReg to select output.
+bool GASSInstrInfo::canInsertSelect(const MachineBasicBlock &MBB,
+                                    ArrayRef<MachineOperand> Cond,
+                                    Register DstReg, Register TrueReg,
+                                    Register FalseReg, int &CondCycles,
+                                    int &TrueCycles, int &FalseCycles) const {
+  // Check register classes.
+  const MachineRegisterInfo &MRI = MBB.getParent()->getRegInfo();
+  const TargetRegisterClass *RC = 
+    RI.getCommonSubClass(MRI.getRegClass(TrueReg), MRI.getRegClass(FalseReg));
+  if (!RC)
+    return false;
+
+  // XXX: What's this? (Ref::X86InstrInfo::canInsertSelect)
+  if (GASS::VReg32RegClass.hasSubClassEq(RC) || 
+      GASS::VReg64RegClass.hasSubClassEq(RC) ||
+      GASS::VReg128RegClass.hasSubClassEq(RC)) {
+    // FIXME: Update latencies
+    CondCycles = 10;
+    TrueCycles = 5;
+    FalseCycles = 5;
+    return true;
+  }
+
+  // Can't do vector
+  return false;
+}
+
+/// Insert a select instruction into MBB before I that will copy TrueReg to
+/// DstReg when Cond is true, and FalseReg to DstReg when Cond is false.
+///
+/// This function can only be called after canInsertSelect() returned true.
+/// The condition in Cond comes from analyzeBranch, and it can be assumed
+/// that the same flags or registers required by Cond are available at the
+/// insertion point.
+///
+/// @param MBB      Block where select instruction should be inserted.
+/// @param I        Insertion point.
+/// @param DL       Source location for debugging.
+/// @param DstReg   Virtual register to be defined by select instruction.
+/// @param Cond     Condition as computed by analyzeBranch.
+/// @param TrueReg  Virtual register to copy when Cond is true.
+/// @param FalseReg Virtual register to copy when Cons is false.
+void GASSInstrInfo::insertSelect(MachineBasicBlock &MBB,
+                          MachineBasicBlock::iterator I, const DebugLoc &DL,
+                          Register DstReg, ArrayRef<MachineOperand> Cond,
+                          Register TrueReg, Register FalseReg) const {
+  llvm_unreachable("Not implemented");
+  
 }
 
 unsigned GASSInstrInfo::insertBranch(MachineBasicBlock &MBB,
