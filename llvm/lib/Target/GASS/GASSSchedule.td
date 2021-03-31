@@ -22,5 +22,10 @@ def WriteHMMA884 : SchedWrite;
 // LDST
 def WriteLDG : SchedWrite;
 def WriteSTG : SchedWrite;
+// default width: 32
 def WriteLDS : SchedWrite;
 def WriteSTS : SchedWrite;
+def WriteLDS64 : SchedWrite;
+def WriteSTS64 : SchedWrite;
+def WriteLDS128: SchedWrite;
+def WriteSTS128: SchedWrite;
