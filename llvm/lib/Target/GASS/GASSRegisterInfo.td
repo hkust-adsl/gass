@@ -46,7 +46,6 @@ foreach Index = 0-6 in {
 
 // Zero registers
 def PT   : GASSReg<"PT", 0x7>;
-def NPT  : GASSReg<"!PT", 0xf>;
 def RZ32 : GASSReg<"RZ", 0xff>;
 def RZ32_1 : GASSReg<"RZ32_1", 0xff>; // requred by RZ64, should never be used.
 def RZ64 : GASSReg<"RZ", 0xff> {
@@ -91,8 +90,7 @@ class GASSRegTuples<list<SubRegIndex> Indices, RegisterClass RC,
 
 
 // Register Classes
-def VReg1  : GASSRegClass<[i1], 1, (add (sequence "PR%u", 0, 6), 
-                                        PT, NPT)>; 
+def VReg1  : GASSRegClass<[i1], 1, (add (sequence "PR%u", 0, 6), PT)>; 
 
 // Each VReg32 has 2 sub registers: [lo, hi]
 // All registers are:

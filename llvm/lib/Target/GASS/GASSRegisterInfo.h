@@ -22,6 +22,9 @@ public:
   Register getFrameRegister(const MachineFunction &MF) const override;
   // end of pure virtual functions
 
+  // query register type
+  bool isConstantPhysReg(MCRegister PhysReg) const override;
+
   // Return true if Reg completely covers Other
   bool regsCover(const Register &Reg, const Register &Other,
                  const MachineRegisterInfo &MRI) const;

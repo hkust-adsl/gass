@@ -28,9 +28,9 @@ BitVector GASSRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
 
   // Constant registers
   Reserved.set(GASS::RZ32);
+  Reserved.set(GASS::RZ32_1);
   Reserved.set(GASS::RZ64);
   Reserved.set(GASS::PT);
-  Reserved.set(GASS::NPT);
   
   return Reserved;
 }
@@ -43,6 +43,16 @@ void GASSRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
 
 Register GASSRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
   return GASS::VGPR1;
+}
+
+// Query register type
+bool GASSRegisterInfo::isConstantPhysReg(MCRegister PhysReg) const {
+  switch (PhysReg) {
+  default: return false;
+  case GASS::PT:
+  case GASS::RZ32: case GASS::RZ32_1: case GASS::RZ64:
+    return true;
+  }
 }
 
 bool 
