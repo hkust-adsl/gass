@@ -2,6 +2,7 @@
 #include "GASSTargetMachine.h"
 #include "GASSTargetTransformInfo.h"
 #include "GASSISelDAGToDAG.h"
+#include "GASSSchedStrategy.h"
 #include "TargetInfo/GASSTargetInfo.h"
 #include "llvm/Analysis/CFGPrinter.h"
 #include "llvm/CodeGen/Passes.h"
@@ -88,10 +89,10 @@ public:
   void addPreEmitPass() override;
 
   // // override MachineScheduleStrategy
-  // ScheduleDAGInstrs *
-  // createMachineScheduler(MachineSchedContext *C) const override {
-  //   return new ScheduleDAGMILive(C, std::make_unique<GASSSchedStrategy>());
-  // }
+  ScheduleDAGInstrs *
+  createMachineScheduler(MachineSchedContext *C) const override {
+    return new ScheduleDAGMILive(C, std::make_unique<GASSSchedStrategy>(C));
+  }
 };
 } // anonymous namespace
 

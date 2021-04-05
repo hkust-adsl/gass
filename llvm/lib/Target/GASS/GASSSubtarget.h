@@ -41,8 +41,10 @@ public:
   }
 
   bool enableMachineScheduler() const override;
-  // Note: Only PPC and Mips use PostRAScheduler
   bool enablePostRAScheduler() const override;
+
+  void overrideSchedPolicy(MachineSchedPolicy &Policy, 
+                           unsigned NumRegionInstrs) const override;
 
   bool enableEarlyIfConversion() const override;
 

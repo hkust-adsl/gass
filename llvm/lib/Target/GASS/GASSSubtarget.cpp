@@ -1,5 +1,6 @@
 #include "GASSSubtarget.h"
 #include "llvm/IR/IntrinsicsNVPTX.h"
+#include "llvm/CodeGen/MachineScheduler.h"
 #include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
@@ -24,6 +25,14 @@ GASSSubtarget::GASSSubtarget(const Triple &TT, StringRef CPU, StringRef FS,
 bool GASSSubtarget::enableMachineScheduler() const { return true; }
 
 bool GASSSubtarget::enablePostRAScheduler() const { return false; }
+
+void GASSSubtarget::overrideSchedPolicy(MachineSchedPolicy &Policy,
+                                        unsigned NumRegionInstrs) const {
+  // bi-directional scheduling provides a more balanced schedule (?)
+  // Policy.OnlyBottomUp = false;
+  // Spilling is expensive on NVGPUs
+  Policy.ShouldTrackPressure = true;
+}
 
 bool GASSSubtarget::enableEarlyIfConversion() const { return true; }
 
