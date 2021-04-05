@@ -373,7 +373,7 @@ multiclass SHF {
   }
 
   def rir : GASSInstOp3rir<(outs VReg32:$dst),
-                     (ins VReg32:$src0, VReg32:$src1, i32imm:$src2,
+                     (ins VReg32:$src0, i32imm:$src1, VReg32:$src2,
                           ShiftDir:$dir, ShiftType:$ty, ShiftLoc:$hi),
                      0x819,
                      "SHF$dir$ty$hi \t$dst, $src0, $src1, $src2;",
@@ -470,7 +470,7 @@ multiclass BITWISE<SDNode OpNode> {
            Sched<[WriteINT]>;
 
   def 32ri : GASSPseudoInst<(outs VReg32:$dst),
-                          (ins VReg32:$src0, VReg32:$src1),
+                          (ins VReg32:$src0, i32imm:$src1),
                           [(set i32:$dst, (OpNode i32:$src0, imm:$src1))]>,
            Sched<[WriteINT]>;
 }
@@ -1027,8 +1027,8 @@ multiclass LDS<RegisterClass RC, int Width> {
 }
 defm LDS16 : LDS<VReg32, 16>, Sched<[WriteLDS]>;
 defm LDS32 : LDS<VReg32, 32>, Sched<[WriteLDS]>;
-defm LDS64 : LDS<VReg64, 64>, Sched<[WriteLDS]>;
-defm LDS128 : LDS<VReg128, 128>, Sched<[WriteLDS]>;
+defm LDS64 : LDS<VReg64, 64>, Sched<[WriteLDS64]>;
+defm LDS128 : LDS<VReg128, 128>, Sched<[WriteLDS128]>;
 
 
 // STG
@@ -1066,8 +1066,8 @@ multiclass STS<RegisterClass RC, int Width> {
 let mayStore = true in {
 defm STS16 : STS<VReg32, 16>, Sched<[WriteSTS]>;
 defm STS32 : STS<VReg32, 32>, Sched<[WriteSTS]>;
-defm STS64 : STS<VReg64, 64>, Sched<[WriteSTS]>;
-defm STS128 : STS<VReg128, 128>, Sched<[WriteSTS]>;
+defm STS64 : STS<VReg64, 64>, Sched<[WriteSTS64]>;
+defm STS128 : STS<VReg128, 128>, Sched<[WriteSTS128]>;
 }
 
 //=---------------------------------=//
