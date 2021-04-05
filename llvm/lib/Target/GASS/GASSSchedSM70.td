@@ -47,11 +47,11 @@ def : WriteRes<WriteFP64, [SM70UnitFP64ALU]> { let Latency = 8; // TODO: verify 
                                                let ResourceCycles = [4]; }
 
 // SFU (e.g., F2F, ...)
-def : WriteRes<WriteF2F, [SM70UnitSFU]> { let Latency = 14; // TODO: verify this
+def : WriteRes<WriteF2F, [SM70UnitSFU]> { let Latency = 10; // TODO: verify this
                                           let ResourceCycles = [8]; }
 
 // TensorCore
-def : WriteRes<WriteHMMA884, [SM70UintTensorCore]> { let Latency = 14; // TODO: verify this
+def : WriteRes<WriteHMMA884, [SM70UintTensorCore]> { let Latency = 10; // TODO: verify this
                                                      let ResourceCycles = [2]; }
 
 // Memory
