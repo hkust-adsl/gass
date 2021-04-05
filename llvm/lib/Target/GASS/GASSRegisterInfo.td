@@ -46,8 +46,19 @@ foreach Index = 0-6 in {
 
 // Zero registers
 def PT   : GASSReg<"PT", 0x7>;
-def RZ32 : GASSReg<"RZ", 0xff>;
-def RZ32_1 : GASSReg<"RZ32_1", 0xff>; // requred by RZ64, should never be used.
+foreach SubName = ["_LO", "_HI"] in {
+  def RZ16#SubName : GASSReg<"RZ16"#SubName, 0xff>;
+  def RZ16_1#SubName : GASSReg<"RZ16_1"#SubName, 0xff>;
+}
+def RZ32 : GASSReg<"RZ", 0xff> {
+  let SubRegs = [RZ16_LO, RZ16_HI];
+  let SubRegIndices = [lo, hi];
+}
+// this should never be used
+def RZ32_1 : GASSReg<"RZ32_1", 0xff> {
+  let SubRegs = [RZ16_1_LO, RZ16_1_HI];
+  let SubRegIndices = [lo, hi];
+}
 def RZ64 : GASSReg<"RZ", 0xff> {
   let SubRegIndices = [sub0, sub1];
   let SubRegs = [RZ32, RZ32_1];
@@ -96,7 +107,7 @@ def VReg1  : GASSRegClass<[i1], 1, (add (sequence "PR%u", 0, 6), PT)>;
 // All registers are:
 //   vgpr0_lo, vgpr0_hi, vgpr1_lo, vgpr1_hi, vgpr2_lo, vgpr2_hi, ...
 def VReg32 : GASSRegClass<[i32,f32,v2f16, v2i16, f16, i16], 
-                           32, (add (sequence "VGPR%u", 0, 255), RZ32)>;
+                           32, (add (sequence "VGPR%u", 0, 255), RZ32, RZ32_1)>;
 
 // def : RegisterWithSubRegs<"", 
 //                           [VREG0, VREG1], [VREG2, VREG3], ...>;
@@ -105,18 +116,17 @@ def VReg64Tuple : GASSRegTuples<[sub0, sub1], VReg32, 255, 2, 2, "R">;
 //   hi, lo
 //   sub0, sub1
 //   sub1_then_lo, sub1_then_hi
-def VReg64 : GASSRegClass<[i64, f64, v2f32, v2i32, v4f16], 
-                          64, (add VReg64Tuple, RZ64)>;
+def VReg64 : GASSRegClass<[i64, f64, v2f32, v2i32, v4f16], 64, 
+                          (add VReg64Tuple, RZ64)> {
+  let GeneratePressureSet = false;
+}
 def VReg128Tuple : GASSRegTuples<[sub0, sub1, sub2, sub3], 
                                  VReg32, 255, 4, 4, "R">;
 def VReg128 : GASSRegClass<[v2i64, v2f64, v4i32, v4f32, 
                             v8f16, v8i16, i128, f128], 128, 
-                           (add VReg128Tuple)>;
-// // Required by mma.m8n8k4.f32.f32
-// def VReg256Tuple : 
-//     GASSRegTuples<[sub0, sub1, sub2, sub3, sub4, sub5, sub6, sub7],
-//                   VReg32, 255, 8, 8, "R">;
-// def VReg256 : GASSRegClass<[v8f32], 256, (add VReg256Tuple)>;
+                           (add VReg128Tuple)> {
+  let GeneratePressureSet = false;
+}
 
 //=--------------------------------------------------------------------------=//
 // Virtual registers (will be eliminated after ISel)
@@ -124,9 +134,11 @@ def VReg128 : GASSRegClass<[v2i64, v2f64, v4i32, v4f32,
 class GASSVirtRegClass<list<ValueType> regTypes, int alignment, dag regList>
   : GASSRegClass<regTypes, alignment, regList> {
   let isAllocatable = false;
+  let GeneratePressureSet = false;
 }
 def VReg16 : GASSVirtRegClass<[f16], 16, 
-    (add (sequence "VGPR%u_LO", 0, 255), (sequence "VGPR%u_HI", 0, 255))>;
-def VReg16Lo : GASSVirtRegClass<[f16], 16, (sequence "VGPR%u_LO", 0, 255)>;
-def VReg16Hi : GASSVirtRegClass<[f16], 16, (sequence "VGPR%u_HI", 0, 255)>;
+    (add (sequence "VGPR%u_LO", 0, 255), (sequence "VGPR%u_HI", 0, 255), 
+    RZ16_LO, RZ16_HI, RZ16_1_LO, RZ16_1_HI)>;
+def VReg16Lo : GASSVirtRegClass<[f16], 16, (add (sequence "VGPR%u_LO", 0, 255), RZ16_LO, RZ16_1_LO)>;
+def VReg16Hi : GASSVirtRegClass<[f16], 16, (add (sequence "VGPR%u_HI", 0, 255), RZ16_HI, RZ16_1_HI)>;
 //=--------------------------------------------------------------------------=//

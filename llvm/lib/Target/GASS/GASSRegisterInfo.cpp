@@ -50,6 +50,8 @@ bool GASSRegisterInfo::isConstantPhysReg(MCRegister PhysReg) const {
   switch (PhysReg) {
   default: return false;
   case GASS::PT:
+  case GASS::RZ16_LO: case GASS::RZ16_HI: 
+  case GASS::RZ16_1_LO: case GASS::RZ16_1_HI:
   case GASS::RZ32: case GASS::RZ32_1: case GASS::RZ64:
     return true;
   }
