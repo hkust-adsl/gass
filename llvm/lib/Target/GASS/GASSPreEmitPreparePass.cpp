@@ -4,6 +4,7 @@
 #include "llvm/CodeGen/MachineMemOperand.h"
 #include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
+#include "llvm/CodeGen/TargetOpcodes.h"
 #include "llvm/PassRegistry.h"
 using namespace llvm;
 
@@ -39,7 +40,8 @@ bool GASSPreEmitPrepare::runOnMachineFunction(MachineFunction &MF) {
     for (MachineBasicBlock::iterator MII = MBB.begin();
                                      MII != MBB.end(); ++MII) {
       MachineInstr &MI = *MII;
-      if (MI.getOpcode() == TargetOpcode::IMPLICIT_DEF) {
+      if (MI.getOpcode() == TargetOpcode::IMPLICIT_DEF || 
+          MI.getOpcode() == TargetOpcode::KILL) {
         DebugLoc DL = MI.getDebugLoc();
         
         BuildMI(MBB, MI, DL, TII->get(GASS::NOP))

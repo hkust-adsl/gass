@@ -4,8 +4,21 @@
 #define LLVM_LIB_TARGET_GASS_GASSSCHEDSTRATEGY_H
 
 #include "llvm/CodeGen/MachineScheduler.h"
+#include "llvm/CodeGen/ScheduleDAG.h"
+
+#include <set>
 
 namespace llvm {
+/// This is a complement for SchedBoundary.
+struct GASSScoreBoard {
+  // Active LDST instructions in the fly
+  std::set<SUnit*> ActiveLDGs;
+  std::set<SUnit*> ActiveLDSs;
+
+public:
+  explicit GASSScoreBoard();
+}; // class GASSScoreBoard
+
 class GASSSchedStrategy final : public GenericScheduler {
   const MachineLoopInfo *MLI = nullptr;
 
@@ -28,9 +41,24 @@ class GASSSchedStrategy final : public GenericScheduler {
 
   unsigned VReg1CriticalLimit = 0;
   unsigned VReg32CriticalLimit = 0;
+
+  // Caches ScoreBoard
+  GASSScoreBoard ScoreBoard;
+
+  /// higher means higher priority
+  /// Samiliar to CandReason in GenericSchedulerBase
+  enum SchedPriority : uint8_t {
+    SCHED_ONLY,
+    SCHED_LATENCY,
+    SCHED_FREE_RESOURCE,
+    SCHED_LDS,
+    SCHED_LDG,
+    // Record size of all reasons
+    SCHED_PRIORITY_SIZE
+  };
 public:
   GASSSchedStrategy(const MachineSchedContext *C)
-    : GenericScheduler(C), MLI(C->MLI) {}
+    : GenericScheduler(C), MLI(C->MLI), ScoreBoard() {}
     
   void registerRoots() override;
 
@@ -51,11 +79,29 @@ public:
   // void initPolicy(MachineBasicBlock::iterator Begin,
   //                 MachineBasicBlock::iterator End,
   //                 unsigned NumRegionInstrs) override;
+
+  void schedNode(SUnit *SU, bool IsTopNode) override;
 protected:
   void tryCandidate(SchedCandidate &Cand, SchedCandidate &TryCand,
                     SchedBoundary *Zone) const override;
 private:
   int computeScore(SUnit *SU);
+
+  // interfaces for GASS-specific heuristic
+  /// computes schedule score (priority) of a node
+  std::vector<int> getSUScore(SUnit *SU);
+  void computeLDGScore(std::vector<int> &Score, SUnit *SU);
+  void computeLDSScore(std::vector<int> &Score, SUnit *SU);
+  void computeFreeResourceScore(std::vector<int> &Score, SUnit *SU);
+  void computeLatencyStallScore(std::vector<int> &Score, SUnit *SU);
+
+  /// If it is ok to issue ldg now. (try to interleave LDGs)
+  bool isOkToIssueLDG() const;
+  bool isOkToIssueLDS() const;
+
+  /// returns true if new candidate is found
+  bool tryPickNodeFromQueue(SchedBoundary &Zone, const CandPolicy &ZonePolicy,
+                            SchedCandidate &Cand);
 };
 
 // class GASSScheduleDAGMILive final : public ScheduleDAGMILive {

@@ -11,7 +11,7 @@ def SM70Model : SchedMachineModel {
 // 2. Processor resources
 let SchedModel = SM70Model in {
 def SM70UnitALU   : ProcResource<1> { let BufferSize = 0; }
-def SM70UnitLDST  : ProcResource<1> { let BufferSize = 5; }
+def SM70UnitLDST  : ProcResource<1> { let BufferSize = 0; /*5*/ }
 def SM70UnitFP32ALU : ProcResource<1> { let BufferSize = 0; }
 def SM70UnitFP64ALU : ProcResource<1> { let BufferSize = 0; }
 def SM70UnitSFU : ProcResource<1> { let BufferSize = 0; }
@@ -69,7 +69,7 @@ def : WriteRes<WriteLDS128, [SM70UnitLDST]> { let Latency = 20;
 def : WriteRes<WriteSTS128, [SM70UnitLDST]> { let Latency = 20; 
                                               let ResourceCycles = [16]; }
 // global memory
-def : WriteRes<WriteLDG, [SM70UnitLDST]> { let Latency = 500; 
+def : WriteRes<WriteLDG, [SM70UnitLDST]> { let Latency = 300; 
                                            // TODO: verify this.
                                            let ResourceCycles = [40]; }
 def : WriteRes<WriteSTG, [SM70UnitLDST]> { let Latency = 100; 

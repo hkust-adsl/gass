@@ -1,17 +1,29 @@
 #include "GASSSchedStrategy.h"
 #include "GASSRegisterInfo.h"
+#include "GASSInstrInfo.h"
 #include "MCTargetDesc/GASSMCTargetDesc.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
+#include "llvm/CodeGen/MachineScheduler.h"
 #include "llvm/CodeGen/RegisterClassInfo.h"
+#include "llvm/MC/MCSchedule.h"
+#include "llvm/Support/ErrorHandling.h"
+#include <algorithm>
+#include <queue>
 
 using namespace llvm;
 
 #define DEBUG_TYPE "gass-sched"
 
+//==------------------------------------------------------------------------==//
+// ScoreBoard
+GASSScoreBoard::GASSScoreBoard() {}
+// End of ScoreBoard
+//==------------------------------------------------------------------------==//
+
 SUnit *GASSSchedStrategy::pickNode(bool &IsTopNode) {
   // Use default strategy for non-loop-body MBBs
-  // if (!IsLoopBody)
-  //   return GenericScheduler::pickNode(IsTopNode);
+  if (!IsLoopBody)
+    return GenericScheduler::pickNode(IsTopNode);
 
   // Mostly copy-and-paste from GenericScheduler::pickNode()
   // We need to copy them here because GenericScheduler::pickNodeFromQueue() is
@@ -67,6 +79,13 @@ void GASSSchedStrategy::pickNodeFromQueue(SchedBoundary &Zone,
   std::vector<int> Scores(Q.size());
   for (size_t i=0; i<Q.size(); ++i)
     Scores[i] = computeScore(Q.elements()[i]);
+  if (IsLoopBody) {
+    // GASS-specific heuristic
+    if (tryPickNodeFromQueue(Zone, ZonePolicy, Cand))
+      return;
+    // fall-throught default heuristic
+    llvm_unreachable("Should have returned");
+  }
   for (SUnit *SU : Q) {
     SchedCandidate TryCand(ZonePolicy);
     initCandidate(TryCand, SU, Zone.isTop(), RPTracker, TRI);
@@ -81,6 +100,101 @@ void GASSSchedStrategy::pickNodeFromQueue(SchedBoundary &Zone,
       LLVM_DEBUG(traceCandidate(Cand));
     }
   }
+}
+
+//==------------------------------------------------------------------------==//
+// GASS heuristic
+//==------------------------------------------------------------------------==//
+std::vector<int> GASSSchedStrategy::getSUScore(SUnit *SU) {
+  std::vector<int> Score(SCHED_PRIORITY_SIZE, 0);
+  computeLDGScore(Score, SU);
+  computeLDSScore(Score, SU);
+  computeFreeResourceScore(Score, SU);
+  computeLatencyStallScore(Score, SU);
+
+  return Score;
+}
+
+bool GASSSchedStrategy::isOkToIssueLDG() const {
+  // TODO: implement this.
+  return true;
+}
+
+bool GASSSchedStrategy::isOkToIssueLDS() const {
+  if (ScoreBoard.ActiveLDSs.size() <= 2)
+    return true;
+  else
+    return false;
+}
+
+void GASSSchedStrategy::computeLDGScore(std::vector<int> &Score, SUnit *SU) {
+  if (GASSInstrInfo::isLDG(*SU->getInstr())) {
+    if (!isOkToIssueLDG())
+      // Don't overwhelm LDST
+      return;
+    Score[SCHED_LDG] = 1;
+  } else // do nothing
+    return;
+}
+
+void GASSSchedStrategy::computeLDSScore(std::vector<int> &Score, SUnit *SU) {
+  if (GASSInstrInfo::isLDS(*SU->getInstr())) {
+    if (!isOkToIssueLDS())
+      // Don't overwhelm LDST
+      return;
+    Score[SCHED_LDS] = 1; 
+  } else // do nothing
+    return;
+}
+
+void GASSSchedStrategy::computeFreeResourceScore(std::vector<int> &Score, 
+                                                 SUnit *SU) {
+  // assert(IsTopNode)?
+  // Check is all required resources are free
+  const MCSchedClassDesc *SC = DAG->getSchedClass(SU);
+  for (const MCWriteProcResEntry &PE :
+       make_range(SchedModel->getWriteProcResBegin(SC),
+                  SchedModel->getWriteProcResEnd(SC))) {
+    unsigned ReservedUntil, InstanceIdx;
+    std::tie(ReservedUntil, InstanceIdx) = 
+        Top.getNextResourceCycle(PE.ProcResourceIdx, 0);
+    if (ReservedUntil > Top.getCurrCycle())
+      // Resource still busy
+      return;
+  }
+  // All required resources are free
+  Score[SCHED_FREE_RESOURCE] = 1;
+}
+
+// TODO: better to name "LatencyStall" as "WaitCycle"?
+void GASSSchedStrategy::computeLatencyStallScore(std::vector<int> &Score, 
+                                                 SUnit *SU) {
+  int StallLatency = Top.getCurrCycle() - SU->TopReadyCycle;
+  assert(StallLatency >= 0);
+  Score[SCHED_LATENCY] = StallLatency;
+}
+
+bool GASSSchedStrategy::tryPickNodeFromQueue(SchedBoundary &Zone,
+                                             const CandPolicy &ZonePolicy,
+                                             SchedCandidate &Cand) {
+  ReadyQueue &Q = Zone.Available;
+  std::vector<std::vector<int>> Scores;
+  for (SUnit *SU : Q) {
+    std::vector<int> Score = getSUScore(SU);
+    Scores.push_back(Score);
+  }
+
+  // pick candidate with highest score
+  size_t MaxIdx = std::distance(Scores.begin(), 
+                                std::max_element(Scores.begin(), Scores.end()));
+  // TODO: RPDelta?
+  SchedCandidate BestCand;
+  BestCand.AtTop = true;
+  BestCand.Reason = NodeOrder; // Doesn't mean any thing
+  BestCand.SU = Q.elements()[MaxIdx];
+  Cand.setBest(BestCand);
+
+  return true;
 }
 
 // TODO: VReg1?
@@ -121,6 +235,7 @@ void GASSSchedStrategy::initCandidate(
   }
 }
 
+//------------------------------------------------------------------------------
 /// Apply a set of heuristics to a new candidate. Heuristics are currently
 /// hierarchical. This may be more efficient than a graduated cost model because
 /// we don't need to evaluate all aspects of the model for each node in the
@@ -134,24 +249,118 @@ void GASSSchedStrategy::initCandidate(
 void GASSSchedStrategy::tryCandidate(SchedCandidate &Cand, 
                                      SchedCandidate &TryCand,
                                      SchedBoundary *Zone) const {
-  GenericScheduler::tryCandidate(Cand, TryCand, Zone);
+  assert(!IsLoopBody);
+  if (!IsLoopBody)
+    return GenericScheduler::tryCandidate(Cand, TryCand, Zone);
 
-
-  // // Initialize the candidate if needed.
+  //---------- GASS-specific heuristic for the main loop -------------
+  // Initialize the candidate if needed.
   // if (!Cand.isValid()) {
   //   TryCand.Reason = NodeOrder;
   //   return;
   // }
 
+  // assert(Zone != nullptr && "GASSSchedStrategy focus on top-down now");
+  // assert(DAG->isTrackingPressure() && "Should track pressure");
+
+  // // Assume the current loop is compute-bound
+  // // 1. bias LDGs
+  // if (tryLDG(TryCand, Cand, Zone))
+  //   return;
+
+  // // 2. bias LDSs
+  // if (tryLDS(TryCand, Cand, Zone))
+  //   return;
+
+  // // 3. Do we have any free resources?
+  // if (tryFreeResources(TryCand, Cand, Zone))
+  //   return;
+
+  // // 4. Prioritize instructions that read unbuffered resources by stall cycles
+  // // TODO: bias critical path
+  // if (tryLess(Zone->getLatencyStallCycles(TryCand.SU),
+  //             Zone->getLatencyStallCycles(Cand.SU), TryCand, Cand, Stall))
+  //   return;
+
+  // // 5. (?) For loops that are acyclic path limitied, aggressively schedule
+  // //    for latency.
+  // if (tryLatency(TryCand, Cand, *Zone))
+  //   return;
+
+  // // 6. (?) Avoid increasing the max pressure of the entire region
+  // if (tryPressure(TryCand.RPDelta.CurrentMax, 
+  //                 Cand.RPDelta.CurrentMax,
+  //                 TryCand, Cand, RegMax, TRI, DAG->MF))
+  //   return;
+
+  // // 7. (?) Avoid critical resource consumption and balance the schedule.
   // TryCand.initResourceDelta(DAG, SchedModel);
-  // // Fall through to original instruction order.
-  // if ((Zone->isTop() && TryCand.SU->NodeNum < Cand.SU->NodeNum)
-  //     || (!Zone->isTop() && TryCand.SU->NodeNum > Cand.SU->NodeNum)) {
+  // if (tryLess(TryCand.ResDelta.CritResources, Cand.ResDelta.CritResources,
+  //             TryCand, Cand, ResourceReduce))
+  //   return;
+  // if (tryGreater(TryCand.ResDelta.DemandedResources,
+  //                Cand.ResDelta.DemandedResources,
+  //                TryCand, Cand, ResourceDemand))
+  //   return;
+
+  // // 8. Fall through to original instruction order.
+  // // TODO: or to GenericScheduler::tryCandidate()?
+  // if ((Zone->isTop() && TryCand.SU->NodeNum < Cand.SU->NodeNum)) {
   //   TryCand.Reason = NodeOrder;
   // }
 }
 
-// If this MBB is inside a loop
+/// Update info after schedule. Callback after a node is scheduled.
+void GASSSchedStrategy::schedNode(SUnit *SU, bool IsTopNode) {
+  if (IsTopNode) {
+    SU->TopReadyCycle = std::max(SU->TopReadyCycle, Top.getCurrCycle());
+    Top.bumpNode(SU);
+    if (SU->hasPhysRegUses)
+      reschedulePhysReg(SU, true);
+    // Update Score board
+    if (IsLoopBody) {
+      if (GASSInstrInfo::isLDG(*SU->getInstr())) {
+        ScoreBoard.ActiveLDSs.insert(SU);
+      } else if (GASSInstrInfo::isLDS(*SU->getInstr())) {
+        ScoreBoard.ActiveLDGs.insert(SU);
+      }
+
+      // expire old LDG & LDS
+      for (const SDep &Pred : SU->Preds) {
+        // Only consider data-dependency
+        for (const SDep &Pred : SU->Preds) {
+          if (Pred.getKind() == SDep::Data) {
+            // expire old LDGs
+            for (auto iter = ScoreBoard.ActiveLDGs.begin(); 
+                      iter != ScoreBoard.ActiveLDGs.end(); ) {
+              if (*iter == Pred.getSUnit())
+                iter = ScoreBoard.ActiveLDGs.erase(iter);
+              else
+                ++iter;
+            }
+            // expire old LDSs
+            for (auto iter = ScoreBoard.ActiveLDSs.begin(); 
+                      iter != ScoreBoard.ActiveLDSs.end(); ) {
+              if (*iter == Pred.getSUnit())
+                iter = ScoreBoard.ActiveLDSs.erase(iter);
+              else
+                ++iter;
+            }
+          }
+        }
+      }
+
+    }
+  } else {
+    SU->BotReadyCycle = std::max(SU->BotReadyCycle, Bot.getCurrCycle());
+    Bot.bumpNode(SU);
+    if (SU->hasPhysRegDefs)
+      reschedulePhysReg(SU, false);
+  }
+}
+
+// If this MBB is inside a loop.
+// Focus on top-down now.
 void GASSSchedStrategy::enterMBB(MachineBasicBlock *MBB) {
   IsLoopBody = false;
   // The default policy 
@@ -162,7 +371,7 @@ void GASSSchedStrategy::enterMBB(MachineBasicBlock *MBB) {
     IsLoopBody = true;
     RegionPolicy.OnlyBottomUp = false;
     RegionPolicy.OnlyTopDown = true;
-    MBB->dump();
+    // MBB->dump();
   }
 }
 

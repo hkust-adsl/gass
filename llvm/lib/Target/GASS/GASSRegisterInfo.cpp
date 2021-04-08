@@ -27,6 +27,10 @@ BitVector GASSRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   BitVector Reserved(getNumRegs()); // What's this?
 
   // Constant registers
+  Reserved.set(GASS::RZ16_LO);
+  Reserved.set(GASS::RZ16_HI);
+  Reserved.set(GASS::RZ16_1_LO);
+  Reserved.set(GASS::RZ16_1_HI);
   Reserved.set(GASS::RZ32);
   Reserved.set(GASS::RZ32_1);
   Reserved.set(GASS::RZ64);
