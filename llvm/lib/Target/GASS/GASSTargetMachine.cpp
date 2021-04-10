@@ -121,7 +121,7 @@ void GASSPassConfig::addIRPasses() {
   // TODO: disable it for now.
   // addPass(createLICMPass());
 
-  // addPass(createSinkingPass());
+  addPass(createSinkingPass());
 }
 
 bool GASSPassConfig::addPreISel() {
@@ -181,6 +181,9 @@ void GASSPassConfig::addOptimizedRegAlloc() {
 
   // PreRA instruction scheduling.
   addPass(&MachineSchedulerID);
+
+  // Compute Register Pressure at each line
+  addPass(createRegPressureComputePass());
 
   if (addRegAssignmentOptimized()) {
     // Allow targets to expand pseudo instructions depending on the choice of
