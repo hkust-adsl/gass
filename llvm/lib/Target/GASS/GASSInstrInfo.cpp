@@ -3,6 +3,7 @@
 #include "GASSRegisterInfo.h"
 #include "GASSSubtarget.h"
 #include "MCTargetDesc/GASSMCTargetDesc.h"
+#include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <functional>
 
@@ -586,6 +587,31 @@ bool GASSInstrInfo::isSFU(const MachineInstr &MI) {
   case GASS::F2F_F16_F32:
     return true;
   }
+}
+
+bool GASSInstrInfo::ifReadsCarryIn(const MachineInstr &MI) {
+  if (MI.getOpcode() == GASS::IADDXrr || MI.getOpcode() == GASS::IADDXri) {
+    // operand 5 is carryin
+    const MachineOperand &MO = MI.getOperand(5);
+    assert(MO.isReg());
+
+    const MachineBasicBlock &MBB = *MI.getParent();
+    auto &Subtarget = MBB.getParent()->getSubtarget<GASSSubtarget>();
+    const GASSRegisterInfo *TRI = Subtarget.getRegisterInfo();
+
+    const Register &CarryIn = MO.getReg();
+    if (CarryIn.isPhysical()) {
+      if (!TRI->isConstantPhysReg(CarryIn))
+        return true;
+      return false;
+    }
+
+    const MachineRegisterInfo &MRI = MBB.getParent()->getRegInfo();
+    assert(MRI.getRegClass(CarryIn) == &GASS::VReg1RegClass);
+    if (!TRI->isConstantPhysReg(CarryIn))
+      return true;
+  }
+  return false;
 }
 
 MachineOperand* GASSInstrInfo::getMemOperandReg(MachineInstr &MI) {

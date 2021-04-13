@@ -48,11 +48,14 @@ class GASSSchedStrategy final : public GenericScheduler {
   /// higher means higher priority
   /// Samiliar to CandReason in GenericSchedulerBase
   enum SchedPriority : uint8_t {
-    SCHED_ONLY,
-    SCHED_LATENCY,
-    SCHED_FREE_RESOURCE,
-    SCHED_LDS,
+    SCHED_COPY = 0,
     SCHED_LDG,
+    SCHED_LDS,
+    SCHED_FREE_RESOURCE,
+    SCHED_CARRYIN,
+    SCHED_LATENCY,
+    SCHED_ORDER,
+    SCHED_ONLY,
     // Record size of all reasons
     SCHED_PRIORITY_SIZE
   };
@@ -90,10 +93,13 @@ private:
   // interfaces for GASS-specific heuristic
   /// computes schedule score (priority) of a node
   std::vector<int> getSUScore(SUnit *SU);
+  void computeCOPYScore(std::vector<int> &Score, SUnit *SU);
   void computeLDGScore(std::vector<int> &Score, SUnit *SU);
   void computeLDSScore(std::vector<int> &Score, SUnit *SU);
   void computeFreeResourceScore(std::vector<int> &Score, SUnit *SU);
+  void computeCarryInScore(std::vector<int> &Score, SUnit *SU);
   void computeLatencyStallScore(std::vector<int> &Score, SUnit *SU);
+  void computeOrderScore(std::vector<int> &Score, SUnit *SU);
 
   /// If it is ok to issue ldg now. (try to interleave LDGs)
   bool isOkToIssueLDG() const;
@@ -102,6 +108,12 @@ private:
   /// returns true if new candidate is found
   bool tryPickNodeFromQueue(SchedBoundary &Zone, const CandPolicy &ZonePolicy,
                             SchedCandidate &Cand);
+
+  /// simulate SchedBoundary::pickOnlyChoice()
+  SUnit *pickOnlyChoice(SchedBoundary &Zone);
+
+public:
+  friend class SchedBoundary;
 };
 
 // class GASSScheduleDAGMILive final : public ScheduleDAGMILive {

@@ -3,6 +3,7 @@
 #include "GASSTargetTransformInfo.h"
 #include "GASSISelDAGToDAG.h"
 #include "GASSSchedStrategy.h"
+#include "GASSScheduleDAGMutations.h"
 #include "TargetInfo/GASSTargetInfo.h"
 #include "llvm/Analysis/CFGPrinter.h"
 #include "llvm/CodeGen/Passes.h"
@@ -91,7 +92,11 @@ public:
   // // override MachineScheduleStrategy
   ScheduleDAGInstrs *
   createMachineScheduler(MachineSchedContext *C) const override {
-    return new ScheduleDAGMILive(C, std::make_unique<GASSSchedStrategy>(C));
+    ScheduleDAGMILive *DAG =
+        new ScheduleDAGMILive(C, std::make_unique<GASSSchedStrategy>(C));
+    // DAG->addMutation(createGASSTensorCoreChainDAGMutation());
+    // DAG->addMutation(createGASSCarryInClusterDAGMutation());
+    return DAG;
   }
 };
 } // anonymous namespace
@@ -182,8 +187,8 @@ void GASSPassConfig::addOptimizedRegAlloc() {
   // PreRA instruction scheduling.
   addPass(&MachineSchedulerID);
 
-  // Compute Register Pressure at each line
-  addPass(createRegPressureComputePass());
+  // // Compute Register Pressure at each line
+  // addPass(createRegPressureComputePass());
 
   if (addRegAssignmentOptimized()) {
     // Allow targets to expand pseudo instructions depending on the choice of

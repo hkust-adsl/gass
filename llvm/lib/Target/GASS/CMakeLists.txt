@@ -31,6 +31,7 @@ add_llvm_target(GASSCodeGen
   GASSRegisterInfo.cpp
   GASSRegPressureCompute.cpp
   GASSSchedStrategy.cpp
+  GASSScheduleDAGMutations.cpp
   GASSStallSettingPass.cpp
   GASSSubtarget.cpp
   GASSTargetMachine.cpp

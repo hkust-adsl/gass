@@ -5,7 +5,9 @@
 #include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/CodeGen/MachineScheduler.h"
 #include "llvm/CodeGen/RegisterClassInfo.h"
+#include "llvm/CodeGen/ScheduleDAG.h"
 #include "llvm/MC/MCSchedule.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <algorithm>
 #include <queue>
@@ -36,7 +38,17 @@ SUnit *GASSSchedStrategy::pickNode(bool &IsTopNode) {
   SUnit *SU;
   do {
     if (RegionPolicy.OnlyTopDown) {
-      SU = Top.pickOnlyChoice();
+      if (!IsLoopBody)
+        SU = Top.pickOnlyChoice();
+      else 
+        SU = pickOnlyChoice(Top);
+      if (SU != nullptr && IsLoopBody) {
+        LLVM_DEBUG(dbgs() << "\n** Pick the only candidate: ");
+        LLVM_DEBUG(DAG->dumpNodeName(*SU));
+        LLVM_DEBUG(dbgs() << "\nWhile the pending queue is:\n");
+        LLVM_DEBUG(Top.Pending.dump());
+        LLVM_DEBUG(SU->getInstr()->dump());
+      }
       if (!SU) {
         CandPolicy NoPolicy;
         TopCand.reset(NoPolicy);
@@ -68,6 +80,40 @@ SUnit *GASSSchedStrategy::pickNode(bool &IsTopNode) {
   LLVM_DEBUG(dbgs() << "Scheduling SU(" << SU->NodeNum << ") "
                     << *SU->getInstr());
   return SU;
+}
+
+SUnit *GASSSchedStrategy::pickOnlyChoice(SchedBoundary &Zone) {
+  assert(Zone.isTop() && "Only support top-down");
+
+  // if (Zone.CheckPending)
+  // Since CheckPending is private, then we always releasePending()
+  Zone.releasePending();
+
+  // Defer any ready instrs that now have a hazard.
+  for (ReadyQueue::iterator I = Zone.Available.begin(); 
+                            I != Zone.Available.end();) {
+    if (Zone.checkHazard(*I)) {
+      Zone.Pending.push(*I);
+      I = Zone.Available.remove(I);
+      continue;
+    }
+    ++I;
+  }
+
+  // Add more as available
+  while (Zone.Available.size() <= 2) {
+    Zone.bumpCycle(Zone.getCurrCycle() + 1);
+    Zone.releasePending();
+    if (Zone.Pending.empty())
+      break;
+  }
+
+  LLVM_DEBUG(Zone.Pending.dump());
+  LLVM_DEBUG(Zone.Available.dump());
+
+  if (Zone.Available.size() == 1)
+    return *Zone.Available.begin();
+  return nullptr;
 }
 
 void GASSSchedStrategy::pickNodeFromQueue(SchedBoundary &Zone,
@@ -107,10 +153,16 @@ void GASSSchedStrategy::pickNodeFromQueue(SchedBoundary &Zone,
 //==------------------------------------------------------------------------==//
 std::vector<int> GASSSchedStrategy::getSUScore(SUnit *SU) {
   std::vector<int> Score(SCHED_PRIORITY_SIZE, 0);
+  // bias COPY (following the practice in GenericScheduler)
+  computeCOPYScore(Score, SU);
   computeLDGScore(Score, SU);
   computeLDSScore(Score, SU);
   computeFreeResourceScore(Score, SU);
+  // bias instr that reads 
+  computeCarryInScore(Score, SU);
   computeLatencyStallScore(Score, SU);
+  // Fall through to order
+  computeOrderScore(Score, SU);
 
   return Score;
 }
@@ -120,11 +172,18 @@ bool GASSSchedStrategy::isOkToIssueLDG() const {
   return true;
 }
 
+// Limit the number of live registers brought by LDSs
 bool GASSSchedStrategy::isOkToIssueLDS() const {
-  if (ScoreBoard.ActiveLDSs.size() <= 2)
+  if (ScoreBoard.ActiveLDSs.size() <= 3)
     return true;
   else
     return false;
+}
+
+void GASSSchedStrategy::computeCOPYScore(std::vector<int> &Score, SUnit *SU) {
+  // TODO: fill this
+  Score[SCHED_COPY] = 0;
+  return;
 }
 
 void GASSSchedStrategy::computeLDGScore(std::vector<int> &Score, SUnit *SU) {
@@ -164,6 +223,18 @@ void GASSSchedStrategy::computeFreeResourceScore(std::vector<int> &Score,
   }
   // All required resources are free
   Score[SCHED_FREE_RESOURCE] = 1;
+
+  // Check if it is LDS
+  if (GASSInstrInfo::isLDS(*SU->getInstr()))
+    if (!isOkToIssueLDS())
+      Score[SCHED_FREE_RESOURCE] = 0;
+}
+
+void GASSSchedStrategy::computeCarryInScore(std::vector<int> &Score, 
+                                            SUnit* SU) {
+  const MachineInstr *Instr = SU->getInstr();
+  if (GASSInstrInfo::ifReadsCarryIn(*Instr))
+    Score[SCHED_CARRYIN] = 1;
 }
 
 // TODO: better to name "LatencyStall" as "WaitCycle"?
@@ -171,8 +242,16 @@ void GASSSchedStrategy::computeLatencyStallScore(std::vector<int> &Score,
                                                  SUnit *SU) {
   int StallLatency = Top.getCurrCycle() - SU->TopReadyCycle;
   assert(StallLatency >= 0);
+  // Force this number to be 0 for LDS
+  if (GASSInstrInfo::isLDS(*SU->getInstr()))
+    StallLatency = 0;
   Score[SCHED_LATENCY] = StallLatency;
 }
+
+void GASSSchedStrategy::computeOrderScore(std::vector<int> &Score, SUnit *SU) {
+  Score[SCHED_ORDER] = -SU->NodeNum;
+}
+//------- End computeXXXScore()
 
 bool GASSSchedStrategy::tryPickNodeFromQueue(SchedBoundary &Zone,
                                              const CandPolicy &ZonePolicy,
@@ -184,9 +263,32 @@ bool GASSSchedStrategy::tryPickNodeFromQueue(SchedBoundary &Zone,
     Scores.push_back(Score);
   }
 
+  LLVM_DEBUG(dbgs() << "** GASSSchedStrategy::tryPickNodeFromQueue **\n");
+  LLVM_DEBUG(Top.Available.dump());
+  LLVM_DEBUG(Top.Pending.dump());
+
   // pick candidate with highest score
   size_t MaxIdx = std::distance(Scores.begin(), 
                                 std::max_element(Scores.begin(), Scores.end()));
+  
+  LLVM_DEBUG(dbgs() << "Current best candidate is:\n");
+  LLVM_DEBUG(Q.elements()[MaxIdx]->getInstr()->dump());
+  LLVM_DEBUG(DAG->dumpNodeName(*Q.elements()[MaxIdx]));
+  
+  LLVM_DEBUG(dbgs() << ", score of which is:\n");
+  LLVM_DEBUG(dbgs() << "{");
+  for (int i=0; i<SCHED_PRIORITY_SIZE; ++i)
+    LLVM_DEBUG(dbgs() << Scores[MaxIdx][i] << ", ");
+  LLVM_DEBUG(dbgs() << "}\n");
+
+  // dump #activeLDS
+  if (GASSInstrInfo::isLDS(*Q.elements()[MaxIdx]->getInstr())) {
+    LLVM_DEBUG(dbgs() << "  Num of active LDS: " 
+                      << ScoreBoard.ActiveLDSs.size() << "\n");
+  }
+
+  LLVM_DEBUG(dbgs() << "\n");
+
   // TODO: RPDelta?
   SchedCandidate BestCand;
   BestCand.AtTop = true;
@@ -319,9 +421,16 @@ void GASSSchedStrategy::schedNode(SUnit *SU, bool IsTopNode) {
       reschedulePhysReg(SU, true);
     // Update Score board
     if (IsLoopBody) {
-      if (GASSInstrInfo::isLDG(*SU->getInstr())) {
+      LLVM_DEBUG(dbgs() << "  schedNode() -> ");
+      LLVM_DEBUG(SU->getInstr()->dump());
+      LLVM_DEBUG(dbgs() << "\n");
+      if (GASSInstrInfo::isLDS(*SU->getInstr())) {
         ScoreBoard.ActiveLDSs.insert(SU);
-      } else if (GASSInstrInfo::isLDS(*SU->getInstr())) {
+        LLVM_DEBUG(dbgs() << "Insert active LDS:\n");
+        LLVM_DEBUG(DAG->dumpNodeName(*SU));
+        LLVM_DEBUG(dbgs() << "ActiveLDSs.size() == " 
+                          << ScoreBoard.ActiveLDSs.size() << "\n");
+      } else if (GASSInstrInfo::isLDG(*SU->getInstr())) {
         ScoreBoard.ActiveLDGs.insert(SU);
       }
 
@@ -338,20 +447,32 @@ void GASSSchedStrategy::schedNode(SUnit *SU, bool IsTopNode) {
               else
                 ++iter;
             }
-            // expire old LDSs
-            for (auto iter = ScoreBoard.ActiveLDSs.begin(); 
-                      iter != ScoreBoard.ActiveLDSs.end(); ) {
-              if (*iter == Pred.getSUnit())
-                iter = ScoreBoard.ActiveLDSs.erase(iter);
-              else
-                ++iter;
-            }
           }
         }
       }
-
+      // expire old LDSs
+      // Note: an LDS is considered to be expired when all successors are
+      // scheduled.
+      for (auto iter = ScoreBoard.ActiveLDSs.begin(); 
+                iter != ScoreBoard.ActiveLDSs.end(); ) {
+        // if ((*iter)->NumSuccsLeft == 0)
+        if (std::all_of((*iter)->Succs.begin(), (*iter)->Succs.end(),
+                        [](SDep &SD) -> bool { 
+                          if (SD.isBarrier()) return true; // ignore barrier
+                          return SD.getSUnit()->isScheduled; 
+                        })) {
+          LLVM_DEBUG(dbgs() << "Expire LDS:\n");
+          LLVM_DEBUG(DAG->dumpNodeName(**iter));
+          LLVM_DEBUG(dbgs() << "\n");
+          iter = ScoreBoard.ActiveLDSs.erase(iter);
+          LLVM_DEBUG(dbgs() << "ActiveLDSs.size() == " 
+                            << ScoreBoard.ActiveLDSs.size() << "\n");
+        } else
+          ++iter;
+      }
     }
   } else {
+    assert(!IsLoopBody);
     SU->BotReadyCycle = std::max(SU->BotReadyCycle, Bot.getCurrCycle());
     Bot.bumpNode(SU);
     if (SU->hasPhysRegDefs)
@@ -371,7 +492,6 @@ void GASSSchedStrategy::enterMBB(MachineBasicBlock *MBB) {
     IsLoopBody = true;
     RegionPolicy.OnlyBottomUp = false;
     RegionPolicy.OnlyTopDown = true;
-    // MBB->dump();
   }
 }
 
@@ -382,6 +502,7 @@ void GASSSchedStrategy::initialize(ScheduleDAGMI *dag) {
   // // also print debug info
   // if (IsLoopBody)
   //   DAG->RPTracker.dump();
+  LLVM_DEBUG(DAG->dump());
 
   // Set limit
   const int ErrorMargin = 3;

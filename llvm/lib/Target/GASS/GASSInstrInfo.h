@@ -89,6 +89,10 @@ public:
   static bool isTC(const MachineInstr &MI);
   static bool isSFU(const MachineInstr &MI);
 
+  // Dynamic query
+  /// If an MI reads non-constant carryin reg value
+  static bool ifReadsCarryIn(const MachineInstr &MI);
+
   // return register of memory operand register (MemOperandReg)
   // return nullptr if this MI has no MemOperandReg
   static MachineOperand* getMemOperandReg(MachineInstr &MI);
