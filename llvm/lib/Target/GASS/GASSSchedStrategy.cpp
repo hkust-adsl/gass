@@ -14,7 +14,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "gass-sched"
+#define DEBUG_TYPE "gass-machine-scheduler"
 
 //==------------------------------------------------------------------------==//
 // ScoreBoard
@@ -174,7 +174,7 @@ bool GASSSchedStrategy::isOkToIssueLDG() const {
 
 // Limit the number of live registers brought by LDSs
 bool GASSSchedStrategy::isOkToIssueLDS() const {
-  if (ScoreBoard.ActiveLDSs.size() <= 3)
+  if (ScoreBoard.ActiveLDSs.size() <= 2)
     return true;
   else
     return false;
@@ -217,7 +217,7 @@ void GASSSchedStrategy::computeFreeResourceScore(std::vector<int> &Score,
     unsigned ReservedUntil, InstanceIdx;
     std::tie(ReservedUntil, InstanceIdx) = 
         Top.getNextResourceCycle(PE.ProcResourceIdx, 0);
-    if (ReservedUntil > Top.getCurrCycle())
+    if (ReservedUntil >= Top.getCurrCycle())
       // Resource still busy
       return;
   }
@@ -266,6 +266,21 @@ bool GASSSchedStrategy::tryPickNodeFromQueue(SchedBoundary &Zone,
   LLVM_DEBUG(dbgs() << "** GASSSchedStrategy::tryPickNodeFromQueue **\n");
   LLVM_DEBUG(Top.Available.dump());
   LLVM_DEBUG(Top.Pending.dump());
+
+  // dump remain resources
+  LLVM_DEBUG(dbgs() << "** Remaining Res Count **\n");
+  for (unsigned PIdx = 1; PIdx != SchedModel->getNumProcResourceKinds(); ++PIdx) {
+    LLVM_DEBUG(
+      dbgs() << SchedModel->getResourceName(PIdx) << " : "
+             << Top.Rem->RemainingCounts[PIdx] << "\n");
+  }
+  LLVM_DEBUG(dbgs() << "** Resource reserved result ** (crrent cycle:" 
+                    << Top.getCurrCycle() << ")\n");
+  for (unsigned PIdx = 1; PIdx != SchedModel->getNumProcResourceKinds(); ++PIdx) {
+    LLVM_DEBUG(
+      dbgs() << SchedModel->getResourceName(PIdx) << " : "
+             << Top.getNextResourceCycle(PIdx, 0).first << "\n");
+  }
 
   // pick candidate with highest score
   size_t MaxIdx = std::distance(Scores.begin(), 

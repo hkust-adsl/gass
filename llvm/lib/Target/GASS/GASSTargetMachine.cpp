@@ -130,6 +130,7 @@ void GASSPassConfig::addIRPasses() {
 }
 
 bool GASSPassConfig::addPreISel() {
+  // TODO: can we eliminate this?
   addPass(createGASSSinkingPass());
   return false;
 }

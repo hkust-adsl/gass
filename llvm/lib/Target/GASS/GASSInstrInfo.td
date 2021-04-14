@@ -200,7 +200,7 @@ multiclass IADDX {
                     (ins VReg32:$src0, VReg32:$src1, 
                         PredSign:$carryin_sign, VReg1:$carryin),
                     0x210,
-                    "IADD3.X \t$dst, $carryout, $src0, $src1, RZ, $carryin_sign$carryin",
+                    "IADD3.X \t$dst, $carryout, $src0, $src1, RZ, $carryin_sign$carryin;",
                     [/*TODO*/]> {
     let Inst{10} = 1; // .X
     let Src2 = 0xff;  // RZ
@@ -224,7 +224,7 @@ multiclass IADDX {
                     (ins VReg32:$src0, i32imm:$src1, 
                          PredSign:$carryin_sign, VReg1:$carryin),
                     0x810,
-                    "IADD3.X \t$dst, $carryout, $src0, $src1, RZ, $carryin_sign$carryin",
+                    "IADD3.X \t$dst, $carryout, $src0, $src1, RZ, $carryin_sign$carryin;",
                     [/*TODO*/]> {
     let Inst{10} = 1; // .X
     let Src2 = 0xff; // RZ
