@@ -48,10 +48,10 @@ bool GASSPreEmitPrepare::runOnMachineFunction(MachineFunction &MF) {
       // TODO: Or just delete them?
       if (MI.getOpcode() == TargetOpcode::IMPLICIT_DEF || 
           MI.getOpcode() == TargetOpcode::KILL) {
-        DebugLoc DL = MI.getDebugLoc();
+        // DebugLoc DL = MI.getDebugLoc();
         
-        BuildMI(MBB, MI, DL, TII->get(GASS::NOP))
-          .addImm(0).addReg(GASS::PT);
+        // BuildMI(MBB, MI, DL, TII->get(GASS::NOP))
+        //   .addImm(0).addReg(GASS::PT);
         
         ToDeletInstrs.push_back(&MI);
       }
