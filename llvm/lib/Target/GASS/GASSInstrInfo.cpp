@@ -681,3 +681,35 @@ void GASSInstrInfo::initializeFlagsEncoding(MachineInstr &MI) {
   Flags |= 0b0000'0011'1111'0000;
   MI.setFlags(Flags);
 }
+
+// Decode wait barriers
+// -1 means this MI doesn't set any read barrier (WAR)
+int GASSInstrInfo::decodeReadBarrier(const MachineInstr &MI) {
+  uint16_t Flags = MI.getFlags();
+  int RBIdx = (Flags & 0b0000'0011'1000'0000) >> 7;
+  assert(RBIdx != 6);
+  if (RBIdx == 7)
+    return -1;
+  return RBIdx;
+}
+
+// -1 means this MI doesn't set any write barrier (RAW)
+int GASSInstrInfo::decodeWriteBarrier(const MachineInstr &MI) {
+  uint16_t Flags = MI.getFlags();
+  int RBIdx = (Flags & 0b0000'0000'0111'0000) >> 4;
+  assert(RBIdx != 6);
+  if (RBIdx == 7)
+    return -1;
+  return RBIdx;
+}
+
+DenseSet<int> GASSInstrInfo::decodeBarrierMask(const MachineInstr &MI) {
+  uint16_t Flags = MI.getFlags();
+  uint16_t Mask = (Flags & 0b1111'1100'0000'0000) >> 10;
+  DenseSet<int> Barriers;
+  for (int i=0; i<6; ++i)
+    if (Mask & (1<<i))
+      Barriers.insert(i);
+  
+  return Barriers;
+}

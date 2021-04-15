@@ -105,6 +105,13 @@ public:
 
   // Encode stall cycles (4 bits)
   static void encodeStallCycles(MachineInstr &MI, unsigned Stalls);
+
+  // TODO: let GASSMCInstLower::lowerToMCFlags() use this
+  // Retrive encoded info
+  /// -1 means no barrier
+  static int decodeReadBarrier(const MachineInstr &MI);
+  static int decodeWriteBarrier(const MachineInstr &MI);
+  static DenseSet<int> decodeBarrierMask(const MachineInstr &MI);
 };
 
 namespace GASS {

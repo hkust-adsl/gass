@@ -12,8 +12,10 @@
 
 #include "GASS.h"
 #include "GASSStallSettingPass.h"
+#include "MCTargetDesc/GASSMCTargetDesc.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/TargetSchedule.h"
+#include "llvm/Support/ErrorHandling.h"
 
 #include <map>
 
@@ -42,8 +44,8 @@ bool GASSStallSetting::runOnMachineFunction(MachineFunction &MF) {
     std::map<Register, int> ActivateRegs;
     for (auto iter = MBB.begin(); iter != MBB.end(); ++iter) {
       MachineInstr &MI = *iter;
-      // minimum stall cycle: 2 (Maybe we can change this to 1?)
-      int Stalls = 2; 
+      // minimum stall cycle: 1 // (Maybe we can change this to 1?)
+      int Stalls = 1; 
 
       // TODO: use enums to interpret TSFlags
       bool IsFixedLat = MI.getDesc().TSFlags & 1;
@@ -52,7 +54,7 @@ bool GASSStallSetting::runOnMachineFunction(MachineFunction &MF) {
       // 1. Insert def regs as active regs
       if (IsFixedLat) {
         for (const MachineOperand &MOP : MI.defs()) {
-          if (MOP.isReg()) {
+          if (MOP.isReg() && !GRI->isConstantPhysReg(MOP.getReg())) {
             // We don't consider WAW here (why?)
             Register Reg = MOP.getReg();
             // Update
@@ -63,8 +65,21 @@ bool GASSStallSetting::runOnMachineFunction(MachineFunction &MF) {
           }
         }
       } else {
-        // We let instructions with var latency to stall for at least 2 cycles
-        Stalls = 2;
+        // For instr with variable latency, it must stall for at lease 2 cycles
+        // if the next instr waits on the barrier it just sets
+
+        // Get barriers that current instr sets
+        int CurrWARBar = GII->decodeReadBarrier(MI);
+        int CurrRAWBar = GII->decodeWriteBarrier(MI);
+        // Peek the next instr
+        auto next_iter = std::next(iter);
+        if (next_iter != MBB.end()) {
+          DenseSet<int> NextBarMask = GII->decodeBarrierMask(*next_iter);
+          if (NextBarMask.contains(CurrWARBar) || 
+              NextBarMask.contains(CurrRAWBar))
+            // force it to stall for 2 cycles
+            Stalls = 2;
+        }
       }
 
       // 2. Peek the next instr
@@ -106,7 +121,7 @@ bool GASSStallSetting::runOnMachineFunction(MachineFunction &MF) {
       // Special rules
       if (MI.isBranch())
         Stalls = std::max(Stalls, 7);
-      if (MI.getOpcode() == GASS::BAR)
+      if (MI.getOpcode() == GASS::BAR || MI.getOpcode() == GASS::BAR_DEFER)
         Stalls = std::max(Stalls, 5);
 
       // (Optional) Debug

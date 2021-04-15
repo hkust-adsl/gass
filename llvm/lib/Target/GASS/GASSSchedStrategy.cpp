@@ -174,7 +174,7 @@ bool GASSSchedStrategy::isOkToIssueLDG() const {
 
 // Limit the number of live registers brought by LDSs
 bool GASSSchedStrategy::isOkToIssueLDS() const {
-  if (ScoreBoard.ActiveLDSs.size() <= 2)
+  if (ScoreBoard.ActiveLDSs.size() <= 3)
     return true;
   else
     return false;

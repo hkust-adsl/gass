@@ -1143,6 +1143,12 @@ let hasSideEffects = true in {
 def BAR : GASSInst<(outs), (ins), 
                    0xb1d, "BAR.SYNC \t0;", 
                    [(int_nvvm_barrier0)]>, Sched<[]>;
+
+// Useful on Volta
+def BAR_DEFER : GASSInst<(outs), (ins),
+                         0xb1d, "BAR.SYNC.DEFER_BLOCKING \t0;", []>, Sched<[]> {
+  let Inst{16} = 1;
+}
 }
 
 //=---------------------------------=//

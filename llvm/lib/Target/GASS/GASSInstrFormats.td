@@ -1,4 +1,5 @@
 // Ref: ARMInstrFormats.td (PredicateOperand)
+// Ref: MCInstrDesc::findFirstPredOperandIdx()
 def pred : PredicateOperand<OtherVT, (ops i32imm, VReg1), (ops (i32 0), PT)> {
   let PrintMethod = "printPredicateOperand";
   let EncoderMethod = "encodePredicateOperand";
