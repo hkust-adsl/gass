@@ -894,6 +894,7 @@ class HMMA884Base<dag oops, dag iops, bits<12> opcode, string asm> :
   let Inst{10} = s1layout;
   let Inst{16-15} = step;
 
+  // TODO: revisit this
   // let isFixLat = false;
 }
 multiclass HMMA884 {
