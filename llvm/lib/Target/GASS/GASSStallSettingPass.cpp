@@ -14,7 +14,9 @@
 #include "GASSStallSettingPass.h"
 #include "MCTargetDesc/GASSMCTargetDesc.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
+#include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/TargetSchedule.h"
+#include "llvm/MC/MCSchedule.h"
 #include "llvm/Support/ErrorHandling.h"
 
 #include <map>
@@ -29,6 +31,82 @@ char GASSStallSetting::ID = 0;
 INITIALIZE_PASS(GASSStallSetting, "gass-stall-setting",
                 "Setting Instruction Stall Cycles", true, true)
 
+namespace {
+class ResourceReserveTable {
+  /// PIdx => Reserved until
+  DenseMap<unsigned, int> Table;
+
+  /// Cache SchedModel
+  const TargetSchedModel &SchedModel;
+public:
+  ResourceReserveTable(const TargetSchedModel &SchedModel)
+    : SchedModel(SchedModel) {
+    for (unsigned PIdx = 1; 
+         PIdx != SchedModel.getNumProcResourceKinds(); ++PIdx) {
+      Table[PIdx] = 0;
+    }
+  }
+
+  /// @param Stalls Update if stalled by resource
+  void visitInstr(const MachineBasicBlock::iterator &CurrIter, 
+                  int CurrCycle, int &Stalls, const MachineBasicBlock &MBB);
+}; // class ResourceReserveTable
+} // anonymous namespace
+
+//--------- ResourceReserveTable -------------------
+void ResourceReserveTable::visitInstr(
+    const MachineBasicBlock::iterator &CurrIter, int CurrCycle, 
+    int &Stalls, const MachineBasicBlock &MBB) {
+  // Stall cycle caused by resource require ment
+  int MaxResStall = 0;
+  // bool IsLDST = false;
+
+  // Peek the next instr
+  const auto NextIter = std::next(CurrIter);
+
+  // Last instr, do nothing
+  if (NextIter == MBB.end())
+    return;
+
+  // 1. Update Resource Reserve Table
+  const MCSchedClassDesc *SC = SchedModel.resolveSchedClass(&(*CurrIter));
+  for (TargetSchedModel::ProcResIter
+    PI = SchedModel.getWriteProcResBegin(SC),
+    PE = SchedModel.getWriteProcResEnd(SC); PI != PE; ++PI) {
+    unsigned PIdx = PI->ProcResourceIdx;
+    unsigned PCycle = PI->Cycles;
+
+    // // TODO: should query subtarget
+    // if (StringRef(SchedModel.getResourceName(PIdx)).contains("LDST"))
+    //   IsLDST = true;
+
+    // Update Table
+    // if (Table[PIdx] > CurrCycle) {
+    //   // TODO: Or we can "forget" previous ...?
+    //   Table[PIdx] += PCycle;
+    // } else 
+      Table[PIdx] = CurrCycle + PCycle;
+  }
+
+  // 2. Update MaxResStall
+  const MCSchedClassDesc *NextSC = SchedModel.resolveSchedClass(&*NextIter);
+  for (TargetSchedModel::ProcResIter
+    PI = SchedModel.getWriteProcResBegin(NextSC),
+    PE = SchedModel.getWriteProcResEnd(NextSC); PI != PE; ++PI) {
+    unsigned PIdx = PI->ProcResourceIdx;
+
+    // Update MaxResStall
+    if (Table[PIdx] > CurrCycle)
+      MaxResStall = std::max(MaxResStall, Table[PIdx] - CurrCycle);
+  }
+
+  // Update Stalls
+  // Cap this to 2 cycles
+  MaxResStall = std::min(2, MaxResStall);
+  Stalls = std::max(Stalls, MaxResStall);
+  // TODO: We have special rules for LDST
+}
+
 
 bool GASSStallSetting::runOnMachineFunction(MachineFunction &MF) {
   const auto &ST = MF.getSubtarget<GASSSubtarget>();
@@ -42,6 +120,9 @@ bool GASSStallSetting::runOnMachineFunction(MachineFunction &MF) {
   for (MachineBasicBlock &MBB : MF) {
     // Record activate regs
     std::map<Register, int> ActivateRegs;
+    ResourceReserveTable ResRT(SchedModel);
+    /// Cycle before current instr is issued
+    int CurrCycle = 0;
     for (auto iter = MBB.begin(); iter != MBB.end(); ++iter) {
       MachineInstr &MI = *iter;
       // minimum stall cycle: 1 // (Maybe we can change this to 1?)
@@ -118,6 +199,9 @@ bool GASSStallSetting::runOnMachineFunction(MachineFunction &MF) {
         }
       }
 
+      // 4. May stall because the pipe is busy
+      ResRT.visitInstr(iter, CurrCycle, Stalls, MBB);
+
       // Special rules
       if (MI.isBranch())
         Stalls = std::max(Stalls, 7);
@@ -131,8 +215,9 @@ bool GASSStallSetting::runOnMachineFunction(MachineFunction &MF) {
       // 4. Record Stall info
       assert(Stalls >= 1);
       StallCycleMap[&MI] = Stalls;
+      CurrCycle += Stalls;
     } // for each MI
-  }
+  } // for each MBB
 
   return false;
 }
