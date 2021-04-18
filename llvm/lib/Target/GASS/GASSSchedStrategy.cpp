@@ -169,7 +169,8 @@ std::vector<int> GASSSchedStrategy::getSUScore(SUnit *SU) {
 
 bool GASSSchedStrategy::isOkToIssueLDG() const {
   // TODO: implement this.
-  return true;
+  return false;
+  // return true;
 }
 
 // Limit the number of live registers brought by LDSs
