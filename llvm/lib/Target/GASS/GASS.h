@@ -24,6 +24,7 @@ FunctionPass *createGASSExpandPreRAPseudoPass();
 FunctionPass *createGASSIfConversionPass();
 FunctionPass *createGASSPreEmitPreparePass();
 FunctionPass *createRegPressureComputePass();
+FunctionPass *createGASSLDGSinkPass();
 
 void initializeGASSSinkingPass(PassRegistry &);
 void initializeGASSBarrierSettingPass(PassRegistry &);
@@ -35,6 +36,7 @@ void initializeGASSIfConversionPass(PassRegistry&);
 void initializeGASSBranchOffsetPass(PassRegistry &);
 void initializeGASSPreEmitPreparePass(PassRegistry &);
 void initializeRegPressureComputePass(PassRegistry &);
+void initializeGASSLDGSinkPass(PassRegistry &);
 
 
 namespace GASS {

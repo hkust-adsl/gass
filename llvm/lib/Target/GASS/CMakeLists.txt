@@ -25,6 +25,7 @@ add_llvm_target(GASSCodeGen
   GASSInstrInfo.cpp
   GASSISelDAGToDAG.cpp
   GASSISelLowering.cpp
+  GASSLDGSinkPass.cpp
   GASSMachineFunctionCFGPrinter.cpp
   GASSMCInstLowering.cpp
   GASSPreEmitPreparePass.cpp

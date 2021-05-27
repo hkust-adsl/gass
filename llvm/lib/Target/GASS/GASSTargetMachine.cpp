@@ -243,6 +243,8 @@ void GASSPassConfig::addPreSched2() {
 void GASSPassConfig::addPreEmitPass() {
   // This pass changes IMPLICT_DEF to NOP
   addPass(createGASSPreEmitPreparePass());
+  // A schedule pass to sink LDGs
+  // addPass(createGASSLDGSinkPass());
   // Debug pass
   // addPass(createGASSMachineFunctionCFGPrinterPass());
   addPass(createGASSBarrierSettingPass());
