@@ -1071,6 +1071,28 @@ defm STS64 : STS<VReg64, 64>, Sched<[WriteSTS64]>;
 defm STS128 : STS<VReg128, 128>, Sched<[WriteSTS128]>;
 }
 
+// // async copy on Ampere
+// multiclass LDGSTS<int Width> {
+//   def r : GASSInstLdst<(outs), (ins),
+//                        ,
+//                        "LDGSTS", [], Width>;
+// }
+
+// let mayStore = true, mayLoad = true in {
+// defm LDGSTS32 : LDGSTS<32>, Sched<[WriteLDG]>; // TODO: revisit this.
+// defm LDGSTS64 : LDGSTS<64>, Sched<[WriteLDG]>;
+// defm LDGSTS128 : LDGSTS<128>, Sced<[WriteLDG]>;
+// }
+
+// // cp.async.commit_group;
+// // TODO: schedule model
+// def LDGDEPBAR : GASSInst<(outs), (ins), 0x9af, "LDGDEPBAR;", [int_nvvm_cp_async_commit_group]>;
+
+// // cp.async.wait_group N;
+// // TODO: schedule model
+// def DEPBAR : GASSInstOp2ri<(outs), (ins ), , "DEPBAR \t$;", [/*TODO*/]>;
+
+
 //=---------------------------------=//
 // Control Flow
 //=---------------------------------=//
