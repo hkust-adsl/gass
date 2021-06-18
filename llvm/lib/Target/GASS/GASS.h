@@ -15,6 +15,7 @@ class FunctionPass;
 void LowerToMCInst(const MachineInstr *MI, MCInst &Inst);
 
 FunctionPass *createGASSSinkingPass();
+FunctionPass *createGASSAnnotateUniformValues();
 FunctionPass *createGASSAddrSpacePass();
 FunctionPass *createGASSCodeGenPreparePass();
 FunctionPass *createGASSMachineFunctionCFGPrinterPass();
@@ -26,6 +27,7 @@ FunctionPass *createGASSPreEmitPreparePass();
 FunctionPass *createRegPressureComputePass();
 FunctionPass *createGASSLDGSinkPass();
 
+void initializeGASSAnnotateUniformValuesPass(PassRegistry &);
 void initializeGASSSinkingPass(PassRegistry &);
 void initializeGASSBarrierSettingPass(PassRegistry &);
 void initializeGASSStallSettingPass(PassRegistry&);

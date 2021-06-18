@@ -24,6 +24,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeGASSTarget() {
   initializeGASSStallSettingPass(*PR);
   // initializeGASSBranchOffsetPass(*PR);
   initializeGASSExpandPreRAPseudoPass(*PR);
+  initializeGASSAnnotateUniformValuesPass(*PR);
 }
 
 GASSTargetMachine::GASSTargetMachine(const Target &T, const Triple &TT,
@@ -132,6 +133,8 @@ void GASSPassConfig::addIRPasses() {
 bool GASSPassConfig::addPreISel() {
   // TODO: can we eliminate this?
   addPass(createGASSSinkingPass());
+  // following the practice in AMDGPU
+  addPass(createGASSAnnotateUniformValues());
   return false;
 }
 

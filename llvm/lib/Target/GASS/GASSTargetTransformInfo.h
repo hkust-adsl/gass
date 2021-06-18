@@ -9,7 +9,6 @@
 
 namespace llvm {
 
-// TODO: Why not this overrides any function?
 class GASSTTIImpl final : public BasicTTIImplBase<GASSTTIImpl> {
   typedef BasicTTIImplBase<GASSTTIImpl> BaseT;
   const GASSSubtarget *STI;
@@ -28,8 +27,11 @@ public:
   // *Must* be implemented 
   const GASSTargetLowering *getTLI() const { return TLI; }
 
-  
+  // Required by DivergenceAnalysis
+  bool hasBranchDivergence() { return true; }
+  bool isSourceOfDivergence(const Value *V);
 }; // GASSTTIImpl
-}
+
+} // end namespace llvm
 
 #endif

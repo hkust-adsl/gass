@@ -14,6 +14,7 @@ add_public_tablegen_target(GASSCommonTableGen)
 
 add_llvm_target(GASSCodeGen
   GASSAddAddrSpace.cpp
+  GASSAnnotateUniformValues.cpp
   GASSAsmPrinter.cpp
   GASSBarrierSettingPass.cpp
   GASSBranchOffsetPass.cpp
@@ -37,6 +38,7 @@ add_llvm_target(GASSCodeGen
   GASSSubtarget.cpp
   GASSTargetMachine.cpp
   GASSTargetObjectFile.cpp
+  GASSTargetTransformInfo.cpp
   LiveBarRange.cpp
 
   LINK_COMPONENTS
