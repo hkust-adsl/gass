@@ -4262,4 +4262,27 @@ foreach layout_a = ["row", "col"] in {
   } // layout_b
 } // layout_a
 
+// mma.m16n8k16 intrinsics 
+//   mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32
+def int_nvvm_mma_m16n8k16_row_col_f32_f16_f16_f32
+  : Intrinsic<!listsplat(llvm_float_ty, 4),
+              !listconcat(!listsplat(llvm_v2f16_ty, 4), 
+                          !listsplat(llvm_v2f16_ty, 2),
+                          !listsplat(llvm_float_ty, 4)),
+              [IntrNoMem],
+              "llvm.nvvm.mma.m16n8k16.row.col.f32.f16.f16.f32">;
+
+// ldmatrix
+def int_nvvm_ldmatrix_m8n8_x4
+  : Intrinsic<!listsplat(llvm_v2f16_ty, 4),
+              [LLVMQualPointerType<llvm_half_ty, 3>, llvm_i32_ty],
+              [],
+              "llvm.nvvm.ldmatrix.m8n8.x4">;
+
+def int_nvvm_ldmatrix_m8n8_x4_trans
+  : Intrinsic<!listsplat(llvm_v2f16_ty, 4),
+              [LLVMQualPointerType<llvm_half_ty, 3>, llvm_i32_ty],
+              [],
+              "llvm.nvvm.ldmatrix.m8n8.x4.trans">;
+
 } // let TargetPrefix = "nvvm"
