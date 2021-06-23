@@ -3,9 +3,17 @@
 //=----------------------------------=//
 // // async copy on Ampere
 // multiclass LDGSTS<int Width> {
-//   def r : GASSInstLdst<(outs), (ins),
-//                        ,
+//   def rr : GASSInstLdst<(outs), 
+//       (ins VReg32:$dst),
+//                        0xdae,
 //                        "LDGSTS", [], Width>;
+
+//   def rir : ;
+
+//   def rri : ;
+
+//   def riri : ;
+
 // }
 
 // let mayStore = true, mayLoad = true in {
@@ -14,6 +22,29 @@
 // defm LDGSTS128 : LDGSTS<128>, Sced<[WriteLDG]>;
 // }
 
+//----------shared memory----------------
+let mayLoad = true in {
+multiclass LDSM<RegisterClass RC, int Num> {
+  def _r 
+    : GASSInst<(outs RC:$dst), (ins VReg32:$ptr), 0x83b, "LDSM.16.M88."#Num#"\t $dst, [$ptr];", []>;
+
+  def _ru 
+    : GASSInst<(outs RC:$dst), (ins VReg32:$ptr, SReg32:$u_off), 0x83b, 
+               "LDSM.16.M88."#Num#"\t $dst, [$ptr+$u_ff];", []>;
+
+  def _rui
+    : GASSInst<(outs RC:$dst), (ins VReg32:$ptr, SReg32:$u_off, i32imm:$offset), 0x83b, 
+               "LDSM.16.M88."#Num#"\t $dst, [$ptr+$u_ff+$offset];", []>;
+
+  def _ri
+    : GASSInst<(outs RC:$dst), (ins VReg32:$ptr, i32imm:$offset), 0x83b, 
+               "LDSM.16.M88."#Num#"\t $dst, [$ptr+$offset];", []>;
+}
+}
+defm LDSM_x1 : LDSM<VReg32, 1>;
+defm LDSM_x2 : LDSM<VReg64, 2>;
+defm LDSM_x4 : LDSM<VReg128, 4>;
+
 // cp.async.commit_group;
 // TODO: schedule model
 def LDGDEPBAR : GASSInst<(outs), (ins), 0x9af, "LDGDEPBAR;", 
@@ -21,15 +52,19 @@ def LDGDEPBAR : GASSInst<(outs), (ins), 0x9af, "LDGDEPBAR;",
   let hasSideEffects = true;
 }
 
-// // cp.async.wait_group N;
-// // TODO: schedule model
-// def DEPBAR : GASSInstOp2ri<(outs), (ins i32imm:$n), , "DEPBAR \t$;",
-//     [(int_nvvm_cp_async_wait_group (i32 timm:$n))]>;
+// cp.async.wait_group N;
+// TODO: schedule model
+def DEPBAR : GASSInst<(outs), (ins i32imm:$n), 0x91a, "DEPBAR.LE\t SB0, $n;",
+    [(int_nvvm_cp_async_wait_group (i32 timm:$n))]> {
+  bits<6> n = 0;
+  bits<3> BarIdx = 0;
 
-// // ldmatrix
-// let mayLoad = true in {
-// def LDSM : GASSInstLdst<(outs), (ins), 0x83b, "LDSM;", >;
-// }
+  let Inst{107-102} = n;
+  let Inst{110-108} = BarIdx;
+  let Inst{111} = 1; // .LE
+
+  let hasSideEffects = true;
+}
 
 //=---------------------------------=//
 // Tensor Core
@@ -118,9 +153,22 @@ multiclass HMMA884 {
 }
 defm HMMA884 : HMMA884, Sched<[WriteHMMA884]>;
 
-// // mma16816
-// multiclass HMMA16816 {
-//   def _f16_f32 : ;
+// mma16816
+multiclass HMMA16816 {
+  def _f32_f16_f16_f32 
+    : GASSInstOp3rrr<(outs VReg128:$dst),
+               (ins VReg128:$src0, VReg64:$src1, VReg128:$src2),
+               0x23c,
+               "HMMA.16816.F32\t $src0, $src1, $src2;\n",
+               []> {
+    // .16816
+    let Inst{11} = 1;
+    // .F32
+    let Inst{12} = 1;
+  }
 
-//   def _f16_f16 : ;
-// }
+  // TODO:
+  // def _f32_f16_f16_f16 : ;
+}
+
+defm HMMA16816 : HMMA16816;
