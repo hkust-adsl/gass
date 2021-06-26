@@ -1,10 +1,10 @@
 #include "GASS.h"
 #include "GASSISelDAGToDAG.h"
 #include "GASSSubtarget.h"
+#include "llvm/CodeGen/ISDOpcodes.h"
 #include "llvm/CodeGen/SelectionDAGISel.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
 #include "llvm/IR/IntrinsicsNVPTX.h"
-#include "llvm/CodeGen/ISDOpcodes.h"
 #include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
@@ -82,8 +82,44 @@ void GASSDAGToDAGISel::Select(SDNode *N) {
     case Intrinsic::nvvm_shfl_sync_bfly_f32:
       if (trySHFL(N))
         return;
-    }
-    break;
+      break;
+    case Intrinsic::nvvm_ldmatrix_m8n8_x4: case Intrinsic::nvvm_ldmatrix_m8n8_x4_trans: {
+      // TODO: using tablegen
+      // try ldmatrix
+      SDLoc DL(N);
+      assert(N->getNumValues() == 5); // v2f16x4 + chain
+      const SDVTList &TargetVTs = N->getVTList();
+
+      unsigned IfTrans = 0;
+      if (IntNo == Intrinsic::nvvm_ldmatrix_m8n8_x4)
+        IfTrans = 0;
+      else 
+        IfTrans = 1;
+
+      SDValue Chain = N->getOperand(0);
+      // Operand 1 is Intrinsic ID
+      SDValue Ptr = N->getOperand(2);
+      SDValue IOffset = N->getOperand(3);
+      assert(isa<ConstantSDNode>(IOffset));
+      SDValue IOff = CurDAG->getTargetConstant(
+          cast<ConstantSDNode>(IOffset)->getSExtValue(), DL, MVT::i32);
+            
+
+      SDValue VOffset, UOffset;
+      SDValue LdsmTrans = CurDAG->getTargetConstant(IfTrans, DL, MVT::i32);
+
+      SDNode *Ldsm = nullptr;
+      if (selectADDRrui(Ptr, VOffset, UOffset)) {
+        SDValue Ops[] = {VOffset, UOffset, IOff, LdsmTrans, Chain};
+        Ldsm = CurDAG->getMachineNode(GASS::LDSM_x4_rui_pseudo, DL, TargetVTs, Ops);
+      } else {
+        SDValue Ops[] = {Ptr, IOff, LdsmTrans, Chain};
+        Ldsm = CurDAG->getMachineNode(GASS::LDSM_x4_ri_pseudo, DL, TargetVTs, Ops);
+      }
+      ReplaceNode(N, Ldsm);
+      return;
+    } break;
+    } break;
   }
   case ISD::INTRINSIC_WO_CHAIN: {
     unsigned IntNo = cast<ConstantSDNode>(N->getOperand(0))->getZExtValue();
@@ -110,6 +146,23 @@ void GASSDAGToDAGISel::Select(SDNode *N) {
     }
     break;
   }
+  case ISD::ConstantFP: {
+    if (N->getValueType(0).getSizeInBits() >= 32)
+      break;
+    
+    uint32_t Imm;
+    ConstantFPSDNode *FP = cast<ConstantFPSDNode>(N);
+    Imm = FP->getValueAPF().bitcastToAPInt().getZExtValue();
+    EVT TargetVT = N->getValueType(0);
+
+    SDLoc DL(N);
+    SDValue Ops[] = {CurDAG->getConstant(Imm, DL, MVT::i32), 
+                   CurDAG->getConstant(0, DL, MVT::i32),
+                   CurDAG->getRegister(GASS::PT, MVT::i1)};
+    SDNode *MovImm = CurDAG->getMachineNode(GASS::MOV32i, DL, TargetVT, Ops);
+    ReplaceNode(N, MovImm);
+    return;
+  } break;
   // GASS ISD
   case GASSISD::LDC:
     if (tryLDC(N))
@@ -151,6 +204,27 @@ bool GASSDAGToDAGISel::selectADDRri(SDValue Value, SDValue &Base,
       // FIXME: should have if (selectDirectAddr()) ?
       Offset = CurDAG->getTargetConstant(CN->getSExtValue(), SDLoc(Value), 
                                           MVT::i32);
+      return true;
+    }
+  }
+  return false;
+}
+
+/// Return true if matches (vreg + ureg)
+bool GASSDAGToDAGISel::selectADDRrui(SDValue Value, SDValue &VOffset, SDValue &UOffset) {
+  return false; // Not implemented
+  if (Value.getOpcode() == ISD::ADD) {
+    SDValue LHS = Value.getOperand(0);
+    SDValue RHS = Value.getOperand(1);
+
+    if (!LHS->isDivergent()) {
+      VOffset = RHS;
+      UOffset = LHS;
+      return true;
+    } 
+    if (!RHS->isDivergent()) {
+      VOffset = LHS;
+      UOffset = RHS;
       return true;
     }
   }

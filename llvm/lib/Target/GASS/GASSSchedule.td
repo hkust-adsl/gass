@@ -18,6 +18,7 @@ def WriteFP64 : SchedWrite;
 
 // Tensor Cores
 def WriteHMMA884 : SchedWrite;
+def WriteHMMA16816 : SchedWrite;
 
 // LDST
 def WriteLDG : SchedWrite;

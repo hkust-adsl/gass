@@ -81,6 +81,11 @@ def MmaStep : Operand<i32> {
   // let EncoderMethod = "encodeMmaStep";
 }
 
+// LDSM
+def LdsmTrans : Operand<i32> {
+  let PrintMethod = "printLdsmTrans";
+}
+
 // Must sync with enum in GASS.h
 def MmaRow : PatLeaf<(i32 0)>;
 def MmaCol : PatLeaf<(i32 1)>;

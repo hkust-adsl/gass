@@ -6,6 +6,7 @@
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineFunction.h"
+#include "llvm/CodeGen/TargetOpcodes.h"
 #include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
@@ -210,73 +211,41 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
         unsigned BLayout = MI.getOperand(21).getImm();
 
         BuildMI(MBB, MI, DL, TII->get(TargetOpcode::REG_SEQUENCE), A)
-          .addReg(AReg0)
-          .addImm(GASS::sub0)
-          .addReg(AReg1)
-          .addImm(GASS::sub1); // Do not need PredMask;
-        
+          .addReg(AReg0).addImm(GASS::sub0).addReg(AReg1).addImm(GASS::sub1);        
         BuildMI(MBB, MI, DL, TII->get(TargetOpcode::REG_SEQUENCE), B)
-          .addReg(BReg0)
-          .addImm(GASS::sub0)
-          .addReg(BReg1)
-          .addImm(GASS::sub1);
-
+          .addReg(BReg0).addImm(GASS::sub0).addReg(BReg1).addImm(GASS::sub1);
         BuildMI(MBB, MI, DL, TII->get(TargetOpcode::REG_SEQUENCE), C0)
-          .addReg(CReg0)
-          .addImm(GASS::sub0)
-          .addReg(CReg1)
-          .addImm(GASS::sub1);
+          .addReg(CReg0).addImm(GASS::sub0).addReg(CReg1).addImm(GASS::sub1);
         BuildMI(MBB, MI, DL, TII->get(TargetOpcode::REG_SEQUENCE), C1)
-          .addReg(CReg2)
-          .addImm(GASS::sub0)
-          .addReg(CReg3)
-          .addImm(GASS::sub1);
+          .addReg(CReg2).addImm(GASS::sub0).addReg(CReg3).addImm(GASS::sub1);
         BuildMI(MBB, MI, DL, TII->get(TargetOpcode::REG_SEQUENCE), C2)
-          .addReg(CReg4)
-          .addImm(GASS::sub0)
-          .addReg(CReg5)
-          .addImm(GASS::sub1);
+          .addReg(CReg4).addImm(GASS::sub0).addReg(CReg5).addImm(GASS::sub1);
         BuildMI(MBB, MI, DL, TII->get(TargetOpcode::REG_SEQUENCE), C3)
-          .addReg(CReg6)
-          .addImm(GASS::sub0)
-          .addReg(CReg7)
-          .addImm(GASS::sub1);
+          .addReg(CReg6).addImm(GASS::sub0).addReg(CReg7).addImm(GASS::sub1);
 
         // 2. MMA
         BuildMI(MBB, MI, DL, TII->get(GASS::HMMA884_f32_f32), D0)
-          .addReg(A)
-          .addReg(B)
-          .addReg(C0)
-          .addImm(ALayout)
-          .addImm(BLayout)
+          .addReg(A).addReg(B).addReg(C0)
+          .addImm(ALayout).addImm(BLayout)
           .addImm(GASS::TensorCore::STEP0)
           .addImm(0).addReg(GASS::PT); // PredMask
         BuildMI(MBB, MI, DL, TII->get(GASS::HMMA884_f32_f32), D1)
-          .addReg(A)
-          .addReg(B)
-          .addReg(C1)
-          .addImm(ALayout)
-          .addImm(BLayout)
+          .addReg(A).addReg(B).addReg(C1)
+          .addImm(ALayout).addImm(BLayout)
           .addImm(GASS::TensorCore::STEP1)
           .addImm(0).addReg(GASS::PT); // PredMask
         BuildMI(MBB, MI, DL, TII->get(GASS::HMMA884_f32_f32), D2)
-          .addReg(A)
-          .addReg(B)
-          .addReg(C2)
-          .addImm(ALayout)
-          .addImm(BLayout)
+          .addReg(A).addReg(B).addReg(C2)
+          .addImm(ALayout).addImm(BLayout)
           .addImm(GASS::TensorCore::STEP2)
           .addImm(0).addReg(GASS::PT); // PredMask
         BuildMI(MBB, MI, DL, TII->get(GASS::HMMA884_f32_f32), D3)
-          .addReg(A)
-          .addReg(B)
-          .addReg(C3)
-          .addImm(ALayout)
-          .addImm(BLayout)
+          .addReg(A).addReg(B).addReg(C3)
+          .addImm(ALayout).addImm(BLayout)
           .addImm(GASS::TensorCore::STEP3)
           .addImm(0).addReg(GASS::PT); // PredMask
 
-        // 3. extract data
+        // 3. extract result
         Register DReg0 = MRI.createVirtualRegister(&GASS::VReg32RegClass);
         Register DReg1 = MRI.createVirtualRegister(&GASS::VReg32RegClass);
         Register DReg2 = MRI.createVirtualRegister(&GASS::VReg32RegClass);
@@ -313,6 +282,110 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
         MRI.replaceRegWith(MI.getOperand(7).getReg(), DReg7);
 
         ToDeletInstrs.push_back(&*MII);
+      } break;
+      case GASS::HMMA16816_f32_f16_f16_f32_Pseudo: {
+        // 1. perpare for input data
+        Register D = MRI.createVirtualRegister(&GASS::VReg128RegClass);
+        Register A = MRI.createVirtualRegister(&GASS::VReg128RegClass);
+        Register B = MRI.createVirtualRegister(&GASS::VReg64RegClass);
+        Register C = MRI.createVirtualRegister(&GASS::VReg128RegClass);
+
+        Register PseudoD0 = MI.getOperand(0).getReg();
+        Register PseudoD1 = MI.getOperand(1).getReg();
+        Register PseudoD2 = MI.getOperand(2).getReg();
+        Register PseudoD3 = MI.getOperand(3).getReg();
+        Register PseudoA0 = MI.getOperand(4).getReg();
+        Register PseudoA1 = MI.getOperand(5).getReg();
+        Register PseudoA2 = MI.getOperand(6).getReg();
+        Register PseudoA3 = MI.getOperand(7).getReg();
+        Register PseudoB0 = MI.getOperand(8).getReg();
+        Register PseudoB1 = MI.getOperand(9).getReg();
+        Register PseudoC0 = MI.getOperand(10).getReg();
+        Register PseudoC1 = MI.getOperand(11).getReg();
+        Register PseudoC2 = MI.getOperand(12).getReg();
+        Register PseudoC3 = MI.getOperand(13).getReg();
+
+        // 2. Create new real MI
+        BuildMI(MBB, MI, DL, TII->get(TargetOpcode::REG_SEQUENCE), A)
+          .addReg(PseudoA0).addImm(GASS::sub0).addReg(PseudoA1).addImm(GASS::sub1)
+          .addReg(PseudoA2).addImm(GASS::sub2).addReg(PseudoA3).addImm(GASS::sub3);
+        BuildMI(MBB, MI, DL, TII->get(TargetOpcode::REG_SEQUENCE), B)
+          .addReg(PseudoB0).addImm(GASS::sub0).addReg(PseudoB1).addImm(GASS::sub1);
+        BuildMI(MBB, MI, DL, TII->get(TargetOpcode::REG_SEQUENCE), C)
+          .addReg(PseudoC0).addImm(GASS::sub0).addReg(PseudoC1).addImm(GASS::sub1)
+          .addReg(PseudoC2).addImm(GASS::sub2).addReg(PseudoC3).addImm(GASS::sub3);
+
+        BuildMI(MBB, MI, DL, TII->get(GASS::HMMA16816_f32_f16_f16_f32), D)
+          .addReg(A).addReg(B).addReg(C)
+          .addImm(0).addReg(GASS::PT); // PredMask
+
+        // 3. extract result
+        Register D0 = MRI.createVirtualRegister(&GASS::VReg32RegClass);
+        Register D1 = MRI.createVirtualRegister(&GASS::VReg32RegClass);
+        Register D2 = MRI.createVirtualRegister(&GASS::VReg32RegClass);
+        Register D3 = MRI.createVirtualRegister(&GASS::VReg32RegClass);
+        BuildMI(MBB, MI, DL, TII->get(TargetOpcode::COPY), D0)
+          .addReg(D, 0, GASS::sub0);
+        BuildMI(MBB, MI, DL, TII->get(TargetOpcode::COPY), D1)
+          .addReg(D, 0, GASS::sub1);
+        BuildMI(MBB, MI, DL, TII->get(TargetOpcode::COPY), D2)
+          .addReg(D, 0, GASS::sub2);
+        BuildMI(MBB, MI, DL, TII->get(TargetOpcode::COPY), D3)
+          .addReg(D, 0, GASS::sub3);
+        
+        MRI.replaceRegWith(PseudoD0, D0);
+        MRI.replaceRegWith(PseudoD1, D1);
+        MRI.replaceRegWith(PseudoD2, D2);
+        MRI.replaceRegWith(PseudoD3, D3);
+
+        ToDeletInstrs.push_back(&*MII);
+      } break;
+      case GASS::LDSM_x4_ri_pseudo: case GASS::LDSM_x4_rui_pseudo: {
+        // 1. Aggregates -> Vector
+        Register D = MRI.createVirtualRegister(&GASS::VReg128RegClass);
+
+        Register PseudoD0 = MI.getOperand(0).getReg();
+        Register PseudoD1 = MI.getOperand(1).getReg();
+        Register PseudoD2 = MI.getOperand(2).getReg();
+        Register PseudoD3 = MI.getOperand(3).getReg();
+        Register VPtr = MI.getOperand(4).getReg();
+
+        // BuildMI(MBB, MI, DL, TII->get(TargetOpcode::REG_SEQUENCE), D)
+        //   .addReg(PseudoD0).addImm(GASS::sub0).addReg(PseudoD1).addImm(GASS::sub1)
+        //   .addReg(PseudoD2).addImm(GASS::sub2).addReg(PseudoD3).addImm(GASS::sub3);
+
+        // 2. real LDSM
+        if (Opc == GASS::LDSM_x4_ri_pseudo) {
+          const MachineOperand &IOff = MI.getOperand(5);
+          const MachineOperand &IfTrans = MI.getOperand(6);
+          assert(IOff.isImm() && IfTrans.isImm());
+          BuildMI(MBB, MI, DL, TII->get(GASS::LDSM_x4_ri), D)
+            .addReg(VPtr).add(IOff).add(IfTrans)
+            .addImm(0).addReg(GASS::PT);
+        } else if (Opc == GASS::LDSM_x4_rui_pseudo) {
+          llvm_unreachable("Not implemented");
+        }
+
+        // 3. extract result
+        Register D0 = MRI.createVirtualRegister(&GASS::VReg32RegClass);
+        Register D1 = MRI.createVirtualRegister(&GASS::VReg32RegClass);
+        Register D2 = MRI.createVirtualRegister(&GASS::VReg32RegClass);
+        Register D3 = MRI.createVirtualRegister(&GASS::VReg32RegClass);
+        BuildMI(MBB, MI, DL, TII->get(TargetOpcode::COPY), D0)
+          .addReg(D, 0, GASS::sub0);
+        BuildMI(MBB, MI, DL, TII->get(TargetOpcode::COPY), D1)
+          .addReg(D, 0, GASS::sub1);
+        BuildMI(MBB, MI, DL, TII->get(TargetOpcode::COPY), D2)
+          .addReg(D, 0, GASS::sub2);
+        BuildMI(MBB, MI, DL, TII->get(TargetOpcode::COPY), D3)
+          .addReg(D, 0, GASS::sub3);
+
+        MRI.replaceRegWith(PseudoD0, D0);
+        MRI.replaceRegWith(PseudoD1, D1);
+        MRI.replaceRegWith(PseudoD2, D2);
+        MRI.replaceRegWith(PseudoD3, D3);
+
+        ToDeletInstrs.push_back(&*MII);        
       } break;
       case GASS::MOV64i: {
         // MOV64i $dst, $src;

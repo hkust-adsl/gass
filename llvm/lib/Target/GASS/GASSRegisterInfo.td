@@ -42,6 +42,7 @@ foreach Index = 0-255 in {
 
 foreach Index = 0-6 in {
   def PR#Index : GASSReg<"P"#Index, Index>;
+  def UPR#Index : GASSReg<"UP"#Index, Index>;
 }
 
 // Zero registers
@@ -127,6 +128,10 @@ def VReg128 : GASSRegClass<[v2i64, v2f64, v4i32, v4f32,
                            (add VReg128Tuple)> {
   let GeneratePressureSet = false;
 }
+
+// Uniform Registers
+def SReg1 : GASSRegClass<[i1], 1, (add (sequence "UPR%u", 0, 6))>;
+def SReg32 : GASSRegClass<[i32], 32, (add (sequence "SGPR%u", 0, 63))>;
 
 //=--------------------------------------------------------------------------=//
 // Virtual registers (will be eliminated after ISel)

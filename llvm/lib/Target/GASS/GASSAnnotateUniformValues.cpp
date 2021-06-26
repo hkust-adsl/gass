@@ -59,7 +59,6 @@ static void setUniformMetadata(Instruction *I) {
 bool GASSAnnotateUniformValues::visitInstr(Instruction *I) {
   if (DA->isUniform(I)) {
     setUniformMetadata(I);
-    I->dump();
     return true;
   }
   return false;

@@ -467,7 +467,31 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       .addImm(GASS::SHF_FLAGS::LO)
       .add(MI.getOperand(3)).add(MI.getOperand(4)); // PredMask
   } break;
-  case GASS::SRA32rr: case GASS::SRA32ri: 
+  case GASS::SRA32rr: case GASS::SRA32ri: {
+    // SRA32 $dst, $src, $amt;
+    //   ->
+    // SHF.R.S32.HI $dst, $RZ, $amt, $src;
+    Register Dst = MI.getOperand(0).getReg();
+    Register Src = MI.getOperand(1).getReg();
+    const MachineOperand &Amount = MI.getOperand(2);
+
+    unsigned Opcode;
+    if (Amount.isReg()) 
+      Opcode = GASS::SHFrrr;
+    else if (Amount.isImm())
+      Opcode = GASS::SHFrir;
+    else
+      llvm_unreachable("Invalid data type");
+
+    BuildMI(MBB, MI, DL, get(Opcode), Dst)
+      .addReg(Src)
+      .add(Amount)
+      .addReg(GASS::RZ32)
+      .addImm(GASS::SHF_FLAGS::R)
+      .addImm(GASS::SHF_FLAGS::S32)
+      .addImm(GASS::SHF_FLAGS::HI)
+      .add(MI.getOperand(3)).add(MI.getOperand(4)); // PredMask
+  } break;
   case GASS::SRA64rr: case GASS::SRA64ri:
   case GASS::SRL64rr: case GASS::SRL64ri: {
     llvm_unreachable("Not implemented");
@@ -538,6 +562,7 @@ bool GASSInstrInfo::isLDS(const MachineInstr &MI) {
   case GASS::LDS32r: case GASS::LDS32ri:
   case GASS::LDS64r: case GASS::LDS64ri:
   case GASS::LDS128r: case GASS::LDS128ri:
+  case GASS::LDSM_x4_ri:
     return true;
   }
 }
@@ -625,6 +650,7 @@ MachineOperand* GASSInstrInfo::getMemOperandReg(MachineInstr &MI) {
   case GASS::LDG32r: case GASS::LDG32ri:
   case GASS::LDG64r: case GASS::LDG64ri:
   case GASS::LDG128r: case GASS::LDG128ri:
+  case GASS::LDSM_x4_ri:
     return &MI.getOperand(1);
   case GASS::STS16r: case GASS::STS16ri:
   case GASS::STS32r: case GASS::STS32ri:

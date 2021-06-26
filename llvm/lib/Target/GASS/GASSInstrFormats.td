@@ -80,6 +80,11 @@ class GASSPseudoInst<dag outs, dag ins, list<dag> pattern>
   let isPseudo = true;
 }
 
+class GASSPseudoInstNoPred<dag outs, dag ins, list<dag> pattern>
+  : GASSInstNoPred<outs, ins, 0x0, "", pattern> {
+  let isPseudo = true;
+}
+
 
 //=--------------------------------------------------------------------------=//
 // load/store template

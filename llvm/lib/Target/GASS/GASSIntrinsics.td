@@ -25,25 +25,59 @@
 //----------shared memory----------------
 let mayLoad = true in {
 multiclass LDSM<RegisterClass RC, int Num> {
-  def _r 
-    : GASSInst<(outs RC:$dst), (ins VReg32:$ptr), 0x83b, "LDSM.16.M88."#Num#"\t $dst, [$ptr];", []>;
+  // def _r 
+  //   : GASSInst<(outs RC:$dst), (ins VReg32:$ptr), 0x83b, "LDSM.16.M88."#Num#"\t $dst, [$ptr];", []>;
 
-  def _ru 
-    : GASSInst<(outs RC:$dst), (ins VReg32:$ptr, SReg32:$u_off), 0x83b, 
-               "LDSM.16.M88."#Num#"\t $dst, [$ptr+$u_ff];", []>;
+  // def _ru 
+  //   : GASSInst<(outs RC:$dst), (ins VReg32:$ptr, SReg32:$u_off), 0x83b, 
+  //              "LDSM.16.M88."#Num#"\t $dst, [$ptr+$u_ff];", []>;
 
-  def _rui
-    : GASSInst<(outs RC:$dst), (ins VReg32:$ptr, SReg32:$u_off, i32imm:$offset), 0x83b, 
-               "LDSM.16.M88."#Num#"\t $dst, [$ptr+$u_ff+$offset];", []>;
+  // def _rui
+  //   : GASSInst<(outs RC:$dst), (ins VReg32:$ptr, SReg32:$u_off, i32imm:$offset), 0x83b, 
+  //              "LDSM.16.M88."#Num#"\t $dst, [$ptr+$u_ff+$offset];", []>;
 
   def _ri
-    : GASSInst<(outs RC:$dst), (ins VReg32:$ptr, i32imm:$offset), 0x83b, 
-               "LDSM.16.M88."#Num#"\t $dst, [$ptr+$offset];", []>;
+    : GASSInst<(outs RC:$dst), (ins VReg32:$ptr, i32imm:$offset, LdsmTrans:$trans), 0x83b, 
+               "LDSM.16.$trans."#Num#"\t $dst, [$ptr+$offset];", []> {
+    bits<1> trans; // .M88 | .MT88
+    let Inst{14} = trans;
+
+    // TODO: clean up this
+    // Num
+    let Inst{9-8} = !cond(
+      !eq(Num, 1): 0,
+      !eq(Num, 2): 1,
+      !eq(Num, 4): 2
+    );
+
+    bits<8> dst;
+    bits<8> ptr;
+    
+    let Dst = dst;
+    let Src0 = ptr;
+
+    bits<24> offset;
+
+    let Inst{127-104} = offset;
+  }
+
+  def _ri_pseudo : GASSPseudoInstNoPred<(outs VReg32:$d0, VReg32:$d1, VReg32:$d2, VReg32:$d3), 
+                                  (ins VReg32:$ptr, i32imm:$ioff, LdsmTrans:$trans), []>;
+  def _rui_pseudo : GASSPseudoInstNoPred<(outs VReg32:$d0, VReg32:$d1, VReg32:$d2, VReg32:$d3), 
+                                   (ins VReg32:$ptr, SReg32:$uoff, i32imm:$ioff, LdsmTrans:$trans), []>;
+
 }
 }
-defm LDSM_x1 : LDSM<VReg32, 1>;
-defm LDSM_x2 : LDSM<VReg64, 2>;
+// defm LDSM_x1 : LDSM<VReg32, 1>;
+// defm LDSM_x2 : LDSM<VReg64, 2>;
 defm LDSM_x4 : LDSM<VReg128, 4>;
+
+// TODO: patterns for _ri_pseudo & _rui_pseudo
+
+// def : Pat<(set v2f16:$d0, v2f16:$d1, v2f16:$d2, v2f16:$d3,
+//                (int_nvvm_ldmatrix_m8n8_x4 i32:$ptr, i64imm:$offset)),
+//           (set (REG_SEQUENCE VReg128, VReg32:$d0, sub0, VReg32:$d1, sub1, 
+//                                              VReg32:$d2, sub2, VReg32:$d3, sub3)>;
 
 // cp.async.commit_group;
 // TODO: schedule model
@@ -154,12 +188,25 @@ multiclass HMMA884 {
 defm HMMA884 : HMMA884, Sched<[WriteHMMA884]>;
 
 // mma16816
+// We need a pseudo instr because we need to insert REGSEQUENCEs pre-ra
+def HMMA16816_f32_f16_f16_f32_Pseudo :
+  GASSPseudoInstNoPred<(outs VReg32:$d0, VReg32:$d1, VReg32:$d2, VReg32:$d3),
+                       (ins VReg32:$a0, VReg32:$a1, VReg32:$a2, VReg32:$a3,
+                            VReg32:$b0, VReg32:$b1,
+                            VReg32:$c0, VReg32:$c1, VReg32:$c2, VReg32:$c3), []>;
+def : Pat<(int_nvvm_mma_m16n8k16_row_col_f32_f16_f16_f32
+               v2f16:$a0, v2f16:$a1, v2f16:$a2, v2f16:$a3, v2f16:$b0, v2f16:$b1,
+               f32:$c0, f32:$c1, f32:$c2, f32:$c3),
+          (HMMA16816_f32_f16_f16_f32_Pseudo
+               VReg32:$a0, VReg32:$a1, VReg32:$a2, VReg32:$a3, VReg32:$b0, VReg32:$b1,
+               VReg32:$c0, VReg32:$c1, VReg32:$c2, VReg32:$c3)>;
+
 multiclass HMMA16816 {
   def _f32_f16_f16_f32 
     : GASSInstOp3rrr<(outs VReg128:$dst),
                (ins VReg128:$src0, VReg64:$src1, VReg128:$src2),
                0x23c,
-               "HMMA.16816.F32\t $src0, $src1, $src2;\n",
+               "HMMA.16816.F32\t $dst, $src0, $src1, $src2;",
                []> {
     // .16816
     let Inst{11} = 1;
@@ -171,4 +218,4 @@ multiclass HMMA16816 {
   // def _f32_f16_f16_f16 : ;
 }
 
-defm HMMA16816 : HMMA16816;
+defm HMMA16816 : HMMA16816, Sched<[WriteHMMA16816]>;

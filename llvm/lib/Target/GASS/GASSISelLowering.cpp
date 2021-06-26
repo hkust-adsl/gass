@@ -39,6 +39,8 @@ GASSTargetLowering::GASSTargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::ConstantFP, MVT::f64, Legal);
   setOperationAction(ISD::ConstantFP, MVT::f32, Legal);
   setOperationAction(ISD::ConstantFP, MVT::f16, Legal);
+  setOperationAction(ISD::Constant, MVT::i32, Legal);
+  setOperationAction(ISD::Constant, MVT::i64, Legal);
 
   // expand i64 instructions: ADD, SHF & ?
   // i64 add -> 2x i32 add (or use psedo instruction?)

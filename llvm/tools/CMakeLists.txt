@@ -42,6 +42,22 @@ add_llvm_external_project(flang)
 
 # Automatically add remaining sub-directories containing a 'CMakeLists.txt'
 # file as external projects.
+set(LLVM_TOOL_BUGPOINT_BUILD Off)
+set(LLVM_TOOL_BUGPOINT_PASSES_BUILD Off)
+set(LLVM_TOOL_DSYMUTIL_BUILD Off)
+set(LLVM_TOOL_GOLD_BUILD Off)
+set(LLVM_TOOL_LLI_BUILD Off)
+set(LLVM_TOOL_LLVM_AR_BUILD Off)
+set(LLVM_TOOL_LLVM_AS_BUILD Off)
+set(LLVM_TOOL_OPT_BUILD Off)
+set(LLVM_TOOL_OPT_FUZZER_BUILD Off)
+set(LLVM_TOOL_LLVM_ISEL_FUZZER_BUILD Off)
+set(LLVM_TOOL_LLVM_LTO_BUILD Off)
+set(LLVM_TOOL_LLVM_LTO2_BUILD Off)
+set(LLVM_TOOL_LLVM_XRAY_BUILD Off)
+set(LLVM_TOOL_LLVM_C_TEST_BUILD Off)
+set(LLVM_TOOL_LLVM_CAT_BUILD Off)
+
 add_llvm_implicit_projects()
 
 add_llvm_external_project(polly)

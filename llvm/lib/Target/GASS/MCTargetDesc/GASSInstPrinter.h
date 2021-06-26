@@ -40,6 +40,7 @@ private:
   void printPredicateSign(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printMmaLayout(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printMmaStep(const MCInst *MI, unsigned OpNo, raw_ostream &O);
+  void printLdsmTrans(const MCInst *MI, unsigned OpNo, raw_ostream &O);
 
   // funnel shift (shf)
   void printShiftDir(const MCInst *MI, unsigned OpNo, raw_ostream &O);

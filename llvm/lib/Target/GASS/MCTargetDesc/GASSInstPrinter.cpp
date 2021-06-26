@@ -213,3 +213,14 @@ void GASSInstPrinter::printPredicateSign(const MCInst *MI,
   case 1 : O << "!"; return;
   }
 }
+
+void GASSInstPrinter::printLdsmTrans(const MCInst *MI, unsigned OpNo, raw_ostream &O) {
+  const MCOperand &Op = MI->getOperand(OpNo);
+  assert(Op.isImm());
+  unsigned Value = Op.getImm();
+  switch (Value) {
+  default: llvm_unreachable("Invalid");
+  case 0: O << "M88"; return;
+  case 1: O << "MT88"; return;
+  }
+}

@@ -15,7 +15,7 @@ def SM70UnitLDST  : ProcResource<1> { let BufferSize = 0; /*5*/ }
 def SM70UnitFP32ALU : ProcResource<1> { let BufferSize = 0; }
 def SM70UnitFP64ALU : ProcResource<1> { let BufferSize = 0; }
 def SM70UnitSFU : ProcResource<1> { let BufferSize = 0; }
-def SM70UintTensorCore : ProcResource<1> { let BufferSize = 0; }
+def SM70UnitTensorCore : ProcResource<1> { let BufferSize = 0; }
 // Other
 
 
@@ -51,8 +51,10 @@ def : WriteRes<WriteF2F, [SM70UnitSFU]> { let Latency = 10; // TODO: verify this
                                           let ResourceCycles = [8]; }
 
 // TensorCore
-def : WriteRes<WriteHMMA884, [SM70UintTensorCore]> { let Latency = 10; // TODO: verify this
+def : WriteRes<WriteHMMA884, [SM70UnitTensorCore]> { let Latency = 10; // TODO: verify this
                                                      let ResourceCycles = [2]; }
+def : WriteRes<WriteHMMA16816, [SM70UnitTensorCore]> { let Latency = 30; 
+                                                       let ResourceCycles = [4]; }
 
 // Memory
 // shared memory (4 cycles for LDS.32 (w/o bank conflict))

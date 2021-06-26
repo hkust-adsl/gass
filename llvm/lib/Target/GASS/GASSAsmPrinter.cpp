@@ -54,7 +54,7 @@ class GASSAsmPrinter : public AsmPrinter {
   /// Record offsets of EXITs (nv.info needs them)
   std::vector<unsigned> EXITOffsets;
   /// Current Instr Offset (in bytes)
-  unsigned CurrentOffset; 
+  unsigned CurrentOffset = 0; 
 
   /// Module-level .nv.info
   std::vector<std::unique_ptr<NvInfo>> ModuleInfo;

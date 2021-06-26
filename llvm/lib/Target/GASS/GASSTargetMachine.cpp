@@ -141,6 +141,7 @@ bool GASSPassConfig::addPreISel() {
 bool GASSPassConfig::addInstSelector() {
   addPass(new GASSDAGToDAGISel(getGASSTargetMachine()));
   addPass(createGASSExpandPreRAPseudoPass());
+  // addPass(createMachineVerifierPass("** Verify After ISel **"));
   return false;
 }
 
@@ -201,7 +202,7 @@ void GASSPassConfig::addOptimizedRegAlloc() {
 
     // Copy propagate to forward register uses and try to eliminate COPYs that
     // were not coalesced.
-    addPass(&MachineCopyPropagationID);
+    // addPass(&MachineCopyPropagationID);
 
     // Run post-ra machine LICM to hoist reloads / remats.
     //

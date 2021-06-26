@@ -36,6 +36,7 @@ def llvm_shared_i8ptr_ty  : LLVMQualPointerType<llvm_i8_ty, 3>;  // (shared)i8*
 def llvm_i64ptr_ty        : LLVMPointerType<llvm_i64_ty>;        // i64*
 def llvm_any_i64ptr_ty    : LLVMAnyPointerType<llvm_i64_ty>;     // (space)i64*
 def llvm_shared_i64ptr_ty : LLVMQualPointerType<llvm_i64_ty, 3>; // (shared)i64*
+def llvm_shared_f16ptr_ty : LLVMQualPointerType<llvm_half_ty, 3>; // (shared)f16*
 
 //
 // MISC
@@ -4272,17 +4273,17 @@ def int_nvvm_mma_m16n8k16_row_col_f32_f16_f16_f32
               [IntrNoMem],
               "llvm.nvvm.mma.m16n8k16.row.col.f32.f16.f16.f32">;
 
-// ldmatrix
+// ldmatrix (ptr+offset)
 def int_nvvm_ldmatrix_m8n8_x4
   : Intrinsic<!listsplat(llvm_v2f16_ty, 4),
-              [LLVMQualPointerType<llvm_half_ty, 3>, llvm_i32_ty],
-              [],
+              [/*short ptr*/llvm_shared_f16ptr_ty, /*offset*/llvm_i32_ty],
+              [IntrReadMem, IntrArgMemOnly, NoCapture<ArgIndex<0>>, ReadOnly<ArgIndex<0>>],
               "llvm.nvvm.ldmatrix.m8n8.x4">;
 
 def int_nvvm_ldmatrix_m8n8_x4_trans
   : Intrinsic<!listsplat(llvm_v2f16_ty, 4),
-              [LLVMQualPointerType<llvm_half_ty, 3>, llvm_i32_ty],
-              [],
+              [/*short ptr*/llvm_shared_f16ptr_ty, /*offset*/llvm_i32_ty],
+              [IntrReadMem, IntrArgMemOnly, NoCapture<ArgIndex<0>>, ReadOnly<ArgIndex<0>>],
               "llvm.nvvm.ldmatrix.m8n8.x4.trans">;
 
 } // let TargetPrefix = "nvvm"
