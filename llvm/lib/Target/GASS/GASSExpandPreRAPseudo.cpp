@@ -120,7 +120,7 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
           .addImm(1).addReg(GASS::PT) // !PT
           .addImm(0).addReg(GASS::PT); // PredMask
         BuildMI(MBB, MI, DL, TII->get(GASS::IADDXrr), DstSub1)
-          .addReg(GASS::PT, RegState::Define)
+          .addReg(GASS::PT, RegState::Define | RegState::Dead)
           .add(LHSSub1)
           .add(RHSSub1)
           .addImm(0).addReg(CarryReg, RegState::Kill)

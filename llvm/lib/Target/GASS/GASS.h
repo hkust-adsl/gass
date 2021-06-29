@@ -26,6 +26,7 @@ FunctionPass *createGASSIfConversionPass();
 FunctionPass *createGASSPreEmitPreparePass();
 FunctionPass *createRegPressureComputePass();
 FunctionPass *createGASSLDGSinkPass();
+FunctionPass *createGASSPhysRegLivenessPass();
 
 void initializeGASSAnnotateUniformValuesPass(PassRegistry &);
 void initializeGASSSinkingPass(PassRegistry &);
@@ -39,6 +40,7 @@ void initializeGASSBranchOffsetPass(PassRegistry &);
 void initializeGASSPreEmitPreparePass(PassRegistry &);
 void initializeRegPressureComputePass(PassRegistry &);
 void initializeGASSLDGSinkPass(PassRegistry &);
+void initializeGASSPhysRegLivenessPass(PassRegistry &);
 
 
 namespace GASS {
@@ -138,6 +140,16 @@ enum STEP : unsigned {
   STEP3 = 3,
 };
 } // namespace TensorCore
+
+namespace MufuFlag {
+enum Flag : unsigned {
+  COS = 0,
+  SIN = 1,
+  EX2 = 2,
+  LG2 = 3,
+  RCP = 4,
+};
+} // namespace MufuFlag
 
 } // namespace GASS
 

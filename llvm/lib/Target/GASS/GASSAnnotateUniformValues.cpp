@@ -75,6 +75,8 @@ bool GASSAnnotateUniformValues::runOnFunction(Function &F) {
     for (Instruction &I : BB)
       MadeChange |= visitInstr(&I);
 
+  LLVM_DEBUG(F.dump());
+
   return MadeChange;
 }
 

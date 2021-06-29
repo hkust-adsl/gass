@@ -54,6 +54,17 @@ GASSTargetLowering::GASSTargetLowering(const TargetMachine &TM,
     setOperationAction(ISD::BR_CC, VT, Expand);
   }
 
+  // These map to corresponding instructions for f32/f64. f16 must be
+  // promoted to f32. v2f16 is expanded to f16, which is then promoted
+  // to f32.
+  for (const auto &Op : {ISD::FDIV, ISD::FREM, ISD::FSQRT, ISD::FSIN, ISD::FCOS,
+                         ISD::FABS, ISD::FMINNUM, ISD::FMAXNUM}) {
+    setOperationAction(Op, MVT::f16, Promote);
+    setOperationAction(Op, MVT::f32, Legal);
+    setOperationAction(Op, MVT::f64, Legal);
+    setOperationAction(Op, MVT::v2f16, Expand);
+  }
+
   // Provide all sorts of operation actions
   setOperationAction(ISD::ADDCARRY, MVT::i32, Legal);
 
@@ -209,6 +220,8 @@ SDValue
 GASSTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
                               SmallVectorImpl<SDValue> &InVals) const {
   // TODO: fill this.  
+  CLI.Callee->dump();
+  CLI.DAG.dump();
   llvm_unreachable("GASSTargetLowering::LowerCall() not implemented");
   return SDValue();
 }

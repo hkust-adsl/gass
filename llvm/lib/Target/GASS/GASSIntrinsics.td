@@ -101,6 +101,52 @@ def DEPBAR : GASSInst<(outs), (ins i32imm:$n), 0x91a, "DEPBAR.LE\t SB0, $n;",
 }
 
 //=---------------------------------=//
+// MUFU
+//=---------------------------------=//
+class MUFU : GASSInst<(outs VReg32:$dst), (ins VReg32:$src1, MufuFlag:$flag), 
+                     0x308, "MUFU.$flag \t$dst, $src1;", []> {
+  bits<8> src1;
+  let Src1 = src1;
+
+  bits<4> flag;
+  let Inst{13-10} = flag;
+}
+
+def MUFU : MUFU, Sched<[WriteMUFU]>;
+def : Pat<(int_nvvm_cos_approx_f f32:$src), (MUFU VReg32:$src, MufuCos)>;
+def : Pat<(int_nvvm_sin_approx_f f32:$src), (MUFU VReg32:$src, MufuSin)>;
+def : Pat<(int_nvvm_ex2_approx_f f32:$src), (MUFU VReg32:$src, MufuEx2)>;
+def : Pat<(int_nvvm_lg2_approx_f f32:$src), (MUFU VReg32:$src, MufuLg2)>;
+def : Pat<(int_nvvm_rcp_rn_f f32:$src), (MUFU VReg32:$src, MufuRcp)>;
+// TODO: other flags...
+
+def : Pat<(fdiv f32:$src0, f32:$src1), 
+          (FMULrr VReg32:$src0, (MUFU VReg32:$src1, MufuRcp))>;
+
+//=---------------------------------=//
+// maxmin
+//=---------------------------------=//
+multiclass FMNMX<bit IsMin> {
+  def rr : GASSInstOp2rr<(outs VReg32:$dst), (ins VReg32:$src0, VReg32:$src1),
+                         0x209, 
+                         !strconcat("FMNMX \t$dst, $src0, $src1, ",
+                                    !if(IsMin, "", "!"), "PT;"), []> {
+    bits<4> MNMXP = !if(IsMin, 0x7, 0xf);
+    let Inst{26-23} = MNMXP;
+  }
+
+  // def ri : ;
+
+  // def rc : ;
+}
+
+defm FMIN : FMNMX<true>, Sched<[WriteFMNMX]>;
+defm FMAX : FMNMX<false>, Sched<[WriteFMNMX]>;
+
+def : Pat<(fminnum f32:$src0, f32:$src1), (FMINrr VReg32:$src0, VReg32:$src1)>;
+def : Pat<(fmaxnum f32:$src0, f32:$src1), (FMAXrr VReg32:$src0, VReg32:$src1)>;
+
+//=---------------------------------=//
 // Tensor Core
 //=---------------------------------=//
 // multiclass HMMA1688 {

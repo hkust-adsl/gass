@@ -11,10 +11,12 @@ def WriteIMULWIDE : SchedWrite;
 
 // Special units
 def WriteF2F : SchedWrite;
+def WriteMUFU : SchedWrite;
 
 // Floating points
 def WriteFP32 : SchedWrite;
 def WriteFP64 : SchedWrite;
+def WriteFMNMX : SchedWrite;
 
 // Tensor Cores
 def WriteHMMA884 : SchedWrite;

@@ -224,3 +224,17 @@ void GASSInstPrinter::printLdsmTrans(const MCInst *MI, unsigned OpNo, raw_ostrea
   case 1: O << "MT88"; return;
   }
 }
+
+void GASSInstPrinter::printMufuFlag(const MCInst *MI, unsigned OpNo, raw_ostream &O) {
+  const MCOperand &Op = MI->getOperand(OpNo);
+  assert(Op.isImm());
+  unsigned Flag = Op.getImm();
+  switch (Flag) {
+  default: llvm_unreachable("Invalid");
+  case GASS::MufuFlag::COS: O << "COS"; return;
+  case GASS::MufuFlag::SIN: O << "SIN"; return;
+  case GASS::MufuFlag::EX2: O << "EX2"; return;
+  case GASS::MufuFlag::LG2: O << "LG2"; return;
+  case GASS::MufuFlag::RCP: O << "RCP"; return;
+  }
+}

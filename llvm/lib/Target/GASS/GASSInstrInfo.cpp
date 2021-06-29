@@ -609,7 +609,7 @@ bool GASSInstrInfo::isTC(const MachineInstr &MI) {
 bool GASSInstrInfo::isSFU(const MachineInstr &MI) {
   switch (MI.getOpcode()) {
   default: return false;
-  case GASS::F2F_F16_F32:
+  case GASS::F2F_F16_F32: case GASS::MUFU:
     return true;
   }
 }

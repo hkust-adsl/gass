@@ -70,6 +70,17 @@ def PredSign : Operand<i1> {
   let PrintMethod = "printPredicateSign";
 }
 
+// MUFU
+def MufuFlag : Operand<i32> {
+  let PrintMethod = "printMufuFlag";
+}
+
+def MufuCos : PatLeaf<(i32 0)>;
+def MufuSin : PatLeaf<(i32 1)>;
+def MufuEx2 : PatLeaf<(i32 2)>;
+def MufuLg2 : PatLeaf<(i32 3)>;
+def MufuRcp : PatLeaf<(i32 4)>;
+
 // Tensor Cores
 def MmaLayout : Operand<i32> {
   let PrintMethod = "printMmaLayout";
@@ -587,15 +598,19 @@ multiclass FMA<string OpcStr, RegisterClass RC, Operand ImmCls, ValueType vt,
 // MUL
 multiclass MUL<string OpcStr, RegisterClass RC, Operand ImmCls, ValueType vt,
                bits<12> rrEnc, bits<12> riEnc> {
-  def rr : GASSInst<(outs RC:$dst), (ins RC:$a, RC:$b),
+  def rr : GASSInstOp2rr<(outs RC:$dst), (ins RC:$src0, RC:$src1),
                     rrEnc,
-                    !strconcat(OpcStr, " \t$dst, $a, $b;"),
-                    [(set vt:$dst, (fmul vt:$a, vt:$b))]>;
+                    !strconcat(OpcStr, " \t$dst, $src0, $src1;"),
+                    [(set vt:$dst, (fmul vt:$src0, vt:$src1))]> {
+    let Inst{22} = 1;
+  }
   
-  def ri : GASSInst<(outs RC:$dst), (ins RC:$a, ImmCls:$b),
+  def ri : GASSInstOp2ri<(outs RC:$dst), (ins RC:$src0, ImmCls:$src1),
                      riEnc,
-                     !strconcat(OpcStr, " \t$dst, $a, $b;"),
-                     [(set vt:$dst, (fmul vt:$a, fpimm:$b))]>;
+                     !strconcat(OpcStr, " \t$dst, $src0, $src1;"),
+                     [(set vt:$dst, (fmul vt:$src0, fpimm:$src1))]> {
+    let Inst{22} = 1;
+  }
 }
 
 // ADD
@@ -612,11 +627,29 @@ multiclass ADD<string OpcStr, RegisterClass RC, Operand ImmCls, ValueType vt,
                      [(set vt:$dst, (fadd vt:$src0, fpimm:$src1))]>;
 }
 
+// FSUB
+multiclass FSUB<string TypePrefix, RegisterClass RC, Operand ImmCls, ValueType vt,
+               bits<12> rrEnc, bits<12> riEnc> {
+  def rr : GASSInstOp2rr<(outs RC:$dst), (ins RC:$src0, RC:$src1),
+                    rrEnc,
+                    !strconcat(TypePrefix, "ADD \t$dst, $src0, -$src1;"),
+                    [(set vt:$dst, (fsub vt:$src0, vt:$src1))]> {
+    let Inst{127} = 1;
+  }
+  
+  // def ri : GASSInstOp2ri<(outs RC:$dst), (ins RC:$src0, ImmCls:$src1),
+  //                    riEnc,
+  //                    !strconcat(OpcStr, " \t$dst, $src0, $src1;"),
+  //                    [(set vt:$dst, (fadd vt:$src0, fpimm:$src1))]>;
+}
+
 defm FFMA : FMA<"FFMA", VReg32, f32imm, f32, 0x223, 0x423, 0x823>, 
             Sched<[WriteFP32]>;
 defm FMUL : MUL<"FMUL", VReg32, f32imm, f32, 0x220, 0x820>,
             Sched<[WriteFP32]>;
 defm FADD : ADD<"FADD", VReg32, f32imm, f32, 0x221, 0x421>,
+            Sched<[WriteFP32]>;
+defm FSUB : FSUB<"F", VReg32, f32imm, f32, 0x221, 0x421>,
             Sched<[WriteFP32]>;
 
 defm DFMA : FMA<"DFMA", VReg64, f64imm, f64, 0x22b, 0x42b, 0x82b> , 
@@ -1080,24 +1113,40 @@ multiclass SHFL {
   def rrr : GASSInstOp3rrr<(outs VReg32:$dst),
                      (ins VReg32:$src0, VReg32:$src1, VReg32:$src2,
                           ShflMode:$shfl),
-                     0x389, "SHFL$shfl $dst, $src0, $src1, $src2;", []>;
+                     0x389, "SHFL$shfl $dst, $src0, $src1, $src2;", []> {
+    bits<2> shfl;
+    let Inst{123-122} = shfl;
+  }
 
   def rri : GASSInstOp3rri<(outs VReg32:$dst),
                     (ins VReg32:$src0, VReg32:$src1, i32imm:$src2,
                         ShflMode:$shfl),
-                    0x589, "SHFL$shfl $dst, $src0, $src1, $src2;", []>;
+                    0x589, "SHFL$shfl $dst, $src0, $src1, $src2;", []> {
+    bits<2> shfl;
+    let Inst{123-122} = shfl;
+  }
 
   def rir : GASSInstOp3rir<(outs VReg32:$dst),
                      (ins VReg32:$src0, i32imm:$src1, VReg32:$src2,
                           ShflMode:$shfl),
-                     0x989, "SHFL$shfl $dst, $src0, $src1, $src2;", []>;
+                     0x989, "SHFL$shfl $dst, $src0, $src1, $src2;", []> {
+    bits<2> shfl;
+    let Inst{123-122} = shfl;
+  }
 
-
-
-  def rii : GASSInst<(outs VReg32:$dst),
-                     (ins VReg32:$src0, i32imm:$src1, i32imm:$src2,
+  def rii : GASSInstOp1r<(outs VReg32:$dst),
+                     (ins VReg32:$src0, i32imm:$offset, i32imm:$mask,
                           ShflMode:$shfl),
-                     0xf89, "SHFL$shfl $dst, $src0, $src1, $src2;", []>;
+                     0xf89, "SHFL$shfl $dst, $src0, $offset, $mask;", []> {
+    bits<5> offset;
+    bits<5> mask;
+    bits<2> shfl;
+    let Inst{121-117} = offset;
+    let Inst{108-104} = mask;
+    let Inst{123-122} = shfl;
+
+    let Inst{19-17} = 0x7; // PT
+  }
 }
 }
 

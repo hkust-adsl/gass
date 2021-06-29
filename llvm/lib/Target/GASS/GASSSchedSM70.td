@@ -41,14 +41,18 @@ def : WriteRes<WriteIMULWIDE, [SM70UnitFP32ALU]> { let Latency = 8;
 // Single precision.
 def : WriteRes<WriteFP32, [SM70UnitFP32ALU]> { let Latency = 5; 
                                                let ResourceCycles = [2]; }
+def : WriteRes<WriteFMNMX, [SM70UnitFP32ALU]> { let Latency = 8;
+                              /* verify this */ let ResourceCycles = [2]; }
 
 // Double precision.
 def : WriteRes<WriteFP64, [SM70UnitFP64ALU]> { let Latency = 8; // TODO: verify this
                                                let ResourceCycles = [4]; }
 
-// SFU (e.g., F2F, ...)
+// SFU (e.g., F2F, MUFU)
 def : WriteRes<WriteF2F, [SM70UnitSFU]> { let Latency = 10; // TODO: verify this
                                           let ResourceCycles = [8]; }
+def : WriteRes<WriteMUFU, [SM70UnitSFU]> { let Latency = 10; // TODO: verify this
+                                           let ResourceCycles = [8]; }
 
 // TensorCore
 def : WriteRes<WriteHMMA884, [SM70UnitTensorCore]> { let Latency = 10; // TODO: verify this

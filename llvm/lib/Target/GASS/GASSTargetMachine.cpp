@@ -91,14 +91,14 @@ public:
   void addPreEmitPass() override;
 
   // // override MachineScheduleStrategy
-  ScheduleDAGInstrs *
-  createMachineScheduler(MachineSchedContext *C) const override {
-    ScheduleDAGMILive *DAG =
-        new ScheduleDAGMILive(C, std::make_unique<GASSSchedStrategy>(C));
-    // DAG->addMutation(createGASSTensorCoreChainDAGMutation());
-    // DAG->addMutation(createGASSCarryInClusterDAGMutation());
-    return DAG;
-  }
+  // ScheduleDAGInstrs *
+  // createMachineScheduler(MachineSchedContext *C) const override {
+  //   ScheduleDAGMILive *DAG =
+  //       new ScheduleDAGMILive(C, std::make_unique<GASSSchedStrategy>(C));
+  //   // DAG->addMutation(createGASSTensorCoreChainDAGMutation());
+  //   // DAG->addMutation(createGASSCarryInClusterDAGMutation());
+  //   return DAG;
+  // }
 };
 } // anonymous namespace
 
@@ -194,6 +194,7 @@ void GASSPassConfig::addOptimizedRegAlloc() {
 
   // // Compute Register Pressure at each line
   // addPass(createRegPressureComputePass());
+  // addPass(&MachineFunctionPrinterPassID);
 
   if (addRegAssignmentOptimized()) {
     // Allow targets to expand pseudo instructions depending on the choice of
@@ -251,6 +252,7 @@ void GASSPassConfig::addPreEmitPass() {
   // addPass(createGASSLDGSinkPass());
   // Debug pass
   // addPass(createGASSMachineFunctionCFGPrinterPass());
+  addPass(createGASSPhysRegLivenessPass());
   addPass(createGASSBarrierSettingPass());
   // StallSetting here (called by GASSAsmPrinter)
 }
