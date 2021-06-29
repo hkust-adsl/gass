@@ -57,8 +57,8 @@ def : WriteRes<WriteMUFU, [SM70UnitSFU]> { let Latency = 10; // TODO: verify thi
 // TensorCore
 def : WriteRes<WriteHMMA884, [SM70UnitTensorCore]> { let Latency = 10; // TODO: verify this
                                                      let ResourceCycles = [2]; }
-def : WriteRes<WriteHMMA16816, [SM70UnitTensorCore]> { let Latency = 30; 
-                                                       let ResourceCycles = [4]; }
+def : WriteRes<WriteHMMA16816, [SM70UnitTensorCore]> { let Latency = 20; // At least 20
+                                                       let ResourceCycles = [16]; }
 
 // Memory
 // shared memory (4 cycles for LDS.32 (w/o bank conflict))

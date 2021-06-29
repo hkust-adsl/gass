@@ -45,12 +45,17 @@ class GASSSchedStrategy final : public GenericScheduler {
   // Caches ScoreBoard
   GASSScoreBoard ScoreBoard;
 
+  // Critial Resource
+  InstrStage::FuncUnits CritialFU;
+  unsigned MaxCycles = 0;
+
   /// higher means higher priority
   /// Samiliar to CandReason in GenericSchedulerBase
   enum SchedPriority : uint8_t {
     SCHED_COPY = 0,
-    SCHED_LDG,
-    SCHED_LDS,
+    SCHED_MATH,
+    SCHED_LDG,  
+    SCHED_LDS,      
     SCHED_FREE_RESOURCE,
     SCHED_CARRYIN,
     SCHED_LATENCY,
@@ -94,6 +99,7 @@ private:
   /// computes schedule score (priority) of a node
   std::vector<int> getSUScore(SUnit *SU);
   void computeCOPYScore(std::vector<int> &Score, SUnit *SU);
+  void computeMathScore(std::vector<int> &Score, SUnit *SU);
   void computeLDGScore(std::vector<int> &Score, SUnit *SU);
   void computeLDSScore(std::vector<int> &Score, SUnit *SU);
   void computeFreeResourceScore(std::vector<int> &Score, SUnit *SU);
@@ -104,6 +110,8 @@ private:
   /// If it is ok to issue ldg now. (try to interleave LDGs)
   bool isOkToIssueLDG() const;
   bool isOkToIssueLDS() const;
+  bool isResourceFree(SUnit *SU);
+  bool isCritialResourceRequired(SUnit *SU);
 
   /// returns true if new candidate is found
   bool tryPickNodeFromQueue(SchedBoundary &Zone, const CandPolicy &ZonePolicy,

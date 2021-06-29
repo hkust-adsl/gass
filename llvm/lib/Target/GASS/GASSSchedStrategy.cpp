@@ -38,10 +38,7 @@ SUnit *GASSSchedStrategy::pickNode(bool &IsTopNode) {
   SUnit *SU;
   do {
     if (RegionPolicy.OnlyTopDown) {
-      if (!IsLoopBody)
-        SU = Top.pickOnlyChoice();
-      else 
-        SU = pickOnlyChoice(Top);
+      SU = pickOnlyChoice(Top);
       if (SU != nullptr && IsLoopBody) {
         LLVM_DEBUG(dbgs() << "\n** Pick the only candidate: ");
         LLVM_DEBUG(DAG->dumpNodeName(*SU));
@@ -58,17 +55,9 @@ SUnit *GASSSchedStrategy::pickNode(bool &IsTopNode) {
       }
       IsTopNode = true;
     } else if (RegionPolicy.OnlyBottomUp) {
-      SU = Bot.pickOnlyChoice();
-      if (!SU) {
-        CandPolicy NoPolicy;
-        BotCand.reset(NoPolicy);
-        pickNodeFromQueue(Bot, NoPolicy, DAG->getBotRPTracker(), BotCand);
-        assert(BotCand.Reason != NoCand && "failed to find a candidate");
-        SU = BotCand.SU;
-      }
-      IsTopNode = false;
+      llvm_unreachable("Consider top down only");
     } else {
-      SU = pickNodeBidirectional(IsTopNode);
+      llvm_unreachable("Consider top down only");
     }
   } while (SU->isScheduled);
 
@@ -120,32 +109,12 @@ void GASSSchedStrategy::pickNodeFromQueue(SchedBoundary &Zone,
                                          const CandPolicy &ZonePolicy,
                                          const RegPressureTracker &RPTracker,
                                          SchedCandidate &Cand) {
-  ReadyQueue &Q = Zone.Available;
-  // sort the Q based on scores
-  std::vector<int> Scores(Q.size());
-  for (size_t i=0; i<Q.size(); ++i)
-    Scores[i] = computeScore(Q.elements()[i]);
-  if (IsLoopBody) {
-    // GASS-specific heuristic
-    if (tryPickNodeFromQueue(Zone, ZonePolicy, Cand))
-      return;
-    // fall-throught default heuristic
-    llvm_unreachable("Should have returned");
-  }
-  for (SUnit *SU : Q) {
-    SchedCandidate TryCand(ZonePolicy);
-    initCandidate(TryCand, SU, Zone.isTop(), RPTracker, TRI);
-    // Pass SchedBoundary only when comparing nodes from the same boundary.
-    SchedBoundary *ZoneArg = Cand.AtTop == TryCand.AtTop ? &Zone : nullptr;
-    tryCandidate(Cand, TryCand, ZoneArg);
-    if (TryCand.Reason != NoCand) {
-      // Initialize resource delta if needed in case future heuristics query it.
-      if (TryCand.ResDelta == SchedResourceDelta())
-        TryCand.initResourceDelta(DAG, SchedModel);
-      Cand.setBest(TryCand);
-      LLVM_DEBUG(traceCandidate(Cand));
-    }
-  }
+  assert(IsLoopBody && "Generic pickNodeFromQueue shouldn't be here");
+  // GASS-specific heuristic
+  if (tryPickNodeFromQueue(Zone, ZonePolicy, Cand))
+    return;
+  // fall-throught default heuristic
+  llvm_unreachable("Should have returned");
 }
 
 //==------------------------------------------------------------------------==//
@@ -155,8 +124,9 @@ std::vector<int> GASSSchedStrategy::getSUScore(SUnit *SU) {
   std::vector<int> Score(SCHED_PRIORITY_SIZE, 0);
   // bias COPY (following the practice in GenericScheduler)
   computeCOPYScore(Score, SU);
-  computeLDGScore(Score, SU);
+  computeMathScore(Score, SU);
   computeLDSScore(Score, SU);
+  computeLDGScore(Score, SU);  
   computeFreeResourceScore(Score, SU);
   // bias instr that reads 
   computeCarryInScore(Score, SU);
@@ -165,6 +135,46 @@ std::vector<int> GASSSchedStrategy::getSUScore(SUnit *SU) {
   computeOrderScore(Score, SU);
 
   return Score;
+}
+
+// helpers
+bool GASSSchedStrategy::isResourceFree(SUnit *SU) {
+  const MCSchedClassDesc *SC = DAG->getSchedClass(SU);
+  for (const MCWriteProcResEntry &PE :
+       make_range(SchedModel->getWriteProcResBegin(SC),
+                  SchedModel->getWriteProcResEnd(SC))) {
+    unsigned ReservedUntil, InstanceIdx;
+    std::tie(ReservedUntil, InstanceIdx) = 
+        Top.getNextResourceCycle(PE.ProcResourceIdx, 0);
+    if (ReservedUntil >= Top.getCurrCycle())
+      // Resource still busy
+      return false;
+  }
+  return true;
+}
+
+bool GASSSchedStrategy::isCritialResourceRequired(SUnit *SU) {
+  const TargetSubtargetInfo &STI = DAG->MF.getSubtarget();
+  unsigned SchedClass = SU->getInstr()->getDesc().getSchedClass();
+  const MCSchedClassDesc *SCDesc = 
+      STI.getSchedModel().getSchedClassDesc(SchedClass);
+
+  for (const MCWriteProcResEntry &PRE :
+        make_range(STI.getWriteProcResBegin(SCDesc),
+                  STI.getWriteProcResEnd(SCDesc))) {
+    assert(PRE.Cycles != 0);
+    if (PRE.ProcResourceIdx == CritialFU)
+      return true;
+  }
+  return false;
+}
+
+void GASSSchedStrategy::computeMathScore(std::vector<int> &Score, SUnit *SU) {
+  // Requires math resource & resource is free
+  if (isCritialResourceRequired(SU) && isResourceFree(SU))
+    Score[SCHED_MATH] = 1;
+  else
+    Score[SCHED_MATH] = 0;
 }
 
 bool GASSSchedStrategy::isOkToIssueLDG() const {
@@ -265,8 +275,6 @@ bool GASSSchedStrategy::tryPickNodeFromQueue(SchedBoundary &Zone,
   }
 
   LLVM_DEBUG(dbgs() << "** GASSSchedStrategy::tryPickNodeFromQueue **\n");
-  LLVM_DEBUG(Top.Available.dump());
-  LLVM_DEBUG(Top.Pending.dump());
 
   // dump remain resources
   LLVM_DEBUG(dbgs() << "** Remaining Res Count **\n");
@@ -367,65 +375,8 @@ void GASSSchedStrategy::initCandidate(
 void GASSSchedStrategy::tryCandidate(SchedCandidate &Cand, 
                                      SchedCandidate &TryCand,
                                      SchedBoundary *Zone) const {
-  assert(!IsLoopBody);
-  if (!IsLoopBody)
-    return GenericScheduler::tryCandidate(Cand, TryCand, Zone);
-
-  //---------- GASS-specific heuristic for the main loop -------------
-  // Initialize the candidate if needed.
-  // if (!Cand.isValid()) {
-  //   TryCand.Reason = NodeOrder;
-  //   return;
-  // }
-
-  // assert(Zone != nullptr && "GASSSchedStrategy focus on top-down now");
-  // assert(DAG->isTrackingPressure() && "Should track pressure");
-
-  // // Assume the current loop is compute-bound
-  // // 1. bias LDGs
-  // if (tryLDG(TryCand, Cand, Zone))
-  //   return;
-
-  // // 2. bias LDSs
-  // if (tryLDS(TryCand, Cand, Zone))
-  //   return;
-
-  // // 3. Do we have any free resources?
-  // if (tryFreeResources(TryCand, Cand, Zone))
-  //   return;
-
-  // // 4. Prioritize instructions that read unbuffered resources by stall cycles
-  // // TODO: bias critical path
-  // if (tryLess(Zone->getLatencyStallCycles(TryCand.SU),
-  //             Zone->getLatencyStallCycles(Cand.SU), TryCand, Cand, Stall))
-  //   return;
-
-  // // 5. (?) For loops that are acyclic path limitied, aggressively schedule
-  // //    for latency.
-  // if (tryLatency(TryCand, Cand, *Zone))
-  //   return;
-
-  // // 6. (?) Avoid increasing the max pressure of the entire region
-  // if (tryPressure(TryCand.RPDelta.CurrentMax, 
-  //                 Cand.RPDelta.CurrentMax,
-  //                 TryCand, Cand, RegMax, TRI, DAG->MF))
-  //   return;
-
-  // // 7. (?) Avoid critical resource consumption and balance the schedule.
-  // TryCand.initResourceDelta(DAG, SchedModel);
-  // if (tryLess(TryCand.ResDelta.CritResources, Cand.ResDelta.CritResources,
-  //             TryCand, Cand, ResourceReduce))
-  //   return;
-  // if (tryGreater(TryCand.ResDelta.DemandedResources,
-  //                Cand.ResDelta.DemandedResources,
-  //                TryCand, Cand, ResourceDemand))
-  //   return;
-
-  // // 8. Fall through to original instruction order.
-  // // TODO: or to GenericScheduler::tryCandidate()?
-  // if ((Zone->isTop() && TryCand.SU->NodeNum < Cand.SU->NodeNum)) {
-  //   TryCand.Reason = NodeOrder;
-  // }
+  assert(!IsLoopBody && "Specialized Scheduler won't be here");
+  return GenericScheduler::tryCandidate(Cand, TryCand, Zone);
 }
 
 /// Update info after schedule. Callback after a node is scheduled.
@@ -511,6 +462,7 @@ void GASSSchedStrategy::enterMBB(MachineBasicBlock *MBB) {
   }
 }
 
+// Per-region initialize
 // print debug info & set Excess, Critical limits
 void GASSSchedStrategy::initialize(ScheduleDAGMI *dag) {
   GenericScheduler::initialize(dag);
@@ -531,6 +483,9 @@ void GASSSchedStrategy::initialize(ScheduleDAGMI *dag) {
   VReg32CriticalLimit = TRI->getRegPressureSetLimit(DAG->MF, 
     GASS::RegisterPressureSets::VReg32);
   VReg32CriticalLimit -= ErrorMargin;
+
+  // Compute critical resource.
+  
 }
 
 // Called by ScheduleDAGMI::initQueues(TopRoots, BotRoots);
@@ -566,6 +521,21 @@ void GASSSchedStrategy::registerRoots() {
   //   }
   //   outs() << "\n";
   // }
+
+  // record critial resource
+  for (auto iter : Resources) {
+    if (iter.second > MaxCycles) {
+      CritialFU = iter.first;
+      MaxCycles = iter.second;
+    }
+  }
+  StringRef CritialName = STI.getSchedModel().getProcResource(CritialFU)->Name;
+  outs() << "Critial FU: " << CritialName
+         << "\t Cycles: " << MaxCycles << "\n";
+  // if (CritialName.equals("SM70UnitTensorCore") || CritialName.equals("SM70UnitFP32"))
+  //   IsLoopBody &= true;
+  // else
+  //   IsLoopBody &= false;
 }
 
 int GASSSchedStrategy::computeScore(SUnit *SU) {

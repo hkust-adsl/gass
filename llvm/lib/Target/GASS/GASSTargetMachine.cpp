@@ -90,15 +90,15 @@ public:
   // Set instruction control info
   void addPreEmitPass() override;
 
-  // // override MachineScheduleStrategy
-  // ScheduleDAGInstrs *
-  // createMachineScheduler(MachineSchedContext *C) const override {
-  //   ScheduleDAGMILive *DAG =
-  //       new ScheduleDAGMILive(C, std::make_unique<GASSSchedStrategy>(C));
-  //   // DAG->addMutation(createGASSTensorCoreChainDAGMutation());
-  //   // DAG->addMutation(createGASSCarryInClusterDAGMutation());
-  //   return DAG;
-  // }
+  // override MachineScheduleStrategy
+  ScheduleDAGInstrs *
+  createMachineScheduler(MachineSchedContext *C) const override {
+    ScheduleDAGMILive *DAG =
+        new ScheduleDAGMILive(C, std::make_unique<GASSSchedStrategy>(C));
+    // DAG->addMutation(createGASSTensorCoreChainDAGMutation());
+    // DAG->addMutation(createGASSCarryInClusterDAGMutation());
+    return DAG;
+  }
 };
 } // anonymous namespace
 
