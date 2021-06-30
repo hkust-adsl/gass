@@ -193,7 +193,7 @@ void GASSPassConfig::addOptimizedRegAlloc() {
   addPass(&MachineSchedulerID);
 
   // // Compute Register Pressure at each line
-  // addPass(createRegPressureComputePass());
+  addPass(createRegPressureComputePass());
   // addPass(&MachineFunctionPrinterPassID);
 
   if (addRegAssignmentOptimized()) {

@@ -49,18 +49,25 @@ class GASSSchedStrategy final : public GenericScheduler {
   InstrStage::FuncUnits CritialFU;
   unsigned MaxCycles = 0;
 
+  // Record k of instructions of interest
+  DenseMap<SUnit*, int> Ks;
+  DenseMap<int, DenseSet<SUnit*>> RemMaths;
+  int CurrentK = 0;
+  // Record depdencies of the first group of LDSs
+  DenseSet<SUnit*> LdsDeps;
+
   /// higher means higher priority
   /// Samiliar to CandReason in GenericSchedulerBase
   enum SchedPriority : uint8_t {
-    SCHED_COPY = 0,
-    SCHED_MATH,
-    SCHED_LDG,  
-    SCHED_LDS,      
+    // SCHED_COPY = 0,
+    SCHED_MATH = 0,
+    SCHED_LDS, 
+    SCHED_LDG,
+    SCHED_LDS_IDX,
     SCHED_FREE_RESOURCE,
-    SCHED_CARRYIN,
-    SCHED_LATENCY,
+    // SCHED_CARRYIN,
+    // SCHED_LATENCY,
     SCHED_ORDER,
-    SCHED_ONLY,
     // Record size of all reasons
     SCHED_PRIORITY_SIZE
   };
@@ -93,25 +100,25 @@ protected:
   void tryCandidate(SchedCandidate &Cand, SchedCandidate &TryCand,
                     SchedBoundary *Zone) const override;
 private:
-  int computeScore(SUnit *SU);
-
   // interfaces for GASS-specific heuristic
   /// computes schedule score (priority) of a node
   std::vector<int> getSUScore(SUnit *SU);
   void computeCOPYScore(std::vector<int> &Score, SUnit *SU);
   void computeMathScore(std::vector<int> &Score, SUnit *SU);
-  void computeLDGScore(std::vector<int> &Score, SUnit *SU);
   void computeLDSScore(std::vector<int> &Score, SUnit *SU);
+  void computeLDGScore(std::vector<int> &Score, SUnit *SU);
+  void computeLDSIdxScore(std::vector<int> &Score, SUnit *SU);  
   void computeFreeResourceScore(std::vector<int> &Score, SUnit *SU);
-  void computeCarryInScore(std::vector<int> &Score, SUnit *SU);
-  void computeLatencyStallScore(std::vector<int> &Score, SUnit *SU);
+  // void computeCarryInScore(std::vector<int> &Score, SUnit *SU);
+  // void computeLatencyStallScore(std::vector<int> &Score, SUnit *SU);
   void computeOrderScore(std::vector<int> &Score, SUnit *SU);
+  void constructKs();
 
   /// If it is ok to issue ldg now. (try to interleave LDGs)
-  bool isOkToIssueLDG() const;
-  bool isOkToIssueLDS() const;
+  bool isOkToIssueLDS(SUnit *SU);
   bool isResourceFree(SUnit *SU);
   bool isCritialResourceRequired(SUnit *SU);
+  bool isMathSU(SUnit *SU);
 
   /// returns true if new candidate is found
   bool tryPickNodeFromQueue(SchedBoundary &Zone, const CandPolicy &ZonePolicy,

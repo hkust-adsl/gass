@@ -39,13 +39,13 @@ SUnit *GASSSchedStrategy::pickNode(bool &IsTopNode) {
   do {
     if (RegionPolicy.OnlyTopDown) {
       SU = pickOnlyChoice(Top);
-      if (SU != nullptr && IsLoopBody) {
-        LLVM_DEBUG(dbgs() << "\n** Pick the only candidate: ");
-        LLVM_DEBUG(DAG->dumpNodeName(*SU));
-        LLVM_DEBUG(dbgs() << "\nWhile the pending queue is:\n");
-        LLVM_DEBUG(Top.Pending.dump());
-        LLVM_DEBUG(SU->getInstr()->dump());
-      }
+      // if (SU != nullptr && IsLoopBody) {
+      //   LLVM_DEBUG(dbgs() << "\n** Pick the only candidate: ");
+      //   LLVM_DEBUG(DAG->dumpNodeName(*SU));
+      //   LLVM_DEBUG(dbgs() << "\nWhile the pending queue is:\n");
+      //   LLVM_DEBUG(Top.Pending.dump());
+      //   LLVM_DEBUG(SU->getInstr()->dump());
+      // }
       if (!SU) {
         CandPolicy NoPolicy;
         TopCand.reset(NoPolicy);
@@ -127,10 +127,11 @@ std::vector<int> GASSSchedStrategy::getSUScore(SUnit *SU) {
   computeMathScore(Score, SU);
   computeLDSScore(Score, SU);
   computeLDGScore(Score, SU);  
+  computeLDSIdxScore(Score, SU);
   computeFreeResourceScore(Score, SU);
   // bias instr that reads 
-  computeCarryInScore(Score, SU);
-  computeLatencyStallScore(Score, SU);
+  // computeCarryInScore(Score, SU);
+  // computeLatencyStallScore(Score, SU);
   // Fall through to order
   computeOrderScore(Score, SU);
 
@@ -153,6 +154,7 @@ bool GASSSchedStrategy::isResourceFree(SUnit *SU) {
   return true;
 }
 
+/// Returns true if this 
 bool GASSSchedStrategy::isCritialResourceRequired(SUnit *SU) {
   const TargetSubtargetInfo &STI = DAG->MF.getSubtarget();
   unsigned SchedClass = SU->getInstr()->getDesc().getSchedClass();
@@ -169,37 +171,57 @@ bool GASSSchedStrategy::isCritialResourceRequired(SUnit *SU) {
   return false;
 }
 
-void GASSSchedStrategy::computeMathScore(std::vector<int> &Score, SUnit *SU) {
-  // Requires math resource & resource is free
-  if (isCritialResourceRequired(SU) && isResourceFree(SU))
-    Score[SCHED_MATH] = 1;
-  else
-    Score[SCHED_MATH] = 0;
-}
-
-bool GASSSchedStrategy::isOkToIssueLDG() const {
-  // TODO: implement this.
-  return false;
-  // return true;
-}
-
-// Limit the number of live registers brought by LDSs
-bool GASSSchedStrategy::isOkToIssueLDS() const {
-  if (ScoreBoard.ActiveLDSs.size() <= 4)
+bool GASSSchedStrategy::isMathSU(SUnit *SU) {
+  const MCSchedClassDesc *SC = DAG->getSchedClass(SU);
+  if (StringRef(SC->Name).startswith("WriteHMMA") ||
+      StringRef(SC->Name).startswith("WriteFP"))
     return true;
   else
     return false;
 }
 
+void GASSSchedStrategy::computeMathScore(std::vector<int> &Score, SUnit *SU) {
+  // Requires math resource & resource is free
+  if (isMathSU(SU) && isResourceFree(SU)) {
+    assert(Ks.count(SU) != 0 && "math SU must has k value");
+    if (Ks[SU] <= CurrentK)
+      Score[SCHED_MATH] = 1;
+  } else
+    Score[SCHED_MATH] = 0;
+}
+
+
+
 void GASSSchedStrategy::computeCOPYScore(std::vector<int> &Score, SUnit *SU) {
   // TODO: fill this
-  Score[SCHED_COPY] = 0;
+  // Score[SCHED_COPY] = 0;
   return;
+}
+
+
+// Limit the number of live registers brought by LDSs
+bool GASSSchedStrategy::isOkToIssueLDS(SUnit *SU) {
+  if ((Ks[SU] <= CurrentK + 1) && isResourceFree(SU))
+    return true;
+  return false;
+}
+
+void GASSSchedStrategy::computeLDSScore(std::vector<int> &Score, SUnit *SU) {
+  if (GASSInstrInfo::isLDS(*SU->getInstr())) {
+    if (!isOkToIssueLDS(SU)) {
+      if (Ks[SU] > CurrentK + 1)
+        Score[SCHED_LDS] = -1; // Never issue LDS in previous k
+      // Don't overwhelm LDST
+      return;
+    }
+    Score[SCHED_LDS] = 1; 
+  } else // do nothing
+    return;
 }
 
 void GASSSchedStrategy::computeLDGScore(std::vector<int> &Score, SUnit *SU) {
   if (GASSInstrInfo::isLDG(*SU->getInstr())) {
-    if (!isOkToIssueLDG())
+    if (!isResourceFree(SU))
       // Don't overwhelm LDST
       return;
     Score[SCHED_LDG] = 1;
@@ -207,60 +229,51 @@ void GASSSchedStrategy::computeLDGScore(std::vector<int> &Score, SUnit *SU) {
     return;
 }
 
-void GASSSchedStrategy::computeLDSScore(std::vector<int> &Score, SUnit *SU) {
-  if (GASSInstrInfo::isLDS(*SU->getInstr())) {
-    if (!isOkToIssueLDS())
-      // Don't overwhelm LDST
-      return;
-    Score[SCHED_LDS] = 1; 
-  } else // do nothing
-    return;
+void GASSSchedStrategy::computeLDSIdxScore(std::vector<int> &Score, SUnit *SU) {
+  if (LdsDeps.contains(SU))
+    Score[SCHED_LDS_IDX] = 1;
+  else
+    Score[SCHED_LDS_IDX] = 0;
 }
 
 void GASSSchedStrategy::computeFreeResourceScore(std::vector<int> &Score, 
                                                  SUnit *SU) {
   // assert(IsTopNode)?
   // Check is all required resources are free
-  const MCSchedClassDesc *SC = DAG->getSchedClass(SU);
-  for (const MCWriteProcResEntry &PE :
-       make_range(SchedModel->getWriteProcResBegin(SC),
-                  SchedModel->getWriteProcResEnd(SC))) {
-    unsigned ReservedUntil, InstanceIdx;
-    std::tie(ReservedUntil, InstanceIdx) = 
-        Top.getNextResourceCycle(PE.ProcResourceIdx, 0);
-    if (ReservedUntil >= Top.getCurrCycle())
-      // Resource still busy
-      return;
-  }
+  if (!isResourceFree(SU))
+    return;
   // All required resources are free
   Score[SCHED_FREE_RESOURCE] = 1;
 
-  // Check if it is LDS
-  if (GASSInstrInfo::isLDS(*SU->getInstr()))
-    if (!isOkToIssueLDS())
-      Score[SCHED_FREE_RESOURCE] = 0;
+  // // Check if it is LDS
+  // if (GASSInstrInfo::isLDS(*SU->getInstr()))
+  //   if (!isOkToIssueLDS(SU))
+  //     Score[SCHED_FREE_RESOURCE] = 0;
 }
 
-void GASSSchedStrategy::computeCarryInScore(std::vector<int> &Score, 
-                                            SUnit* SU) {
-  const MachineInstr *Instr = SU->getInstr();
-  if (GASSInstrInfo::ifReadsCarryIn(*Instr))
-    Score[SCHED_CARRYIN] = 1;
-}
+// void GASSSchedStrategy::computeCarryInScore(std::vector<int> &Score, 
+//                                             SUnit* SU) {
+//   // const MachineInstr *Instr = SU->getInstr();
+//   // if (GASSInstrInfo::ifReadsCarryIn(*Instr))
+//   //   Score[SCHED_CARRYIN] = 1;
+// }
 
-// TODO: better to name "LatencyStall" as "WaitCycle"?
-void GASSSchedStrategy::computeLatencyStallScore(std::vector<int> &Score, 
-                                                 SUnit *SU) {
-  int StallLatency = Top.getCurrCycle() - SU->TopReadyCycle;
-  assert(StallLatency >= 0);
-  // Force this number to be 0 for LDS
-  if (GASSInstrInfo::isLDS(*SU->getInstr()))
-    StallLatency = 0;
-  Score[SCHED_LATENCY] = StallLatency;
-}
+// // TODO: better to name "LatencyStall" as "WaitCycle"?
+// void GASSSchedStrategy::computeLatencyStallScore(std::vector<int> &Score, 
+//                                                  SUnit *SU) {
+//   // int StallLatency = Top.getCurrCycle() - SU->TopReadyCycle;
+//   // assert(StallLatency >= 0);
+//   // // Force this number to be 0 for LDS
+//   // if (GASSInstrInfo::isLDS(*SU->getInstr()))
+//   //   StallLatency = 0;
+//   // Score[SCHED_LATENCY] = StallLatency;
+// }
 
 void GASSSchedStrategy::computeOrderScore(std::vector<int> &Score, SUnit *SU) {
   Score[SCHED_ORDER] = -SU->NodeNum;
+  // // Give LDS a second chance
+  // if (GASSInstrInfo::isLDS(*SU->getInstr()) && (Ks[SU] <= CurrentK + 1))
+  //   Score[SCHED_ORDER] += 999;
 }
 //------- End computeXXXScore()
 
@@ -295,23 +308,28 @@ bool GASSSchedStrategy::tryPickNodeFromQueue(SchedBoundary &Zone,
   size_t MaxIdx = std::distance(Scores.begin(), 
                                 std::max_element(Scores.begin(), Scores.end()));
   
-  LLVM_DEBUG(dbgs() << "Current best candidate is:\n");
-  LLVM_DEBUG(Q.elements()[MaxIdx]->getInstr()->dump());
-  LLVM_DEBUG(DAG->dumpNodeName(*Q.elements()[MaxIdx]));
+  dbgs() << "\n\n\nCurrent best candidate is:\n";
+  Q.elements()[MaxIdx]->getInstr()->dump();
+  DAG->dumpNodeName(*Q.elements()[MaxIdx]);
   
-  LLVM_DEBUG(dbgs() << ", score of which is:\n");
-  LLVM_DEBUG(dbgs() << "{");
+  dbgs() << ", score of which is:\n";
+  dbgs() << "{";
   for (int i=0; i<SCHED_PRIORITY_SIZE; ++i)
-    LLVM_DEBUG(dbgs() << Scores[MaxIdx][i] << ", ");
-  LLVM_DEBUG(dbgs() << "}\n");
+    dbgs() << Scores[MaxIdx][i] << ", ";
+  dbgs() << "}\n";
 
-  // dump #activeLDS
-  if (GASSInstrInfo::isLDS(*Q.elements()[MaxIdx]->getInstr())) {
-    LLVM_DEBUG(dbgs() << "  Num of active LDS: " 
-                      << ScoreBoard.ActiveLDSs.size() << "\n");
+  dbgs() << "\nScore of other nodes:\n";
+  for (int i = 0; i < Scores.size(); ++i) {
+    Q.elements()[i]->getInstr()->dump();
+    DAG->dumpNodeName(*Q.elements()[i]);
+    dbgs() << ", score of which is:\n";
+    dbgs() << "{";
+    for (int j=0; j<SCHED_PRIORITY_SIZE; ++j)
+      dbgs() << Scores[i][j] << ", ";
+    dbgs() << "}\n";
   }
 
-  LLVM_DEBUG(dbgs() << "\n");
+  dbgs() << "CurrentK: " << CurrentK << "\n";
 
   // TODO: RPDelta?
   SchedCandidate BestCand;
@@ -391,52 +409,15 @@ void GASSSchedStrategy::schedNode(SUnit *SU, bool IsTopNode) {
       LLVM_DEBUG(dbgs() << "  schedNode() -> ");
       LLVM_DEBUG(SU->getInstr()->dump());
       LLVM_DEBUG(dbgs() << "\n");
-      if (GASSInstrInfo::isLDS(*SU->getInstr())) {
-        ScoreBoard.ActiveLDSs.insert(SU);
-        LLVM_DEBUG(dbgs() << "Insert active LDS:\n");
-        LLVM_DEBUG(DAG->dumpNodeName(*SU));
-        LLVM_DEBUG(dbgs() << "ActiveLDSs.size() == " 
-                          << ScoreBoard.ActiveLDSs.size() << "\n");
-      } else if (GASSInstrInfo::isLDG(*SU->getInstr())) {
-        ScoreBoard.ActiveLDGs.insert(SU);
-      }
 
-      // expire old LDG & LDS
-      for (const SDep &Pred : SU->Preds) {
-        // Only consider data-dependency
-        for (const SDep &Pred : SU->Preds) {
-          if (Pred.getKind() == SDep::Data) {
-            // expire old LDGs
-            for (auto iter = ScoreBoard.ActiveLDGs.begin(); 
-                      iter != ScoreBoard.ActiveLDGs.end(); ) {
-              if (*iter == Pred.getSUnit())
-                iter = ScoreBoard.ActiveLDGs.erase(iter);
-              else
-                ++iter;
-            }
-          }
-        }
-      }
-      // expire old LDSs
-      // Note: an LDS is considered to be expired when all successors are
-      // scheduled.
-      for (auto iter = ScoreBoard.ActiveLDSs.begin(); 
-                iter != ScoreBoard.ActiveLDSs.end(); ) {
-        // if ((*iter)->NumSuccsLeft == 0)
-        if (std::all_of((*iter)->Succs.begin(), (*iter)->Succs.end(),
-                        [](SDep &SD) -> bool { 
-                          if (SD.isBarrier()) return true; // ignore barrier
-                          return SD.getSUnit()->isScheduled; 
-                        })) {
-          LLVM_DEBUG(dbgs() << "Expire LDS:\n");
-          LLVM_DEBUG(DAG->dumpNodeName(**iter));
-          LLVM_DEBUG(dbgs() << "\n");
-          iter = ScoreBoard.ActiveLDSs.erase(iter);
-          LLVM_DEBUG(dbgs() << "ActiveLDSs.size() == " 
-                            << ScoreBoard.ActiveLDSs.size() << "\n");
-        } else
-          ++iter;
-      }
+      // update CurrentK
+      RemMaths[CurrentK].erase(SU);
+      dbgs() << "RemMaths[Current]:\n";
+      for (SUnit *SU : RemMaths[CurrentK])
+        SU->getInstr()->dump();
+      dbgs() << "\n";
+      if (RemMaths[CurrentK].empty())
+        CurrentK++;
     }
   } else {
     assert(!IsLoopBody);
@@ -460,6 +441,8 @@ void GASSSchedStrategy::enterMBB(MachineBasicBlock *MBB) {
     RegionPolicy.OnlyBottomUp = false;
     RegionPolicy.OnlyTopDown = true;
   }
+  // track outer loop index
+  CurrentK = 0;
 }
 
 // Per-region initialize
@@ -484,8 +467,9 @@ void GASSSchedStrategy::initialize(ScheduleDAGMI *dag) {
     GASS::RegisterPressureSets::VReg32);
   VReg32CriticalLimit -= ErrorMargin;
 
-  // Compute critical resource.
-  
+  // Construct ks if required
+  if (IsLoopBody)
+    constructKs();
 }
 
 // Called by ScheduleDAGMI::initQueues(TopRoots, BotRoots);
@@ -530,58 +514,117 @@ void GASSSchedStrategy::registerRoots() {
     }
   }
   StringRef CritialName = STI.getSchedModel().getProcResource(CritialFU)->Name;
-  outs() << "Critial FU: " << CritialName
+  errs() << "Critial FU: " << CritialName
          << "\t Cycles: " << MaxCycles << "\n";
-  // if (CritialName.equals("SM70UnitTensorCore") || CritialName.equals("SM70UnitFP32"))
-  //   IsLoopBody &= true;
+  // if (IsLoopBody)
+  //   DAG->viewGraph();
+  if (CritialName.equals("SM70UnitTensorCore") || CritialName.equals("SM70UnitFP32")) {
+    IsLoopBody &= true;
+    // DAG->viewGraph();
+  } 
   // else
   //   IsLoopBody &= false;
 }
 
-int GASSSchedStrategy::computeScore(SUnit *SU) {
-  // compute the priority of a SU. High score means high priority.
-  int CriticalPathScore = 1;
-  int ResourceScore = 1;
-  int WaitingScore = 1;
-  // TODO: Tune them
-  int CriticalPathFactor = 1;
-  int ResourceFactor = 1;
-  int WaitingFactor = 1;
+void GASSSchedStrategy::constructKs() {
+  assert(IsLoopBody);
+  RemMaths.clear();
 
-  // Compute CriticalPathScore
-  //  try to schedule nodes on the critical path first
-  {
-    //
+  DAG->MF.dump();
+
+  DenseSet<SUnit*> Visited;
+  std::vector<SUnit*> WorkList;
+  std::vector<SUnit*> MathSUs;
+
+  for (SUnit &SU : DAG->SUnits) {
+    if (SU.NumPreds == 0)
+      WorkList.push_back(&SU);
   }
 
-  // Compute ResourceScore
-  {
-    const MCSchedClassDesc *SC = DAG->getSchedClass(SU);
-    for (TargetSchedModel::ProcResIter
-           PI = SchedModel->getWriteProcResBegin(SC),
-           PE = SchedModel->getWriteProcResEnd(SC); PI != PE; ++PI) {
-      unsigned PIdx = PI->ProcResourceIdx;
-      unsigned PCycles = PI->Cycles;
-      // Is the source free?
-      unsigned NRCycle, InstanceIdx;
-      std::tie(NRCycle, InstanceIdx) = Bot.getNextResourceCycle(PIdx, PCycles);
-      // Resource not available, ResourceScore = 0;
-      if (NRCycle > Bot.getCurrCycle()) {
-        ResourceScore = 0;
-        break;
+  // 1. Get k for all math SUs
+  while (!WorkList.empty()) {
+    SUnit *Curr = WorkList.back();
+    WorkList.pop_back();
+    Visited.insert(Curr);
+
+    for (const SDep &Succ : Curr->Succs) {
+      if (!Visited.contains(Succ.getSUnit()) && Succ.getKind() == SDep::Data)
+        WorkList.push_back(Succ.getSUnit());
+    }
+
+    assert(Curr);
+    if (isMathSU(Curr)) {
+      MathSUs.push_back(Curr);
+      Ks[Curr] = 0;
+      for (const SDep &Pred : Curr->Preds) {
+        if (Pred.getKind() != SDep::Data)
+          continue;
+        if (Ks.count(Pred.getSUnit()) != 0) {
+          Ks[Curr] = Ks[Pred.getSUnit()] + 1;
+          break;
+        }
+      }
+      RemMaths[Ks[Curr]].insert(Curr);
+    }
+  }
+
+  // 2. Get k for all LDSs
+  DenseSet<SUnit*> FirstLDSs;
+  for (SUnit *MathSU : MathSUs) {
+    assert(Ks.count(MathSU) != 0);
+    int K = Ks[MathSU];
+
+    for (const SDep &Pred : MathSU->Preds) {
+      if (Pred.getKind() != SDep::Data)
+        continue;
+      SUnit *PredSU = Pred.getSUnit();
+      const MCSchedClassDesc *SC = DAG->getSchedClass(PredSU);
+      if (StringRef(SC->Name).startswith("WriteLDS")) {
+        Ks[PredSU] = K;
+        if (K == 1)
+          FirstLDSs.insert(PredSU);
       }
     }
   }
 
-  // Compute WaitingScore
-  //  try not to let a ready node to wait for too long
-  {
-    // outs() << "Ready Cycle: " << SU->BotReadyCycle << "\n"
-    //        << "Current Cycle: " << Bot.getCurrCycle() << "\n"
-    //        << "Latency: " << SU->Latency << "\n\n";
+  int MaxK = RemMaths.size();
+
+  // Note: prefetched lds are considered of group (MaxK)
+  for (SUnit &SU : DAG->SUnits) {
+    if (!GASSInstrInfo::isLDS(*SU.getInstr()))
+      continue;
+    if (Ks.count(&SU) == 0)
+      Ks[&SU] = MaxK;
   }
 
-  return CriticalPathScore * CriticalPathFactor +
-         ResourceScore * ResourceFactor +
-         WaitingScore * WaitingFactor;
+  // 3. Record index computation of the first group (k) of LDS
+  for (SUnit *Lds : FirstLDSs) {
+    DenseSet<SUnit*> visited;
+    std::vector<SUnit*> WorkList;
+
+    for (const SDep &Pred : Lds->Preds)
+      if (Pred.getKind() == SDep::Data)
+        WorkList.push_back(Pred.getSUnit());
+
+    while (!WorkList.empty()) {
+      SUnit *Curr = WorkList.back();
+      WorkList.pop_back();
+
+      LdsDeps.insert(Curr);
+      visited.insert(Curr);
+      for (const SDep &Pred : Curr->Preds) {
+        if (Pred.getKind() == SDep::Data && !visited.contains(Pred.getSUnit())) {
+          WorkList.push_back(Pred.getSUnit());
+        }
+      }
+    }
+  }
+
+
+
+  // 4. dump
+  for (auto iter : Ks) {
+    iter.getFirst()->getInstr()->dump();
+    errs() << iter.second << "\n";
+  }
 }
