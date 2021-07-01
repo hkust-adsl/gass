@@ -193,17 +193,18 @@ void GASSPassConfig::addOptimizedRegAlloc() {
   addPass(&MachineSchedulerID);
 
   // // Compute Register Pressure at each line
-  addPass(createRegPressureComputePass());
+  // addPass(createRegPressureComputePass());
   // addPass(&MachineFunctionPrinterPassID);
 
   if (addRegAssignmentOptimized()) {
+  // if (addRegAssignmentFast()) {
     // Allow targets to expand pseudo instructions depending on the choice of
     // registers before MachineCopyPropagation.
     addPostRewrite();
 
     // Copy propagate to forward register uses and try to eliminate COPYs that
     // were not coalesced.
-    // addPass(&MachineCopyPropagationID);
+    addPass(&MachineCopyPropagationID);
 
     // Run post-ra machine LICM to hoist reloads / remats.
     //

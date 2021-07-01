@@ -221,6 +221,10 @@ void GASSSchedStrategy::computeLDSScore(std::vector<int> &Score, SUnit *SU) {
 
 void GASSSchedStrategy::computeLDGScore(std::vector<int> &Score, SUnit *SU) {
   if (GASSInstrInfo::isLDG(*SU->getInstr())) {
+    if (IssuedLDGs >= CurrentK*MaxLDGsPerK + MaxLDGsPerK-1) {
+      Score[SCHED_LDG] = -1;
+      return;
+    }
     if (!isResourceFree(SU))
       // Don't overwhelm LDST
       return;
@@ -271,9 +275,9 @@ void GASSSchedStrategy::computeFreeResourceScore(std::vector<int> &Score,
 
 void GASSSchedStrategy::computeOrderScore(std::vector<int> &Score, SUnit *SU) {
   Score[SCHED_ORDER] = -SU->NodeNum;
-  // // Give LDS a second chance
-  // if (GASSInstrInfo::isLDS(*SU->getInstr()) && (Ks[SU] <= CurrentK + 1))
-  //   Score[SCHED_ORDER] += 999;
+  // Give LDS a second chance
+  if (GASSInstrInfo::isLDS(*SU->getInstr()) && (Ks[SU] <= CurrentK + 1))
+    Score[SCHED_ORDER] += 999;
 }
 //------- End computeXXXScore()
 
@@ -308,28 +312,28 @@ bool GASSSchedStrategy::tryPickNodeFromQueue(SchedBoundary &Zone,
   size_t MaxIdx = std::distance(Scores.begin(), 
                                 std::max_element(Scores.begin(), Scores.end()));
   
-  dbgs() << "\n\n\nCurrent best candidate is:\n";
-  Q.elements()[MaxIdx]->getInstr()->dump();
-  DAG->dumpNodeName(*Q.elements()[MaxIdx]);
+  // dbgs() << "\n\n\nCurrent best candidate is:\n";
+  // Q.elements()[MaxIdx]->getInstr()->dump();
+  // DAG->dumpNodeName(*Q.elements()[MaxIdx]);
   
-  dbgs() << ", score of which is:\n";
-  dbgs() << "{";
-  for (int i=0; i<SCHED_PRIORITY_SIZE; ++i)
-    dbgs() << Scores[MaxIdx][i] << ", ";
-  dbgs() << "}\n";
+  // dbgs() << ", score of which is:\n";
+  // dbgs() << "{";
+  // for (int i=0; i<SCHED_PRIORITY_SIZE; ++i)
+  //   dbgs() << Scores[MaxIdx][i] << ", ";
+  // dbgs() << "}\n";
 
-  dbgs() << "\nScore of other nodes:\n";
-  for (int i = 0; i < Scores.size(); ++i) {
-    Q.elements()[i]->getInstr()->dump();
-    DAG->dumpNodeName(*Q.elements()[i]);
-    dbgs() << ", score of which is:\n";
-    dbgs() << "{";
-    for (int j=0; j<SCHED_PRIORITY_SIZE; ++j)
-      dbgs() << Scores[i][j] << ", ";
-    dbgs() << "}\n";
-  }
+  // dbgs() << "\nScore of other nodes:\n";
+  // for (int i = 0; i < Scores.size(); ++i) {
+  //   Q.elements()[i]->getInstr()->dump();
+  //   DAG->dumpNodeName(*Q.elements()[i]);
+  //   dbgs() << ", score of which is:\n";
+  //   dbgs() << "{";
+  //   for (int j=0; j<SCHED_PRIORITY_SIZE; ++j)
+  //     dbgs() << Scores[i][j] << ", ";
+  //   dbgs() << "}\n";
+  // }
 
-  dbgs() << "CurrentK: " << CurrentK << "\n";
+  // dbgs() << "CurrentK: " << CurrentK << "\n";
 
   // TODO: RPDelta?
   SchedCandidate BestCand;
@@ -412,12 +416,10 @@ void GASSSchedStrategy::schedNode(SUnit *SU, bool IsTopNode) {
 
       // update CurrentK
       RemMaths[CurrentK].erase(SU);
-      dbgs() << "RemMaths[Current]:\n";
-      for (SUnit *SU : RemMaths[CurrentK])
-        SU->getInstr()->dump();
-      dbgs() << "\n";
       if (RemMaths[CurrentK].empty())
         CurrentK++;
+      if (GASSInstrInfo::isLDG(*SU->getInstr()))
+        IssuedLDGs++;
     }
   } else {
     assert(!IsLoopBody);
@@ -526,11 +528,22 @@ void GASSSchedStrategy::registerRoots() {
   //   IsLoopBody &= false;
 }
 
+static int collectCycles(const MCSchedClassDesc *SC, const TargetSchedModel *SchedModel,
+                         SUnit *SU) {
+  int Cycles = 0;
+  for (const MCWriteProcResEntry &PE : 
+       make_range(SchedModel->getWriteProcResBegin(SC), 
+                  SchedModel->getWriteProcResEnd(SC))) {
+    Cycles = std::max(Cycles, int(PE.Cycles));
+  }
+  return Cycles;
+}
+
 void GASSSchedStrategy::constructKs() {
   assert(IsLoopBody);
   RemMaths.clear();
 
-  DAG->MF.dump();
+  // DAG->MF.dump();
 
   DenseSet<SUnit*> Visited;
   std::vector<SUnit*> WorkList;
@@ -598,6 +611,7 @@ void GASSSchedStrategy::constructKs() {
   }
 
   // 3. Record index computation of the first group (k) of LDS
+  //      to bias LDS index computation
   for (SUnit *Lds : FirstLDSs) {
     DenseSet<SUnit*> visited;
     std::vector<SUnit*> WorkList;
@@ -620,11 +634,29 @@ void GASSSchedStrategy::constructKs() {
     }
   }
 
+  // 4. Plan ahead for LDGs
+  int MathCycPerK = 0, LDSCycPerK = 0, ToalLDGCycles = 0, LDGCycles = 0, TotalLDGs = 0;
+  for (SUnit *SU : RemMaths[0])
+    MathCycPerK += collectCycles(DAG->getSchedClass(SU), SchedModel, SU);
+  for (SUnit *SU : FirstLDSs)
+    LDSCycPerK += collectCycles(DAG->getSchedClass(SU), SchedModel, SU);
+  for (SUnit &SU : DAG->SUnits) 
+    if (GASSInstrInfo::isLDG(*SU.getInstr())) {
+      ToalLDGCycles += collectCycles(DAG->getSchedClass(&SU), SchedModel, &SU);
+      LDGCycles = collectCycles(DAG->getSchedClass(&SU), SchedModel, &SU);
+      TotalLDGs++;
+    }
 
+  MaxLDGsPerK = std::max((MathCycPerK - LDSCycPerK) / LDGCycles, 1);
 
-  // 4. dump
-  for (auto iter : Ks) {
-    iter.getFirst()->getInstr()->dump();
-    errs() << iter.second << "\n";
-  }
+  outs() << "Math Cycles Per K: " << MathCycPerK << "\n"
+         << "LDS Cycles Per K: " << LDSCycPerK << "\n"
+         << "LDG Cycles: " << ToalLDGCycles << "\n"
+         << "Max LDGs Per K: " << MaxLDGsPerK << "\n";
+  
+  // // 5. dump
+  // for (auto iter : Ks) {
+  //   iter.getFirst()->getInstr()->dump();
+  //   errs() << iter.second << "\n";
+  // }
 }

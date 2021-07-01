@@ -55,6 +55,9 @@ class GASSSchedStrategy final : public GenericScheduler {
   int CurrentK = 0;
   // Record depdencies of the first group of LDSs
   DenseSet<SUnit*> LdsDeps;
+  // Plans for LDGs
+  int MaxLDGsPerK = 0;
+  int IssuedLDGs = 0;
 
   /// higher means higher priority
   /// Samiliar to CandReason in GenericSchedulerBase
