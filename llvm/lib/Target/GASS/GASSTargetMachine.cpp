@@ -254,7 +254,7 @@ void GASSPassConfig::addPreEmitPass() {
   // addPass(createGASSLDGSinkPass());
   // Debug pass
   // addPass(createGASSMachineFunctionCFGPrinterPass());
-  addPass(createGASSPhysRegLivenessPass());
+  // addPass(createGASSPhysRegLivenessPass());
   addPass(createGASSBarrierSettingPass());
   // StallSetting here (called by GASSAsmPrinter)
 }
