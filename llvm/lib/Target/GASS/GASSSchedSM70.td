@@ -68,13 +68,13 @@ def : WriteRes<WriteLDS, [SM70UnitLDST]> { let Latency = 8; // Note: this is an 
 def : WriteRes<WriteSTS, [SM70UnitLDST]> { let Latency = 10; 
                                            let ResourceCycles = [2] /*[4]*/; }
 def : WriteRes<WriteLDS64, [SM70UnitLDST]> { let Latency = 10; 
-                                             let ResourceCycles = [4] /*[8]*/; }
+                                             let ResourceCycles = [6] /*[8]*/; }
 def : WriteRes<WriteSTS64, [SM70UnitLDST]> { let Latency = 10; 
-                                             let ResourceCycles = [4] /*[8]*/; }
+                                             let ResourceCycles = [6] /*[8]*/; }
 def : WriteRes<WriteLDS128, [SM70UnitLDST]> { let Latency = 10; 
-                                              let ResourceCycles = [8] /*[16]*/; }
+                                              let ResourceCycles = [10] /*[16]*/; }
 def : WriteRes<WriteSTS128, [SM70UnitLDST]> { let Latency = 10; 
-                                              let ResourceCycles = [8] /*[16]*/; }
+                                              let ResourceCycles = [10] /*[16]*/; }
 // global memory
 def : WriteRes<WriteLDG, [SM70UnitLDST]> { let Latency = 200; 
                                            // TODO: verify this.

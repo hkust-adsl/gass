@@ -152,7 +152,7 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
         BuildMI(MBB, MI, DL, TII->get(TargetOpcode::COPY), DstSub0)
           .add(Src);
         BuildMI(MBB, MI, DL, TII->get(GASS::SHFrir), DstSub1)
-          .addReg(GASS::RZ32, RegState::Define | RegState::Dead)
+          .addReg(GASS::RZ32)
           .addImm(31)
           .add(Src)
           .addImm(GASS::SHF_FLAGS::R)

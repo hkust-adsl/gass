@@ -732,6 +732,7 @@ void RAGreedy::enqueue(PQueue &CurQueue, LiveInterval *LI) {
       // interference.  Mark a bit to prioritize global above local ranges.
       Prio = (1u << 29) + Size;
     }
+    // Prio = TRI->getRegSizeInBits(Reg, *MRI);
     // Mark a higher bit to prioritize global and local above RS_Split.
     Prio |= (1u << 31);
 
@@ -3046,6 +3047,27 @@ MCRegister RAGreedy::selectOrSplitImpl(LiveInterval &VirtReg,
     } else
       return PhysReg;
   }
+
+  // BitVector FreeRegs;
+  // // VRM->dump();
+
+  // dbgs() << "Can't allocate " << VirtReg << "\n"
+  //        << "While we still have some small candidates:\n";
+  // // Collect free vreg32
+  // {
+  //   const TargetRegisterClass *RC = TRI->getRegClass(5);
+  //   auto Order = RegClassInfo.getOrder(RC);
+  //   DenseSet<Register> FreeRegs;
+  //   for (auto I = Order.begin(); I != Order.end(); ++I) {
+  //     if (!Matrix->checkInterference(VirtReg, *I))
+  //       FreeRegs.insert(*I);
+  //   }
+  //   for (Register &Reg : FreeRegs) {
+  //     dbgs() << TRI->getRegAsmName(Reg) << "\t";
+  //   }
+  //   dbgs() << "\n";
+  // }
+  // llvm_unreachable("No support for spilling, should have returned");
 
   LiveRangeStage Stage = getStage(VirtReg);
   LLVM_DEBUG(dbgs() << StageName[Stage] << " Cascade "

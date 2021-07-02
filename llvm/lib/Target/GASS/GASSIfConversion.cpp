@@ -8,6 +8,7 @@
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
+#include "llvm/CodeGen/TargetOpcodes.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/InitializePasses.h"
@@ -309,13 +310,23 @@ bool GASSIfConversion::runOnMachineFunction(MachineFunction &MF) {
 
   bool Changed = false;
   IfCvt.initialize(MF);
-  
+
   // TODO: check this.
   // Visit blocks in dominator tree post-order.
   // The post-order enables nested if-conversion in a single pass. (?)
   for (auto DomNode : post_order(DomTree))
     if (tryConvertIf(DomNode->getBlock()))
       Changed = true;
+
+  // No longer in SSA form, we don't need IMPLICIT_DEF
+  for (MachineBasicBlock &MBB : MF) {
+    std::vector<MachineInstr*> ToDelete;
+    for (MachineInstr &MI : MBB)
+      if (MI.getOpcode() == TargetOpcode::IMPLICIT_DEF)
+        ToDelete.push_back(&MI);
+    for (MachineInstr *I : ToDelete)
+      MBB.erase_instr(I);
+  }
 
   return Changed;
 }

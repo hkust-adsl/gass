@@ -48,6 +48,8 @@ public:
 
   bool enableEarlyIfConversion() const override;
 
+  bool enableSubRegLiveness() const override { return true; }
+
   unsigned getConstantOffset(unsigned IntNo) const;
 
 protected:

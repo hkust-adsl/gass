@@ -172,7 +172,7 @@ void GASSPassConfig::addOptimizedRegAlloc() {
   //   addPass(&LiveIntervalsID, false);
 
   addPass(&TwoAddressInstructionPassID, false);
-  addPass(&RegisterCoalescerID);
+  addPass(&RegisterCoalescerID); // Standard
 
   // The machine scheduler may accidentally create disconnected components
   // when moving subregister definitions around, avoid this by splitting them to
@@ -181,13 +181,15 @@ void GASSPassConfig::addOptimizedRegAlloc() {
 
   //==***************** GASS specific *************************==//
   // PreRA IfConvert
-  // addPass(createMachineVerifierPass("** Verify Before Early If Conversion **"));
+  addPass(createMachineVerifierPass("** Verify Before Early If Conversion **"));
   addPass(createGASSIfConversionPass());
+  addPass(createMachineVerifierPass("** Verify After Early If Conversion **"));
   // FIXME: Do we need to update LiveIntervals?
   // Now we have more chances to do CSE   
   // Not in SSA form
   // addPass(&MachineCSEID);
   //==*********************************************************==//
+  addPass(&DeadMachineInstructionElimID);
 
   // PreRA instruction scheduling.
   addPass(&MachineSchedulerID);
@@ -197,7 +199,6 @@ void GASSPassConfig::addOptimizedRegAlloc() {
   // addPass(&MachineFunctionPrinterPassID);
 
   if (addRegAssignmentOptimized()) {
-  // if (addRegAssignmentFast()) {
     // Allow targets to expand pseudo instructions depending on the choice of
     // registers before MachineCopyPropagation.
     addPostRewrite();
