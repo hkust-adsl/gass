@@ -1134,7 +1134,7 @@ multiclass SHFL {
     let Inst{123-122} = shfl;
   }
 
-  def rii : GASSInstOp1r<(outs VReg32:$dst),
+  def rii : GASSInst<(outs VReg32:$dst),
                      (ins VReg32:$src0, i32imm:$offset, i32imm:$mask,
                           ShflMode:$shfl),
                      0xf89, "SHFL$shfl $dst, $src0, $offset, $mask;", []> {
@@ -1144,6 +1144,12 @@ multiclass SHFL {
     let Inst{121-117} = offset;
     let Inst{108-104} = mask;
     let Inst{123-122} = shfl;
+
+    bits<8> dst;
+    bits<8> src0;
+
+    let Dst = dst;
+    let Src0 = src0;
 
     let Inst{19-17} = 0x7; // PT
   }

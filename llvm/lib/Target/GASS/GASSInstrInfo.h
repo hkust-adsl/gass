@@ -88,6 +88,7 @@ public:
   static bool isSTS(const MachineInstr &MI);
   static bool isTC(const MachineInstr &MI);
   static bool isSFU(const MachineInstr &MI);
+  static bool isSHFL(const MachineInstr &MI);
 
   // Dynamic query
   /// If an MI reads non-constant carryin reg value

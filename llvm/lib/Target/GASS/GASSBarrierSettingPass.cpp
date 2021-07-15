@@ -122,7 +122,7 @@ public:
     else {
       if (GII->isLDG(MI)) {
         BT = RAW_G;
-      } else if (GII->isLDS(MI)) {
+      } else if (GII->isLDS(MI) || GII->isSHFL(MI)) {
         BT = RAW_S;
       } else if (GII->isLDC(MI)) {
         BT = RAW_C;

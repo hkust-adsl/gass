@@ -530,7 +530,7 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
 // Query instr type
 //=----------------------------------------------=//
 bool GASSInstrInfo::needsRAWBarrier(const MachineInstr &MI) {
-  return isLoad(MI) | isTC(MI) | isSFU(MI);
+  return isLoad(MI) | isTC(MI) | isSFU(MI) | isSHFL(MI);
 }
 
 bool GASSInstrInfo::isLoad(const MachineInstr &MI) {
@@ -610,6 +610,14 @@ bool GASSInstrInfo::isSFU(const MachineInstr &MI) {
   switch (MI.getOpcode()) {
   default: return false;
   case GASS::F2F_F16_F32: case GASS::MUFU:
+    return true;
+  }
+}
+
+bool GASSInstrInfo::isSHFL(const MachineInstr &MI) {
+  switch (MI.getOpcode()) {
+  default: return false;
+  case GASS::SHFLrii:
     return true;
   }
 }
