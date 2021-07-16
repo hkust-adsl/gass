@@ -32,6 +32,7 @@ private:
   // Customized printing methods
   void printRegOperand(unsigned RegNo, raw_ostream &O);
   void printConstantMem(const MCInst *MI, unsigned OpNo, raw_ostream &O);
+  void printPredNot(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printCmpMode(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printCmpModeSign(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printCmpLogic(const MCInst *MI, unsigned OpNo, raw_ostream &O);

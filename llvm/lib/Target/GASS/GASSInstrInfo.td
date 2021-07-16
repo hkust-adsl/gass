@@ -15,6 +15,9 @@ def GASSsetcc_logic : SDNode<"GASSISD::SETCC_LOGIC", GASSSDSetccLogicOp, []>;
 //=---------------------------------=//
 // Operands
 //=---------------------------------=//
+def PredNot : Operand<i1> {
+  let PrintMethod = "printPredNot";
+}
 def constantmem : Operand<i32> {
   let PrintMethod = "printConstantMem";
   // let EncoderMethod = "encodeConstantMem"; // default: getMachineOpValue
@@ -1040,10 +1043,8 @@ let isTerminator = true, isBranch = true, hasSideEffects = true in {
     }
 
   def CBRA : GASSInstNoPred<(outs), 
-                            (ins VReg1:$a, brtarget:$target),
-                            0x947,
-                            "@$a BRA \t$target;",
-                            [(brcond i1:$a, bb:$target)]>, Sched<[]> {
+                            (ins PredNot:$not, VReg1:$a, brtarget:$target),
+                            0x947, "@$not$a BRA \t$target;", []>, Sched<[]> {
     let Inst{26-23} = 0x7; // predicate PT
 
     bits<32> target;
@@ -1052,31 +1053,23 @@ let isTerminator = true, isBranch = true, hasSideEffects = true in {
     // PredMask
     bits<3> a;
     let Inst{78-76} = a;
-  }
+    bit not;
+    let Inst{79} = not;
 
-  def CBRAOther : GASSInstNoPred<(outs), 
-                            (ins VReg1:$a, brtarget:$target),
-                            0x947,
-                            "@!$a BRA \t$target;",
-                            []>, Sched<[]> {
-    let Inst{26-23} = 0x7; // predicate PT
-
-    bits<32> target;
-    let Inst{127-96} = target;
-
-    // PredMask
-    bits<3> a;
-    let Inst{79} = 1; // @!$a
-    let Inst{78-76} = a;
+    // let AsmString = "@"
+    //   #!if(!eq(not, 0), "") 
+    //   #"$a BRA \t$target";
   }
 }
+
+def : Pat<(brcond i1:$a, bb:$target), (CBRA 0, $a, brtarget:$target)>;
 // SelectionDAGBuilder::visitSWitchCase() will invert the condition of a
 // conditional branch if the target block is the next block so that the code
 // can fall through to the target block.  The invertion is done by 'xor
 // condition, 1', which will be translated to (setne condition, -1).  Since ptx
 // supports '@!pred bra target', we should use it.
-def : Pat<(brcond (i1 (setne VReg1:$a, -1)), bb:$target),
-          (CBRAOther VReg1:$a, bb:$target)>;
+def : Pat<(brcond (i1 (setne VReg1:$a, -1)), bb:$target), (CBRA 1, VReg1:$a, bb:$target)>;
+
 
 // TODO: This is a dirty fix for tailing bra
 def TailBRA : GASSInst<(outs), (ins), 

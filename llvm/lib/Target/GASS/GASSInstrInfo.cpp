@@ -93,9 +93,9 @@ bool GASSInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
       return false;
     } else if (LastInst.getOpcode() == GASS::CBRA) {
       // Block ends with fall-through condbranch.
-      TBB = LastInst.getOperand(1).getMBB();
-      Cond.push_back(MachineOperand::CreateImm(0)); // If cond flipped
-      Cond.push_back(LastInst.getOperand(0));
+      TBB = LastInst.getOperand(2).getMBB();
+      Cond.push_back(LastInst.getOperand(0)); // If cond flipped
+      Cond.push_back(LastInst.getOperand(1));
       return false;
     }
     // Otherwise, don't know what this is.
@@ -112,9 +112,9 @@ bool GASSInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
   // If the block ends with CBRA and BRA, handle it.
   if (SecondLastInst.getOpcode() == GASS::CBRA &&
       LastInst.getOpcode() == GASS::BRA) {
-    TBB = SecondLastInst.getOperand(1).getMBB();
-    Cond.push_back(MachineOperand::CreateImm(0)); // If cond flipped
+    TBB = SecondLastInst.getOperand(2).getMBB();
     Cond.push_back(SecondLastInst.getOperand(0));
+    Cond.push_back(SecondLastInst.getOperand(1));
     FBB = LastInst.getOperand(0).getMBB();
     return false;
   }
@@ -277,13 +277,16 @@ unsigned GASSInstrInfo::insertBranch(MachineBasicBlock &MBB,
     if (Cond.empty()) // Unconditional branch
       BuildMI(&MBB, DL, get(GASS::BRA)).addMBB(TBB);
     else // Conditional branch
-      BuildMI(&MBB, DL, get(GASS::CBRA)).addReg(Cond[1].getReg())
+      BuildMI(&MBB, DL, get(GASS::CBRA))
+          .add(Cond[0]).addReg(Cond[1].getReg())
           .addMBB(TBB);
     return 1;
   }
 
   // Two-way Conditional Branch.
-  BuildMI(&MBB, DL, get(GASS::CBRA)).addReg(Cond[1].getReg()).addMBB(TBB);
+  BuildMI(&MBB, DL, get(GASS::CBRA))
+      .add(Cond[0])
+      .addReg(Cond[1].getReg()).addMBB(TBB);
   BuildMI(&MBB, DL, get(GASS::BRA)).addMBB(FBB);
   return 2;
 }

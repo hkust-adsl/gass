@@ -66,6 +66,13 @@ void GASSInstPrinter::printConstantMem(const MCInst *MI,
   O << "c[0x0][" << format_hex(value, 3) << "]";
 }
 
+void GASSInstPrinter::printPredNot(const MCInst *MI, unsigned OpNo, raw_ostream &O) {
+  const MCOperand &Op = MI->getOperand(OpNo);
+  unsigned Val = Op.getImm();
+  if (Val == 0) O << "";
+  else O << "!";
+}
+
 void GASSInstPrinter::printCmpMode(const MCInst *MI, 
                                    unsigned OpNo, raw_ostream &O) {
   const MCOperand &Op = MI->getOperand(OpNo);

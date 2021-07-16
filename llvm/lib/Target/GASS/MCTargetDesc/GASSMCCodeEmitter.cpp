@@ -21,16 +21,15 @@ void GASSMCCodeEmitter::encodeInstruction(const MCInst &MI, raw_ostream &OS,
 
   // Update encoding for specific rules
   // FIXME FIXME FIXME: should really use MCExpr here.
-  if (MI.getOpcode() == GASS::BRA || MI.getOpcode() == GASS::CBRA ||
-      MI.getOpcode() == GASS::CBRAOther) {
+  if (MI.getOpcode() == GASS::BRA || MI.getOpcode() == GASS::CBRA) {
     const MCOperand *MOOffset = nullptr;
     switch (MI.getOpcode()) {
     default: llvm_unreachable("Error");
     case GASS::BRA:
       MOOffset = &MI.getOperand(0);
       break;
-    case GASS::CBRA: case GASS::CBRAOther:
-      MOOffset = &MI.getOperand(1);
+    case GASS::CBRA:
+      MOOffset = &MI.getOperand(2);
       break;
     }
     assert(MOOffset->isImm());
