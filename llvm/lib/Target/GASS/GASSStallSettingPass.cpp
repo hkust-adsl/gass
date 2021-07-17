@@ -161,6 +161,9 @@ bool GASSStallSetting::runOnMachineFunction(MachineFunction &MF) {
             // force it to stall for 2 cycles
             Stalls = 2;
         }
+        // TODO: remove this. 
+        // Now force instrs that set barriers to stall for 2 cycles
+        // Stalls = 2;
       }
 
       // 2. Peek the next instr

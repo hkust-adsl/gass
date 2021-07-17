@@ -23,6 +23,7 @@
 // }
 
 //----------shared memory----------------
+let isFixLat = false in {
 let mayLoad = true in {
 multiclass LDSM<RegisterClass RC, int Num> {
   // def _r 
@@ -68,9 +69,10 @@ multiclass LDSM<RegisterClass RC, int Num> {
 
 }
 }
+}
 // defm LDSM_x1 : LDSM<VReg32, 1>;
 // defm LDSM_x2 : LDSM<VReg64, 2>;
-defm LDSM_x4 : LDSM<VReg128, 4>;
+defm LDSM_x4 : LDSM<VReg128, 4>, Sched<[WriteLDS128]>;
 
 // TODO: patterns for _ri_pseudo & _rui_pseudo
 

@@ -982,6 +982,18 @@ defm LDS32 : LDS<VReg32, 32>, Sched<[WriteLDS]>;
 defm LDS64 : LDS<VReg64, 64>, Sched<[WriteLDS64]>;
 defm LDS128 : LDS<VReg128, 128>, Sched<[WriteLDS128]>;
 
+let mayLoad = true in {
+multiclass LDL<RegisterClass RC, int Width> {
+  def r : GASSInstLdst<(outs RC:$dst), (ins VReg32:$ptr),
+                       0x983, "LDL."#Width#" \t$dst, [$ptr];", [], Width>;
+  def ri : GASSInstLdst<(outs RC:$dst), (ins VReg32:$ptr, i32imm:$offset),
+                        0x983, "LDL."#Width#" \t$dst, [$ptr+$offset];", [], Width>;                       
+}
+}
+defm LDL32 : LDL<VReg32, 32>, Sched<[WriteLDG]>; // TODO: revisit Sched
+defm LDL64 : LDL<VReg64, 64>, Sched<[WriteLDG]>;
+defm LDL128 : LDL<VReg128, 128>, Sched<[WriteLDG]>;
+
 
 // STG
 multiclass STG<RegisterClass RC, int Width> {
@@ -999,6 +1011,16 @@ multiclass STG<RegisterClass RC, int Width> {
     let Inst{87-80} = 0; // Dst
   }
 }
+
+multiclass STL<RegisterClass RC, int Width> {
+  def r : GASSInstLdst<(outs), (ins RC:$src1, VReg32:$ptr),
+                       0x387, "STL."#Width#" \t[$ptr], $src1;", [], Width>;
+  def ri : GASSInstLdst<(outs), (ins RC:$src1, VReg32:$ptr, i32imm:$offset),
+                        0x387, "STL."#Width#" \t[$ptr+$offset], $src1;", [], Width>;
+}
+defm STL32 : STL<VReg32, 32>, Sched<[WriteSTG]>; // TODO: revisit Sched
+defm STL64 : STL<VReg64, 64>, Sched<[WriteSTG]>; 
+defm STL128 : STL<VReg128, 128>, Sched<[WriteSTG]>; 
 
 let mayStore = true in {
 defm STG32 : STG<VReg32, 32>, Sched<[WriteSTG]>;
