@@ -27,12 +27,12 @@ foreach Index = 0-63 in {
 }
 
 // 16-bit un-allocatable sub regs
-foreach Index = 0-511 in {
+foreach Index = 0-255 in {
   def VGPR#Index#_LO : GASSReg<"R"#Index#"_LO", 0>;
   def VGPR#Index#_HI : GASSReg<"R"#Index#"_HI", 0>;
 }
 
-foreach Index = 0-511 in {
+foreach Index = 0-255 in {
   def VGPR#Index : GASSReg<"R"#Index, Index> {
     let SubRegs = [!cast<GASSReg>("VGPR"#Index#"_LO"), 
                    !cast<GASSReg>("VGPR"#Index#"_HI")];
@@ -108,13 +108,13 @@ def VReg1  : GASSRegClass<[i1], 1, (add (sequence "PR%u", 0, 6), PT)>;
 // All registers are:
 //   vgpr0_lo, vgpr0_hi, vgpr1_lo, vgpr1_hi, vgpr2_lo, vgpr2_hi, ...
 def VReg32 : GASSRegClass<[i32,f32,v2f16, v2i16, f16, i16], 
-                           32, (add (sequence "VGPR%u", 0, 511), RZ32, RZ32_1)> {
+                           32, (add (sequence "VGPR%u", 0, 255), RZ32, RZ32_1)> {
   let AllocationPriority = 1;
 }
 
 // def : RegisterWithSubRegs<"", 
 //                           [VREG0, VREG1], [VREG2, VREG3], ...>;
-def VReg64Tuple : GASSRegTuples<[sub0, sub1], VReg32, 511, 2, 2, "R">;
+def VReg64Tuple : GASSRegTuples<[sub0, sub1], VReg32, 255, 2, 2, "R">;
 // Subregister indices:
 //   hi, lo
 //   sub0, sub1
@@ -125,7 +125,7 @@ def VReg64 : GASSRegClass<[i64, f64, v2f32, v2i32, v4f16], 64,
   let GeneratePressureSet = false;
 }
 def VReg128Tuple : GASSRegTuples<[sub0, sub1, sub2, sub3], 
-                                 VReg32, 511, 4, 4, "R">;
+                                 VReg32, 255, 4, 4, "R">;
 def VReg128 : GASSRegClass<[v2i64, v2f64, v4i32, v4f32, 
                             v8f16, v8i16, i128, f128], 128, 
                            (add VReg128Tuple)> {
@@ -146,8 +146,8 @@ class GASSVirtRegClass<list<ValueType> regTypes, int alignment, dag regList>
   let GeneratePressureSet = false;
 }
 def VReg16 : GASSVirtRegClass<[f16], 16, 
-    (add (sequence "VGPR%u_LO", 0, 511), (sequence "VGPR%u_HI", 0, 511), 
+    (add (sequence "VGPR%u_LO", 0, 255), (sequence "VGPR%u_HI", 0, 255), 
     RZ16_LO, RZ16_HI, RZ16_1_LO, RZ16_1_HI)>;
-def VReg16Lo : GASSVirtRegClass<[f16], 16, (add (sequence "VGPR%u_LO", 0, 511), RZ16_LO, RZ16_1_LO)>;
-def VReg16Hi : GASSVirtRegClass<[f16], 16, (add (sequence "VGPR%u_HI", 0, 511), RZ16_HI, RZ16_1_HI)>;
+def VReg16Lo : GASSVirtRegClass<[f16], 16, (add (sequence "VGPR%u_LO", 0, 255), RZ16_LO, RZ16_1_LO)>;
+def VReg16Hi : GASSVirtRegClass<[f16], 16, (add (sequence "VGPR%u_HI", 0, 255), RZ16_HI, RZ16_1_HI)>;
 //=--------------------------------------------------------------------------=//
