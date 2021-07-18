@@ -1269,6 +1269,14 @@ def READ_CTAID_W : READ_SREG_R32<"ctaid.w", int_nvvm_read_ptx_sreg_ctaid_w, 40>;
 
 def READ_LANEID : READ_SREG_R32<"laneid", int_nvvm_read_ptx_sreg_laneid, 0>;
 
+class CS2R<string RegName, Intrinsic IntOp, bits<8> RegEnc>
+  : GASSInstOp0<(outs VReg32:$dst), (ins),
+                0x805, "CS2R \t$dst, "#RegName#";",
+                [(set VReg32:$dst, (IntOp))]>, Sched<[WriteCSR]> {
+    let Inst{15-8} = RegEnc;
+  }
+def CS2R_CLOCK : CS2R<"SR_CLOCK", int_nvvm_read_ptx_sreg_clock, 0x50>;
+
 //=--------------------------------------------------------------------------=//
 // Vector type patterns (extractelt, insertelt)
 //=--------------------------------------------------------------------------=//

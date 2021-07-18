@@ -32,6 +32,8 @@ def : WriteRes<WriteISETP, [SM70UnitALU]> { let Latency = 12;
                                             let ResourceCycles = [2]; }
 def : WriteRes<WritePRMT, [SM70UnitALU]> { let Latency = 10; 
                                            let ResourceCycles = [2]; }
+def : WriteRes<WriteCSR, [SM70UnitALU]> { let Latency = 5; // 4 for Turing & Ampere
+                                          let ResourceCycles = [6]; }
 // Uses FP32 pipeline
 def : WriteRes<WriteIMUL, [SM70UnitFP32ALU]> { let Latency = 8; 
                                                let ResourceCycles = [2]; }
