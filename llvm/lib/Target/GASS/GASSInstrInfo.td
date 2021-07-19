@@ -1237,8 +1237,15 @@ def EXIT : GASSInst<(outs), (ins), 0x94d, "EXIT;", [(GASSexit)]>,
   let Inst{26-23} = 0x7; // predicate PT
 }
 
-def NOP : GASSInst<(outs), (ins), 0x918, "NOP;", []>,
-          Sched<[WriteINT]> ;
+def NOP : GASSInst<(outs), (ins), 0x918, "NOP;", [(int_nvvm_nop)]>, Sched<[WriteNOP]> {
+  let hasSideEffects = true;
+}
+
+// throughput benchmarking instr
+// def TPUT_BENCH_PSEUDO : 
+//   GASSPseudoInst<(outs), (ins i32imm:$opcode), []>, Sched<[WriteNOP]> {
+//     let hasSideEffects = true;
+// }
 
 //=--------------------------------=//
 // Read Special Registers

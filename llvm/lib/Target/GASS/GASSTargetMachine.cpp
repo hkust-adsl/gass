@@ -18,6 +18,10 @@
 
 using namespace llvm;
 
+static cl::opt<bool> BenchmarkMode("gass-benchmark-mode",
+                                   cl::desc("Enable Benchmark Mode"),
+                                   cl::init(false), cl::Hidden);
+
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeGASSTarget() {
   RegisterTargetMachine<GASSTargetMachine> X(getTheGASSTarget());
   auto PR = PassRegistry::getPassRegistry();
@@ -107,12 +111,14 @@ TargetPassConfig *GASSTargetMachine::createPassConfig(PassManagerBase &PM) {
 }
 
 void GASSPassConfig::addIRPasses() {
-  addPass(createDeadCodeEliminationPass());
+  if (!BenchmarkMode)
+    addPass(createDeadCodeEliminationPass());
 
   // Can be useful (following NVPTX)
   // addPass(createGVNPass());
   // or
-  addPass(createEarlyCSEPass());
+  if (!BenchmarkMode)
+    addPass(createEarlyCSEPass());
   
   addPass(createGASSAddrSpacePass()); // required by infer address space
   addPass(createSROAPass());

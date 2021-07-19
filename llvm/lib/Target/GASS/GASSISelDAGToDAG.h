@@ -33,6 +33,7 @@ private:
   bool tryBUILD_VECTOR(SDNode *N);
   bool trySHFL(SDNode *N);
   bool trySETCC_LOGIC(SDNode *N);
+  bool tryTPUT_BENCH(SDNode *N);
 
 private:
   // other helper functions 

@@ -1,10 +1,13 @@
 #include "GASS.h"
 #include "GASSISelDAGToDAG.h"
 #include "GASSSubtarget.h"
+#include "MCTargetDesc/GASSMCTargetDesc.h"
 #include "llvm/CodeGen/ISDOpcodes.h"
 #include "llvm/CodeGen/SelectionDAGISel.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/IntrinsicsNVPTX.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
@@ -119,8 +122,8 @@ void GASSDAGToDAGISel::Select(SDNode *N) {
       ReplaceNode(N, Ldsm);
       return;
     } break;
-    } break;
-  }
+    }
+  } break;
   case ISD::INTRINSIC_WO_CHAIN: {
     unsigned IntNo = cast<ConstantSDNode>(N->getOperand(0))->getZExtValue();
     switch (IntNo) {
@@ -144,8 +147,17 @@ void GASSDAGToDAGISel::Select(SDNode *N) {
       return;
     } break;
     }
-    break;
-  }
+  } break;
+  case ISD::INTRINSIC_VOID: {
+    unsigned IntNo = cast<ConstantSDNode>(N->getOperand(1))->getZExtValue();
+    switch (IntNo) {
+    default: break;
+    // TODO: try to remove this
+    case Intrinsic::nvvm_tput_bench:
+      if (tryTPUT_BENCH(N))
+        return;
+    } break;
+  } break;
   case ISD::ConstantFP: {
     if (N->getValueType(0).getSizeInBits() >= 32)
       break;
@@ -617,6 +629,27 @@ bool GASSDAGToDAGISel::tryBUILD_VECTOR(SDNode *N) {
 
     ReplaceNode(N, RegSeq);
     return true;
+}
+
+// TODO: remove this. This can be buggy.
+bool GASSDAGToDAGISel::tryTPUT_BENCH(SDNode *N) {
+  llvm_unreachable("Do not use llvm.nvvm.tput_bench");
+  // SDValue Chain = N->getOperand(0);
+  // SDValue StrNode = N->getOperand(2);
+  // assert(isa<MDNodeSDNode>(StrNode));
+  // const MDNode *MD = dyn_cast<MDNodeSDNode>(StrNode)->getMD();
+  // StringRef OpcStr = dyn_cast<MDString>(MD->getOperand(0).get())->getString();
+  // unsigned OpcSASS = StringSwitch<unsigned>(OpcStr)
+  //   .CaseLower("hmma.16816", GASS::HMMA16816_f32_f16_f16_f32)
+  //   .Default(GASS::INSTRUCTION_LIST_END);
+
+  // SDLoc DL(N);
+  // SDValue Ops[] = {CurDAG->getConstant(OpcSASS, DL, MVT::i32)};
+  // SDNode *GASSTPUT_BENCH = CurDAG->getMachineNode(
+  //     GASS::TPUT_BENCH_PSEUDO, DL, MVT::Other, Ops);
+  // ReplaceNode(N, GASSTPUT_BENCH);
+  // assert(OpcSASS != GASS::INSTRUCTION_LIST_END);
+  return true;
 }
 
 static unsigned getOpcode3Op(SDValue &Src0, SDValue &Src1, SDValue &Src2,

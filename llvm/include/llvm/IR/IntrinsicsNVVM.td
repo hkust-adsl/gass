@@ -4286,4 +4286,8 @@ def int_nvvm_ldmatrix_m8n8_x4_trans
               [IntrReadMem, IntrArgMemOnly, NoCapture<ArgIndex<0>>, ReadOnly<ArgIndex<0>>],
               "llvm.nvvm.ldmatrix.m8n8.x4.trans">;
 
+// nvvm-nop
+def int_nvvm_nop : Intrinsic<[], [], [IntrHasSideEffects], "llvm.nvvm.nop">;
+def int_nvvm_tput_bench : Intrinsic<[], [llvm_metadata_ty], [IntrHasSideEffects], "llvm.nvvm.tputbench">;
+def int_nvvm_sink : Intrinsic<[], [llvm_any_ty], [IntrHasSideEffects], "llvm.nvvm.sink.any">;
 } // let TargetPrefix = "nvvm"

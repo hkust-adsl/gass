@@ -5,6 +5,7 @@ def WriteLOP3 : SchedWrite;
 def WriteISETP : SchedWrite;
 def WritePRMT : SchedWrite;
 def WriteCSR  : SchedWrite;
+def WriteNOP  : SchedWrite;
 
 // Integer mulitplication
 def WriteIMUL : SchedWrite;

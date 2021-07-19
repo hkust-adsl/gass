@@ -34,6 +34,7 @@ def : WriteRes<WritePRMT, [SM70UnitALU]> { let Latency = 10;
                                            let ResourceCycles = [2]; }
 def : WriteRes<WriteCSR, [SM70UnitALU]> { let Latency = 5; // 4 for Turing & Ampere
                                           let ResourceCycles = [6]; }
+def : WriteRes<WriteNOP, []> { let Latency = 1; let ResourceCycles = []; } 
 // Uses FP32 pipeline
 def : WriteRes<WriteIMUL, [SM70UnitFP32ALU]> { let Latency = 8; 
                                                let ResourceCycles = [2]; }
@@ -74,11 +75,11 @@ def : WriteRes<WriteLDS64, [SM70UnitLDST]> { let Latency = 10;
 def : WriteRes<WriteSTS64, [SM70UnitLDST]> { let Latency = 10; 
                                              let ResourceCycles = [6] /*[8]*/; }
 def : WriteRes<WriteLDS128, [SM70UnitLDST]> { let Latency = 10; 
-                                              let ResourceCycles = [10] /*[16]*/; }
+                                              let ResourceCycles = [20] /*[16]*/; }
 def : WriteRes<WriteSTS128, [SM70UnitLDST]> { let Latency = 10; 
-                                              let ResourceCycles = [10] /*[16]*/; }
+                                              let ResourceCycles = [20] /*[16]*/; }
 // global memory
-def : WriteRes<WriteLDG, [SM70UnitLDST]> { let Latency = 200; 
+def : WriteRes<WriteLDG, [SM70UnitLDST]> { let Latency = 250; 
                                            // TODO: verify this.
                                            let ResourceCycles = [20] /*[40]*/; }
 def : WriteRes<WriteSTG, [SM70UnitLDST]> { let Latency = 100; 
