@@ -507,21 +507,21 @@ LiveBarGraph::pickBarrierPairToMergeOrdered(std::set<Barrier*> &Candidates) {
     }
   }
 
-  // NO RAW_S interference, try LDG
-  for (Barrier *Candidate : Candidates) {
-    if (Candidate->getBarrierType() == RAW_G) {
-      for (Edge const &E : Edges[Candidate]) {
-        if (E.Dst->getBarrierType() == RAW_G)
-          return {Candidate, E.Dst};
-      }
-    }
-  }
-
   // try WAR_MEM
   for (Barrier *Candidate : Candidates) {
     if (Candidate->getBarrierType() == WAR_MEM) {
       for (Edge const &E : Edges[Candidate]) {
         if (E.Dst->getBarrierType() == WAR_MEM)
+          return {Candidate, E.Dst};
+      }
+    }
+  }
+
+  // NO RAW_S interference, try LDG
+  for (Barrier *Candidate : Candidates) {
+    if (Candidate->getBarrierType() == RAW_G) {
+      for (Edge const &E : Edges[Candidate]) {
+        if (E.Dst->getBarrierType() == RAW_G)
           return {Candidate, E.Dst};
       }
     }
