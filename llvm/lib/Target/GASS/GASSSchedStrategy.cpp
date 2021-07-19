@@ -180,6 +180,7 @@ bool GASSSchedStrategy::isMathSU(SUnit *SU) {
     return false;
 }
 
+//==----- Scores (high priority -> low priority) ----------==//
 void GASSSchedStrategy::computeMathScore(std::vector<int> &Score, SUnit *SU) {
   // Requires math resource & resource is free
   if (isMathSU(SU) && isResourceFree(SU)) {
@@ -515,12 +516,12 @@ void GASSSchedStrategy::registerRoots() {
       MaxCycles = iter.second;
     }
   }
-  StringRef CritialName = STI.getSchedModel().getProcResource(CritialFU)->Name;
-  errs() << "Critial FU: " << CritialName
-         << "\t Cycles: " << MaxCycles << "\n";
+  StringRef CriticalName = STI.getSchedModel().getProcResource(CritialFU)->Name;
+  // errs() << "Critical FU: " << CriticalName
+  //        << "\t Cycles: " << MaxCycles << "\n";
   // if (IsLoopBody)
   //   DAG->viewGraph();
-  if (CritialName.equals("SM70UnitTensorCore") || CritialName.equals("SM70UnitFP32")) {
+  if (CriticalName.equals("SM70UnitTensorCore") || CriticalName.equals("SM70UnitFP32")) {
     IsLoopBody &= true;
     // DAG->viewGraph();
   } 
@@ -647,13 +648,16 @@ void GASSSchedStrategy::constructKs() {
       TotalLDGs++;
     }
 
-  MaxLDGsPerK = std::max((MathCycPerK - LDSCycPerK) / LDGCycles, 1);
+  if (LDGCycles != 0)
+    MaxLDGsPerK = std::max((MathCycPerK - LDSCycPerK) / LDGCycles, 1);
 
-  outs() << "Math Cycles Per K: " << MathCycPerK << "\n"
-         << "LDS Cycles Per K: " << LDSCycPerK << "\n"
-         << "LDG Cycles: " << ToalLDGCycles << "\n"
-         << "Max LDGs Per K: " << MaxLDGsPerK << "\n";
+  // outs() << "Math Cycles Per K: " << MathCycPerK << "\n"
+  //        << "LDS Cycles Per K: " << LDSCycPerK << "\n"
+  //        << "LDG Cycles: " << ToalLDGCycles << "\n"
+  //        << "Max LDGs Per K: " << MaxLDGsPerK << "\n";
   
+  // TODO: Plan ahead.
+
   // // 5. dump
   // for (auto iter : Ks) {
   //   iter.getFirst()->getInstr()->dump();
