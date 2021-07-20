@@ -1,26 +1,38 @@
 //=----------------------------------=//
 // Load/Store
 //=----------------------------------=//
-// // async copy on Ampere
-// multiclass LDGSTS<int Width> {
-//   def rr : GASSInstLdst<(outs), 
-//       (ins VReg32:$dst),
-//                        0xdae,
-//                        "LDGSTS", [], Width>;
+// async copy on Ampere
+multiclass LDGSTS<int Width> {
+  // Always riri?
+  def riri : GASSInstLdstGlobalOff<(outs), 
+      (ins VReg32:$dst, simm24:$offset, VReg64:$ptr, simm12:$soff), // TOOD: pred mask
+      0xfae, "LDGSTS.E."#Width#" \t[$dst+$offset], [$ptr.64+$soff];", [], Width> {
+    // let Inst{7-0} = 0x46; // TODO: update this
+    // let Inst{12} = 1; // TODO: why?
+    // let Inst{20} = 1; // TODO: why?
+    // let Inst{27} = 1; // TODO: why?
+    let Inst{27-0} = 0xb901d46;
+  }
 
-//   def rir : ;
+  // def rir : ;
 
-//   def rri : ;
+  // def rri : ;
 
-//   def riri : ;
+  // def riri : ;
 
-// }
+}
 
-// let mayStore = true, mayLoad = true in {
+let mayStore = true, mayLoad = true in {
 // defm LDGSTS32 : LDGSTS<32>, Sched<[WriteLDG]>; // TODO: revisit this.
 // defm LDGSTS64 : LDGSTS<64>, Sched<[WriteLDG]>;
-// defm LDGSTS128 : LDGSTS<128>, Sced<[WriteLDG]>;
-// }
+defm LDGSTS128 : LDGSTS<128>, Sched<[WriteLDG]>, Requires<[hasSM80]>;
+}
+
+// ref: RISCVInstrInfo.td:1081
+def : Pat<(int_nvvm_cp_async_cg_shared_global_16 (add VReg32:$dbase, simm24:$off), VReg64:$ptr), 
+          (LDGSTS128riri VReg32:$dbase, simm24:$off, VReg64:$ptr, 0)>;
+def : Pat<(int_nvvm_cp_async_cg_shared_global_16 VReg32:$dbase, VReg64:$ptr),
+          (LDGSTS128riri VReg32:$dbase, 0, VReg64:$ptr, 0)>;
 
 //----------shared memory----------------
 let isFixLat = false in {
@@ -66,13 +78,12 @@ multiclass LDSM<RegisterClass RC, int Num> {
                                   (ins VReg32:$ptr, i32imm:$ioff, LdsmTrans:$trans), []>;
   def _rui_pseudo : GASSPseudoInstNoPred<(outs VReg32:$d0, VReg32:$d1, VReg32:$d2, VReg32:$d3), 
                                    (ins VReg32:$ptr, SReg32:$uoff, i32imm:$ioff, LdsmTrans:$trans), []>;
-
 }
 }
 }
 // defm LDSM_x1 : LDSM<VReg32, 1>;
 // defm LDSM_x2 : LDSM<VReg64, 2>;
-defm LDSM_x4 : LDSM<VReg128, 4>, Sched<[WriteLDS128]>;
+defm LDSM_x4 : LDSM<VReg128, 4>, Sched<[WriteLDS128]>, Requires<[hasSM75]>;
 
 // TODO: patterns for _ri_pseudo & _rui_pseudo
 
@@ -89,13 +100,13 @@ def LDGDEPBAR : GASSInst<(outs), (ins), 0x9af, "LDGDEPBAR;",
 }
 
 // cp.async.wait_group N;
-// TODO: schedule model
+// TODO: barrier idx
 def DEPBAR : GASSInst<(outs), (ins i32imm:$n), 0x91a, "DEPBAR.LE\t SB0, $n;",
-    [(int_nvvm_cp_async_wait_group (i32 timm:$n))]> {
-  bits<6> n = 0;
+    [(int_nvvm_cp_async_wait_group (i32 timm:$n))]>, Requires<[hasSM75]> {
+  bits<6> n;
   bits<3> BarIdx = 0;
 
-  let Inst{107-102} = n;
+  let Inst{107-102} = n;  
   let Inst{110-108} = BarIdx;
   let Inst{111} = 1; // .LE
 

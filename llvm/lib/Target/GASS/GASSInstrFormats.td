@@ -304,3 +304,18 @@ class GASSInstOp0<dag oops, dag iops, bits<12> opcode, string asm,
 
   let Dst = dst;
 }
+
+
+//==-------------------------------------------------------------------------==//
+// Instruction Predicate
+//==-------------------------------------------------------------------------==//
+def hasSM70 : Predicate<"Subtarget->getSmVersion() >= 70">;
+def hasSM75 : Predicate<"Subtarget->getSmVersion() >= 75">;
+def hasSM80 : Predicate<"Subtarget->getSmVersion() >= 80">;
+
+//=---------------------------------------------------------------------------=//
+// Operands
+//=---------------------------------------------------------------------------=//
+// ref: AArcht64InstrFormats.td:309
+def simm12 : Operand<i16>, ImmLeaf<i16, [{return isInt<12>(Imm);}]>;
+def simm24 : Operand<i32>, ImmLeaf<i32, [{return isInt<24>(Imm);}]>;

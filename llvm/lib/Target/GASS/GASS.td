@@ -22,12 +22,14 @@ class Proc<string Name, list<SubtargetFeature> Features>
 
 // SchedModel
 include "GASSSchedSM70.td"
+include "GASSSchedSM75.td"
+include "GASSSchedSM80.td"
 
 // ProcessorModel = Processor + SchedModel
 def : ProcessorModel<"sm_70", SM70Model, [SM70]>;
 // Turing can reuse Volta's Schedule Model
-def : ProcessorModel<"sm_75", SM70Model, [SM75]>;
-def : ProcessorModel<"sm_80", SM70Model, [SM80]>;
+def : ProcessorModel<"sm_75", SM75Model, [SM75]>;
+def : ProcessorModel<"sm_80", SM80Model, [SM80]>;
 
 def GASSInstrInfo : InstrInfo {}
 
