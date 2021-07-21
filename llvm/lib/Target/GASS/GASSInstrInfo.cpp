@@ -597,6 +597,7 @@ bool GASSInstrInfo::isSTS(const MachineInstr &MI) {
   case GASS::STS32r: case GASS::STS32ri:
   case GASS::STS64r: case GASS::STS64ri:
   case GASS::STS128r: case GASS::STS128ri:
+  case GASS::LDGSTS128riri:
     return true;
   }
 }
@@ -671,6 +672,8 @@ MachineOperand* GASSInstrInfo::getMemOperandReg(MachineInstr &MI) {
   case GASS::STG64r: case GASS::STG64ri:
   case GASS::STG128r: case GASS::STG128ri:
     return &MI.getOperand(1); // First operand is src
+  case GASS::LDGSTS128riri:
+    return &MI.getOperand(2);
   }
 }
 

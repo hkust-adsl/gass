@@ -123,23 +123,14 @@ public:
 
     if (IsMemOp) BT = WAR_MEM;
     else {
-      if (GII->isLDG(MI)) {
-        BT = RAW_G;
-      } else if (GII->isLDS(MI) || GII->isSHFL(MI)) {
-        BT = RAW_S;
-      } else if (GII->isLDC(MI)) {
-        BT = RAW_C;
-      } else if (GII->isTC(MI)) {
-        BT = RAW_TC;
-      } else if (GII->isSFU(MI)) {
-        BT = RAW_SFU;
-      } else if (GII->isSTS(MI)) {
-        BT = WAR_S;
-      } else if (GII->isSTG(MI)) {
-        BT = WAR_G;
-      } else {
-        llvm_unreachable("Invalid MI for barrier");
-      }
+      if (GII->isLDG(MI)) { BT = RAW_G; }
+       else if (GII->isLDS(MI) || GII->isSHFL(MI)) { BT = RAW_S; }
+       else if (GII->isLDC(MI)) { BT = RAW_C; }
+       else if (GII->isTC(MI)) { BT = RAW_TC; }
+       else if (GII->isSFU(MI)) { BT = RAW_SFU; }
+       else if (GII->isSTS(MI)) { BT = WAR_S; }
+       else if (GII->isSTG(MI)) { BT = WAR_G; }
+       else { llvm_unreachable("Invalid MI for barrier"); }
     }
 
     if (BT == RAW_S || BT == RAW_G || BT == RAW_C || BT == RAW_TC || 
@@ -147,8 +138,6 @@ public:
       IsRAW = true;
     else
       IsRAW = false;
-
-    // 
   }
 
   // Merge two barriers
@@ -381,7 +370,6 @@ public:
     // 3. merge!
     LLVM_DEBUG(dbgs() << "Merge two barriers\n");
     A->merge(*B);
-
     LLVM_DEBUG(dbgs() << "After merge: \n");
     LLVM_DEBUG(A->dump());
     // 3.1 Insert A
@@ -593,8 +581,6 @@ bool GASSBarrierSetting::runOnMachineFunction(MachineFunction &MF) {
   for (MachineBasicBlock &MBB : MF) {
     runOnMachineBasicBlock(MBB);
   }
-
-  // LLVM_DEBUG(MF.dump());
 
   return true;
 }
