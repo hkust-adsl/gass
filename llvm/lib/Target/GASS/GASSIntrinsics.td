@@ -8,9 +8,17 @@ multiclass LDGSTS<int Width> {
       (ins VReg32:$dst, simm24:$offset, VReg64:$ptr, simm12:$soff), // TOOD: pred mask
       0xfae, "LDGSTS.E."#Width#" \t[$dst+$offset], [$ptr.64+$soff];", [], Width> {
     // let Inst{7-0} = 0x46; // TODO: update this
-    // let Inst{12} = 1; // TODO: why?
-    // let Inst{20} = 1; // TODO: why?
-    // let Inst{27} = 1; // TODO: why?
+    //    ? .64
+    // let Inst{12} = 1; // TODO: why? (?)
+    // let Inst{27} = 1; // always 1
+    // let Inst{25-23} = 0x7; // pred mask
+    // let Inst{17} = // bypass -> 0, not-bypass -> 1
+    // let Inst{18} = // not-zfill -> 0, zfill -> 1
+    // let Inst{15-11} = 
+    //    0->DEFAULT(nothing),  1->CONSTANT.PRIVATE, 2->CONSTANT.CTA, 3->CONSTANT.CTA.PRIVATE
+    //    4->CONSTANT, 5->MMIO.CTA, 6->GPU.PRIVATE, 7->MMIO.CTA.PRIVATE
+    // let Inst{22-20} = 
+    //    0->.EF, 1->?, 2->.EL, 3->.LU, 4->.EU, 5->.NA(?)
     let Inst{27-0} = 0xb901d46;
   }
 
@@ -53,7 +61,7 @@ multiclass LDSM<RegisterClass RC, int Num> {
     : GASSInst<(outs RC:$dst), (ins VReg32:$ptr, i32imm:$offset, LdsmTrans:$trans), 0x83b, 
                "LDSM.16.$trans."#Num#"\t $dst, [$ptr+$offset];", []> {
     bits<1> trans; // .M88 | .MT88
-    let Inst{14} = trans;
+    let Inst{14} = trans; // M88 -> 0, MT88 -> 1
 
     // TODO: clean up this
     // Num
@@ -72,6 +80,9 @@ multiclass LDSM<RegisterClass RC, int Num> {
     bits<24> offset;
 
     let Inst{127-104} = offset;
+
+    // let Inst{103-96} = UR idx
+    // let Inst{27} = 1; if has UR offset
   }
 
   def _ri_pseudo : GASSPseudoInstNoPred<(outs VReg32:$d0, VReg32:$d1, VReg32:$d2, VReg32:$d3), 
@@ -81,8 +92,8 @@ multiclass LDSM<RegisterClass RC, int Num> {
 }
 }
 }
-// defm LDSM_x1 : LDSM<VReg32, 1>;
-// defm LDSM_x2 : LDSM<VReg64, 2>;
+defm LDSM_x1 : LDSM<VReg32, 1>, Sched<[WriteLDS]>, Requires<[hasSM80]>;
+defm LDSM_x2 : LDSM<VReg64, 2>, Sched<[WriteLDS64]>, Requires<[hasSM80]>;
 defm LDSM_x4 : LDSM<VReg128, 4>, Sched<[WriteLDS128]>, Requires<[hasSM75]>;
 
 // TODO: patterns for _ri_pseudo & _rui_pseudo
@@ -95,14 +106,15 @@ defm LDSM_x4 : LDSM<VReg128, 4>, Sched<[WriteLDS128]>, Requires<[hasSM75]>;
 // cp.async.commit_group;
 // TODO: schedule model
 def LDGDEPBAR : GASSInst<(outs), (ins), 0x9af, "LDGDEPBAR;", 
-                         [(int_nvvm_cp_async_commit_group)]> {
+                         [(int_nvvm_cp_async_commit_group)]>, 
+                         Sched<[WriteNOP]>, Requires<[hasSM80]> {
   let hasSideEffects = true;
 }
 
 // cp.async.wait_group N;
 // TODO: barrier idx
 def DEPBAR : GASSInst<(outs), (ins i32imm:$n), 0x91a, "DEPBAR.LE\t SB0, $n;",
-    [(int_nvvm_cp_async_wait_group (i32 timm:$n))]>, Requires<[hasSM75]> {
+    [(int_nvvm_cp_async_wait_group (i32 timm:$n))]>, Sched<[WriteNOP]>, Requires<[hasSM75]> {
   bits<6> n;
   bits<3> BarIdx = 0;
 

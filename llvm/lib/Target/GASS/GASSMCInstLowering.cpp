@@ -1,10 +1,15 @@
 #include "GASS.h"
 #include "GASSMCInstLowering.h"
+#include "MCTargetDesc/GASSMCTargetDesc.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/MC/MCInst.h"
+
+#include <iostream>
+#include <iomanip>
+#include <cstdint>
 
 using namespace llvm;
 
@@ -20,6 +25,10 @@ void GASSMCInstLower::lowerToMCFlags(const MachineInstr &MI, MCInst &MCI) {
   uint32_t ReadBarIdx  = (MIFlags & 0b0000'0011'1000'0000) >> 7;
   uint32_t WriteBarIdx = (MIFlags & 0b0000'0000'0111'0000) >> 4;
   uint32_t Stalls      = (MIFlags & 0b0000'0000'0000'1111);
+
+  // 1.x Special case, this need to sync with GASSBarrierSettingPass::Reserved
+  if (MI.getOpcode() == GASS::LDGDEPBAR)
+    WriteBarIdx = 0;
 
   // 2. encode
   // 00 (2 bits) :: 0000 (reuse, 4 bits) :: Wait Mask (6 bits) ::

@@ -79,6 +79,9 @@ class GASSBarrierSetting : public MachineFunctionPass {
 
   // Cache MBB
   MachineBasicBlock *CurMBB = nullptr;
+
+  // Reserved physical barriers, e.g., 0 for LDGDEPBAR & DEPBAR
+  std::set<unsigned> Reserved;
 public:
   static char ID;
 
@@ -232,6 +235,9 @@ private:
   SlotIndex End;
   LiveBarRange LBR;
 
+  // Reserved physical barriers
+  std::set<unsigned> Reserved;
+
   // helper function
   std::string const getBTStr() const {
   switch (BT) {
@@ -279,13 +285,17 @@ class LiveBarGraph {
   std::vector<Barrier*> Nodes;
   std::map<Barrier*, std::set<Edge>> Edges;
 
+  // Reserved physical barriers
+  std::set<unsigned> Reserved;
+
   // Cache MBB, LIS
   const MachineBasicBlock &MBB;
   const LiveIntervals *LIS = nullptr;
 public:
   // Build Interference graph with raw barriers
-  LiveBarGraph(std::vector<Barrier> &Bars, MachineBasicBlock &MBB, 
-               const LiveIntervals *LIS) : MBB(MBB), LIS(LIS) {
+  LiveBarGraph(std::vector<Barrier> &Bars, std::set<unsigned> Reserved, 
+               MachineBasicBlock &MBB, const LiveIntervals *LIS) 
+               : Reserved(Reserved), MBB(MBB), LIS(LIS) {
     for (Barrier &CurBar : Bars) {
       for (Barrier* GraphNode : Nodes) {
         // Add interference edge
@@ -402,7 +412,7 @@ public:
     std::set<Barrier*> Candidates;
     bool AreCandidatesValid = false;
     for (auto iter = Edges.begin(); iter != Edges.end(); ++iter) 
-      if (iter->second.size() >= kNumBarriers) {
+      if (iter->second.size() >= kNumBarriers - Reserved.size()) {
         AreCandidatesValid = true;
         Candidates.insert(iter->first);
         // Insert its neighbors
@@ -573,6 +583,10 @@ bool GASSBarrierSetting::runOnMachineFunction(MachineFunction &MF) {
   GRI = ST.getRegisterInfo();
   MRI = &MF.getRegInfo();
   LIS = &getAnalysis<LiveIntervals>();
+
+  // TODO: Should check if this function uses LDGDEPBAR & DEPBAR
+  if (ST.getSmVersion() >= 80)
+    Reserved.insert(0);
 
   // Use MachineRegisterInfo to get def-use chain
   // TODO: Get the LiveInterval
@@ -829,12 +843,12 @@ void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
   coalesceRAWs(Barriers);
   
   // 1. Build interference graph
-  LiveBarGraph TheGraph(Barriers, MBB, LIS);
+  LiveBarGraph TheGraph(Barriers, Reserved, MBB, LIS);
   LLVM_DEBUG(dbgs() << "*** Build Barrier interference graph ***\n");
   LLVM_DEBUG(TheGraph.dump());
 
   // 2. Merge if necessary
-  while (TheGraph.getMaxConcurrentBarriers() > kNumBarriers)
+  while (TheGraph.getMaxConcurrentBarriers() > kNumBarriers - Reserved.size())
     TheGraph.mergeBarriers();
   LLVM_DEBUG(dbgs() << "** After merging **\n");
   LLVM_DEBUG(TheGraph.dump());
@@ -875,7 +889,9 @@ unsigned GASSBarrierSetting::countBarriers(std::vector<Barrier> &Barriers) {
 
 void GASSBarrierSetting::allocatePhysBarriers(std::vector<Barrier> &Barriers) {
   std::set<unsigned> FreePhysBar;
-  for (unsigned i=0; i<kNumBarriers; ++i) FreePhysBar.insert(i);
+  for (unsigned i=0; i<kNumBarriers; ++i)
+    if (Reserved.find(i) == Reserved.end()) // Skip reserved barriers
+      FreePhysBar.insert(i);
 
   using BarIter = std::vector<Barrier>::iterator;
 
