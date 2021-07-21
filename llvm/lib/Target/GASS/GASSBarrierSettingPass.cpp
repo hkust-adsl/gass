@@ -118,7 +118,7 @@ class Barrier {
 public:
   Barrier(MachineInstr &MI, SlotIndex SIStart, SlotIndex SIEnd, bool IsMemOp,
           const LiveIntervals *LIS, const GASSInstrInfo *GII)
-    : End(SIEnd), LBR(SIStart, SIEnd), LIS(LIS), GII(GII) {
+    : LIS(LIS), GII(GII), End(SIEnd), LBR(SIStart, SIEnd) {
     Starts.push_back(SIStart);
 
     if (IsMemOp) BT = WAR_MEM;

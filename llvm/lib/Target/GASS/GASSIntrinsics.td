@@ -5,8 +5,8 @@
 multiclass LDGSTS<int Width> {
   // Always riri?
   def riri : GASSInstLdstGlobalOff<(outs), 
-      (ins VReg32:$dst, simm24:$offset, VReg64:$ptr, simm12:$soff), // TOOD: pred mask
-      0xfae, "LDGSTS.E."#Width#" \t[$dst+$offset], [$ptr.64+$soff];", [], Width> {
+      (ins VReg32:$dst, simm24:$doff, VReg64:$ptr, simm12:$soff), // TOOD: pred mask
+      0xfae, "LDGSTS.E."#Width#" \t[$dst+$doff], [$ptr.64+$soff];", [], Width> {
     // let Inst{7-0} = 0x46; // TODO: update this
     //    ? .64
     // let Inst{12} = 1; // TODO: why? (?)
@@ -20,6 +20,11 @@ multiclass LDGSTS<int Width> {
     // let Inst{22-20} = 
     //    0->.EF, 1->?, 2->.EL, 3->.LU, 4->.EU, 5->.NA(?)
     let Inst{27-0} = 0xb901d46;
+
+    bits<20> doff;
+    bits<12> soff;
+    let Inst{127-108} = doff;
+    let Inst{107-96} = soff;
   }
 
   // def rir : ;

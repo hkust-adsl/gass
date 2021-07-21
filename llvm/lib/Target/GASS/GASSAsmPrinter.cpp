@@ -264,7 +264,7 @@ unsigned GASSAsmPrinter::generateNvInfo(MachineFunction &MF,
                                            CurrentParamOffset, &MF));
   Info.emplace_back(createNvInfoCBankParamSize(CurrentParamOffset));
   // for each arguments
-  for (int i = 0; i < Arguments.size(); ++i) {
+  for (unsigned i = 0; i < Arguments.size(); ++i) {
     GASSArgument &Arg = Arguments[i];
     Info.emplace_back(createNvInfoKParamInfo(0, i, 
                                              Arg.Offset, Arg.Size, 
