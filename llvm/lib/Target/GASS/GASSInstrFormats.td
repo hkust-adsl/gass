@@ -318,4 +318,5 @@ def hasSM80 : Predicate<"Subtarget->getSmVersion() >= 80">;
 //=---------------------------------------------------------------------------=//
 // ref: AArcht64InstrFormats.td:309
 def simm12 : Operand<i16>, ImmLeaf<i16, [{return isInt<12>(Imm);}]>;
+def simm20 : Operand<i32>, ImmLeaf<i32, [{return isInt<20>(Imm);}]>;
 def simm24 : Operand<i32>, ImmLeaf<i32, [{return isInt<24>(Imm);}]>;

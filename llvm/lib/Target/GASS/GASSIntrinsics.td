@@ -5,7 +5,7 @@
 multiclass LDGSTS<int Width> {
   // Always riri?
   def riri : GASSInstLdstGlobalOff<(outs), 
-      (ins VReg32:$dst, simm24:$doff, VReg64:$ptr, simm12:$soff), // TOOD: pred mask
+      (ins VReg32:$dst, simm20:$doff, VReg64:$ptr, simm12:$soff), // TOOD: pred mask
       0xfae, "LDGSTS.E."#Width#" \t[$dst+$doff], [$ptr.64+$soff];", [], Width> {
     // let Inst{7-0} = 0x46; // TODO: update this
     //    ? .64
@@ -42,8 +42,8 @@ defm LDGSTS128 : LDGSTS<128>, Sched<[WriteLDG]>, Requires<[hasSM80]>;
 }
 
 // ref: RISCVInstrInfo.td:1081
-def : Pat<(int_nvvm_cp_async_cg_shared_global_16 (add VReg32:$dbase, simm24:$off), VReg64:$ptr), 
-          (LDGSTS128riri VReg32:$dbase, simm24:$off, VReg64:$ptr, 0)>;
+def : Pat<(int_nvvm_cp_async_cg_shared_global_16 (add VReg32:$dbase, simm20:$off), VReg64:$ptr), 
+          (LDGSTS128riri VReg32:$dbase, simm20:$off, VReg64:$ptr, 0)>;
 def : Pat<(int_nvvm_cp_async_cg_shared_global_16 VReg32:$dbase, VReg64:$ptr),
           (LDGSTS128riri VReg32:$dbase, 0, VReg64:$ptr, 0)>;
 
