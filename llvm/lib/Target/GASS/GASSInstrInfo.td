@@ -267,14 +267,11 @@ defm IADDX : IADDX, Sched<[WriteINT]>;
 
 // i64 add (pseudo instruction)
 multiclass IADD64 {
-  def rr : GASSInst<(outs VReg64:$dst),
-                     (ins VReg64:$src0, VReg64:$src1),
-                     0x0, "",
-                     [(set i64:$dst, (add i64:$src0, i64:$src1))]> {
-    let isPseudo = true;
-  }
+  def rr : GASSPseudoInst<(outs VReg64:$dst), (ins VReg64:$src0, VReg64:$src1),
+                     [(set i64:$dst, (add i64:$src0, i64:$src1))]>;
 
-  // def ri : ;
+  def ri : GASSPseudoInst<(outs VReg64:$dst), (ins VReg64:$src0, i64imm:$src1),
+                          [(set i64:$dst, (add i64:$src0, imm:$src1))]>;
 }
 defm IADD64 : IADD64, Sched<[WriteINT]>;
 

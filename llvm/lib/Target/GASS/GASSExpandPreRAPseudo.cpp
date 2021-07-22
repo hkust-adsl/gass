@@ -2,6 +2,7 @@
 #include "GASSRegisterInfo.h"
 #include "GASSInstrInfo.h"
 #include "GASSTargetMachine.h"
+#include "MCTargetDesc/GASSMCTargetDesc.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
@@ -24,8 +25,14 @@ public:
   bool runOnMachineFunction(MachineFunction &MF) override;
 
 private:
+  // Ref: AMDGPU/SIInstrInfo.cpp
   MachineOperand buildExtractSubReg(
     MachineBasicBlock::iterator MI, MachineRegisterInfo &MRI,
+    MachineOperand &SuperReg, const TargetRegisterClass *SuperRC, 
+    unsigned SubIdx, const TargetRegisterClass *SubRC) const;
+
+  MachineOperand buildExtractSubRegOrImm(
+      MachineBasicBlock::iterator MI, MachineRegisterInfo &MRI,
     MachineOperand &SuperReg, const TargetRegisterClass *SuperRC, 
     unsigned SubIdx, const TargetRegisterClass *SubRC) const;
 };
@@ -61,6 +68,21 @@ MachineOperand GASSExpandPreRAPseudo::buildExtractSubReg(
   return MachineOperand::CreateReg(SubReg, false);
 }
 
+MachineOperand GASSExpandPreRAPseudo::buildExtractSubRegOrImm(
+    MachineBasicBlock::iterator MI, MachineRegisterInfo &MRI,
+    MachineOperand &Op, const TargetRegisterClass *SuperRC, 
+    unsigned SubIdx, const TargetRegisterClass *SubRC) const {
+  if (Op.isImm()) {
+    if (SubIdx == GASS::sub0)
+      return MachineOperand::CreateImm(static_cast<int32_t>(Op.getImm()));
+    if (SubIdx == GASS::sub1)
+      return MachineOperand::CreateImm(static_cast<int32_t>(Op.getImm() >> 32));
+    llvm_unreachable("Unhandled register index for immediate");
+  }
+  
+  return buildExtractSubReg(MI, MRI, Op, SuperRC, SubIdx, SubRC);
+}
+
 bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
   MachineRegisterInfo &MRI = MF.getRegInfo();
   const auto &ST = MF.getSubtarget<GASSSubtarget>();
@@ -80,14 +102,14 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
       LLVM_DEBUG(MI.dump());
       switch (Opc) {
       default: break;
-      case GASS::IADD64rr:{
+      case GASS::IADD64rr: case GASS::IADD64ri: {
         // IADD64rr dst, lhs, rhs; ->
         //   IADDCARRY dst.sub0, c, lhs.sub0, rhs.sub0, !PT;
         //   IADDCARRY dst.sub1, PT, lhs.sub1, rhs.sub1, c;
         MachineOperand &Dst = MI.getOperand(0);
         MachineOperand &LHS = MI.getOperand(1);
         MachineOperand &RHS = MI.getOperand(2);
-        
+
         Register NewDst = MRI.createVirtualRegister(&GASS::VReg64RegClass);
         Register DstSub0 = MRI.createVirtualRegister(&GASS::VReg32RegClass);
         Register DstSub1 = MRI.createVirtualRegister(&GASS::VReg32RegClass);
@@ -104,22 +126,25 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
         
         MachineOperand LHSSub0 = buildExtractSubReg(MII, MRI, LHS, LHSRC,
                                                     GASS::sub0, LHSSubRC);
-        MachineOperand RHSSub0 = buildExtractSubReg(MII, MRI, RHS, RHSRC,
-                                                    GASS::sub0, RHSSubRC);
-
         MachineOperand LHSSub1 = buildExtractSubReg(MII, MRI, LHS, LHSRC,
                                                     GASS::sub1, LHSSubRC);
-        MachineOperand RHSSub1 = buildExtractSubReg(MII, MRI, RHS, RHSRC,
-                                                    GASS::sub1, RHSSubRC);
+
+        MachineOperand RHSSub0 = buildExtractSubRegOrImm(MII, MRI, RHS, RHSRC,
+                                                         GASS::sub0, RHSSubRC);
+        MachineOperand RHSSub1 = buildExtractSubRegOrImm(MII, MRI, RHS, RHSRC,
+                                                         GASS::sub1, RHSSubRC);
 
         // IADD.X $dst.sub0, $c, $lhs.sub0, $rhs.sub0, !pt;
-        BuildMI(MBB, MI, DL, TII->get(GASS::IADDXrr), DstSub0)
+        unsigned OpcIADD = 0;
+        if (Opc == GASS::IADD64rr) OpcIADD = GASS::IADDXrr;
+        else if (Opc == GASS::IADD64ri) OpcIADD = GASS::IADDXri;
+        BuildMI(MBB, MI, DL, TII->get(OpcIADD), DstSub0)
           .addReg(CarryReg, RegState::Define)
           .add(LHSSub0)
           .add(RHSSub0)
           .addImm(1).addReg(GASS::PT) // !PT
           .addImm(0).addReg(GASS::PT); // PredMask
-        BuildMI(MBB, MI, DL, TII->get(GASS::IADDXrr), DstSub1)
+        BuildMI(MBB, MI, DL, TII->get(OpcIADD), DstSub1)
           .addReg(GASS::PT, RegState::Define | RegState::Dead)
           .add(LHSSub1)
           .add(RHSSub1)
@@ -128,10 +153,8 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
 
         // Merge result
         BuildMI(MBB, MI, DL, TII->get(TargetOpcode::REG_SEQUENCE), NewDst)
-          .addReg(DstSub0)
-          .addImm(GASS::sub0)
-          .addReg(DstSub1)
-          .addImm(GASS::sub1);
+          .addReg(DstSub0).addImm(GASS::sub0)
+          .addReg(DstSub1).addImm(GASS::sub1);
 
         MRI.replaceRegWith(Dst.getReg(), NewDst);
 
