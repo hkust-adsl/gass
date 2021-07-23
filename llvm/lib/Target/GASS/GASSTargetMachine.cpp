@@ -8,11 +8,13 @@
 #include "llvm/Analysis/CFGPrinter.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/ConstantHoisting.h"
 #include "llvm/Transforms/Scalar/GVN.h"
+#include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Vectorize.h"
 #include <memory>
 
@@ -125,7 +127,24 @@ void GASSPassConfig::addIRPasses() {
   addPass(createInferAddressSpacesPass());
 
   // LSR and other generic IR passes
-  TargetPassConfig::addIRPasses();
+  // TargetPassConfig::addIRPasses();
+  // LSR leads to incorrect result in some cases (?)
+  {
+    addPass(createVerifierPass());
+
+    // LSR here. We don't need them (?)
+    // addPass(createCanonicalizeFreezeInLoopsPass());
+    addPass(createLoopStrengthReducePass());
+
+    // GC lowering?
+    addPass(createLowerConstantIntrinsicsPass());
+    addPass(createConstantHoistingPass());
+    
+    addPass(createUnreachableBlockEliminationPass());
+
+    // addPass(createConstantHoistingPass());
+    // Some other passes...
+  }
 
   addPass(createGASSCodeGenPreparePass());
   addPass(createLoadStoreVectorizerPass());
