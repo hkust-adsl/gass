@@ -3,6 +3,7 @@
 
 #include "llvm/Support/CodeGen.h"
 #include "llvm/PassRegistry.h"
+#include "llvm/Pass.h"
 
 namespace llvm {
 class GASSTargetMachine;
@@ -26,6 +27,8 @@ FunctionPass *createGASSIfConversionPass();
 FunctionPass *createGASSPreEmitPreparePass();
 FunctionPass *createRegPressureComputePass();
 FunctionPass *createGASSLDGSinkPass();
+FunctionPass *createGASSDeleteDeadPHIsPass();
+Pass *createGASSIVDebugPass();
 
 void initializeGASSAnnotateUniformValuesPass(PassRegistry &);
 void initializeGASSSinkingPass(PassRegistry &);
@@ -39,6 +42,8 @@ void initializeGASSBranchOffsetPass(PassRegistry &);
 void initializeGASSPreEmitPreparePass(PassRegistry &);
 void initializeRegPressureComputePass(PassRegistry &);
 void initializeGASSLDGSinkPass(PassRegistry &);
+void initializeGASSDeleteDeadPHIsPass(PassRegistry &);
+void initializeGASSIVDebugPass(PassRegistry &);
 
 
 namespace GASS {

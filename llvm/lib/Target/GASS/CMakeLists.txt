@@ -20,12 +20,14 @@ add_llvm_target(GASSCodeGen
   GASSBranchOffsetPass.cpp
   GASSCodeGenPrepare.cpp
   GASSCodeSink.cpp
+  GASSDeleteDeadPHIsPass.cpp
   GASSExpandPreRAPseudo.cpp
   GASSFrameLowering.cpp
   GASSIfConversion.cpp
   GASSInstrInfo.cpp
   GASSISelDAGToDAG.cpp
   GASSISelLowering.cpp
+  GASSIVDebugPass.cpp
   GASSLDGSinkPass.cpp
   GASSMachineFunctionCFGPrinter.cpp
   GASSMCInstLowering.cpp

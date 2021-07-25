@@ -113,14 +113,13 @@ TargetPassConfig *GASSTargetMachine::createPassConfig(PassManagerBase &PM) {
 }
 
 void GASSPassConfig::addIRPasses() {
-  if (!BenchmarkMode)
-    addPass(createDeadCodeEliminationPass());
+  addPass(createDeadCodeEliminationPass());
+  addPass(createGASSDeleteDeadPHIsPass());
 
   // Can be useful (following NVPTX)
   // addPass(createGVNPass());
   // or
-  if (!BenchmarkMode)
-    addPass(createEarlyCSEPass());
+  addPass(createEarlyCSEPass());
   
   addPass(createGASSAddrSpacePass()); // required by infer address space
   addPass(createSROAPass());
@@ -133,7 +132,9 @@ void GASSPassConfig::addIRPasses() {
     addPass(createVerifierPass());
 
     // LSR here. We don't need them (?)
-    // addPass(createCanonicalizeFreezeInLoopsPass());
+    addPass(createCanonicalizeFreezeInLoopsPass());
+    // debug
+    // addPass(createGASSIVDebugPass());
     addPass(createLoopStrengthReducePass());
 
     // GC lowering?

@@ -5836,6 +5836,9 @@ static bool ReduceLoopStrength(Loop *L, IVUsers &IU, ScalarEvolution &SE,
                                const TargetTransformInfo &TTI,
                                AssumptionCache &AC, TargetLibraryInfo &TLI,
                                MemorySSA *MSSA) {
+  // L->dump();
+  LLVM_DEBUG(dbgs() << "Before LSR:\n");
+  LLVM_DEBUG(L->getHeader()->getParent()->dump());
 
   bool Changed = false;
   std::unique_ptr<MemorySSAUpdater> MSSAU;
@@ -5845,6 +5848,9 @@ static bool ReduceLoopStrength(Loop *L, IVUsers &IU, ScalarEvolution &SE,
   // Run the main LSR transformation.
   Changed |=
       LSRInstance(L, IU, SE, DT, LI, TTI, AC, TLI, MSSAU.get()).getChanged();
+
+  // dbgs() << "After main LSR:\n";
+  // L->getHeader()->getParent()->dump();
 
   // Debug preservation - before we start removing anything create equivalence
   // sets for the llvm.dbg.value intrinsics.
@@ -5871,6 +5877,10 @@ static bool ReduceLoopStrength(Loop *L, IVUsers &IU, ScalarEvolution &SE,
 
   DbgApplyEqualValues(DbgValueToEqualSet);
 
+  // L->dump();
+  // dbgs() << "After LSR:\n";
+  // L->getHeader()->getParent()->dump();
+  // dbgs() << Changed << "\n";
   return Changed;
 }
 
