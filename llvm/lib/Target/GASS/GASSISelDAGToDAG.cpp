@@ -641,6 +641,7 @@ bool GASSDAGToDAGISel::tryTPUT_BENCH(SDNode *N) {
   // StringRef OpcStr = dyn_cast<MDString>(MD->getOperand(0).get())->getString();
   // unsigned OpcSASS = StringSwitch<unsigned>(OpcStr)
   //   .CaseLower("hmma.16816", GASS::HMMA16816_f32_f16_f16_f32)
+  //   .CaseLower("ffma", GASS::FFMArrr)
   //   .Default(GASS::INSTRUCTION_LIST_END);
 
   // SDLoc DL(N);
@@ -649,7 +650,7 @@ bool GASSDAGToDAGISel::tryTPUT_BENCH(SDNode *N) {
   //     GASS::TPUT_BENCH_PSEUDO, DL, MVT::Other, Ops);
   // ReplaceNode(N, GASSTPUT_BENCH);
   // assert(OpcSASS != GASS::INSTRUCTION_LIST_END);
-  return true;
+  // return true;
 }
 
 static unsigned getOpcode3Op(SDValue &Src0, SDValue &Src1, SDValue &Src2,

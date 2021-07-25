@@ -5,13 +5,13 @@
 multiclass LDGSTS<int Width> {
   // Always riri?
   def riri : GASSInstLdstGlobalOff<(outs), 
-      (ins VReg32:$dst, simm20:$doff, VReg64:$ptr, simm12:$soff), // TOOD: pred mask
+      (ins VReg32:$dst, simm20:$doff, VReg64:$ptr, simm12:$soff, VReg1:$pred), // TOOD: pred mask
       0xfae, "LDGSTS.E."#Width#" \t[$dst+$doff], [$ptr.64+$soff];", [], Width> {
     // let Inst{7-0} = 0x46; // TODO: update this
     //    ? .64
     // let Inst{12} = 1; // TODO: why? (?)
     // let Inst{27} = 1; // always 1
-    // let Inst{25-23} = 0x7; // pred mask
+    
     // let Inst{17} = // bypass -> 0, not-bypass -> 1
     // let Inst{18} = // not-zfill -> 0, zfill -> 1
     // let Inst{15-11} = 
@@ -21,6 +21,8 @@ multiclass LDGSTS<int Width> {
     //    0->.EF, 1->?, 2->.EL, 3->.LU, 4->.EU, 5->.NA(?)
     let Inst{27-0} = 0xb901d46;
 
+    bits<3> pred;
+    let Inst{25-23} = pred; // pred mask
     bits<20> doff;
     bits<12> soff;
     let Inst{127-108} = doff;
@@ -42,10 +44,10 @@ defm LDGSTS128 : LDGSTS<128>, Sched<[WriteLDG]>, Requires<[hasSM80]>;
 }
 
 // ref: RISCVInstrInfo.td:1081
-def : Pat<(int_nvvm_cp_async_cg_shared_global_16 (add VReg32:$dbase, simm20:$off), VReg64:$ptr), 
-          (LDGSTS128riri VReg32:$dbase, simm20:$off, VReg64:$ptr, 0)>;
-def : Pat<(int_nvvm_cp_async_cg_shared_global_16 VReg32:$dbase, VReg64:$ptr),
-          (LDGSTS128riri VReg32:$dbase, 0, VReg64:$ptr, 0)>;
+def : Pat<(int_nvvm_cp_async_cg_shared_global_16_p (add VReg32:$dbase, simm20:$off), VReg64:$ptr, VReg1:$pred), 
+          (LDGSTS128riri VReg32:$dbase, simm20:$off, VReg64:$ptr, 0, VReg1:$pred)>;
+def : Pat<(int_nvvm_cp_async_cg_shared_global_16_p VReg32:$dbase, VReg64:$ptr, VReg1:$pred),
+          (LDGSTS128riri VReg32:$dbase, 0, VReg64:$ptr, 0, VReg1:$pred)>;
 
 //----------shared memory----------------
 let isFixLat = false in {
