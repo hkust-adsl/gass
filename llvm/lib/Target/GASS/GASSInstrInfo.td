@@ -12,6 +12,8 @@ def GASSSDSetccLogicOp : SDTypeProfile<1, 6, [
 ]>;
 def GASSsetcc_logic : SDNode<"GASSISD::SETCC_LOGIC", GASSSDSetccLogicOp, []>;
 
+def ldc : SDNode<"GASSISD::LDC", SDTUnaryOp>;
+
 //=---------------------------------=//
 // Operands
 //=---------------------------------=//
@@ -157,6 +159,12 @@ multiclass IADD3 {
     let Inst{19-17} = 0x7; // no pd0
     let Inst{22-20} = 0x7; // no pd1
   }
+
+  // def rcr : GASSInstOp3rcr<(outs VReg32:$dst),
+  //                          (ins VReg32:$src0, i32const:$src1, VReg32:$src2),
+  //                          0x0,
+  //                          "IADD3 \t$dst, $src0, $src1, $src2;",
+  //                          []> {}
 
   // def rri : GASSInstOp3rri<(outs VReg32:$dst),
   //                         (ins VReg32:$src0, VReg32:$src1, i32imm:$src2),
@@ -703,7 +711,7 @@ defm HMUL2 : HMUL2<VReg32, 0x232>, Sched<[WriteFP32]>;
 // ISETP, FSETP, PSETP
 // eg, ISETP.LT.AND.S32 P0, PT, $src0, $src1, $srcp;
 multiclass SETP<string OpcStr, RegisterClass RC, Operand ImmCls,
-                bits<12> rrEnc, bits<12> riEnc> {
+                bits<12> rrEnc, bits<12> riEnc, bits<12> rcEnc> {
   def rr : GASSInstOp2rr<(outs VReg1:$pdst), // TODO: 2 dsts (no?)
                       (ins RC:$src0, RC:$src1, CmpMode:$cmp, CmpModeSign:$sign),
                       rrEnc,
@@ -741,13 +749,32 @@ multiclass SETP<string OpcStr, RegisterClass RC, Operand ImmCls,
     let Inst{25-23} = 0x7; // ps0 (PT)
     let Inst{6-4} = 0x7; // ?
   }
+
+  def rc : GASSInstOp2rc<(outs VReg1:$pdst),
+                         (ins RC:$src0, i32const:$src1, CmpMode:$cmp, CmpModeSign:$sign),
+                         rcEnc,
+                         !strconcat(OpcStr, "$cmp$sign \t$pdst, $src0, $src1;"),[]> {
+    let dst = 0;
+    bits<3> pdst;
+    bits<3> cmp;
+    bit sign;
+    
+    let Inst{19-17} = pdst;
+    let Inst{22-20} = 0x7; // pdst1
+    let Inst{14-12} = cmp;
+    let Inst{9} = sign;
+
+    let Inst{25-23} = 0x7; // ps0 (PT)
+    let Inst{6-4} = 0x7; // ?
+  }
 }
-defm ISETP : SETP<"ISETP", VReg32, i32imm, 0x20c, 0x80c>, Sched<[WriteISETP]>;
+defm ISETP : SETP<"ISETP", VReg32, i32imm, 0x20c, 0x80c, 0xa0c>, Sched<[WriteISETP]>;
 
 // Patterns
 // unsigned compare
 def : Pat<(i1 (setueq i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpEQ, CmpU)>;
 def : Pat<(i1 (setueq i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpEQ, CmpU)>;
+def : Pat<(i1 (setueq i32:$a, (i32 (ldc (i32 timm:$b))))), (ISETPrc VReg32:$a, i32const:$b, CmpEQ, CmpU)>;
 def : Pat<(i1 (setune i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpNE, CmpU)>;
 def : Pat<(i1 (setune i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpNE, CmpU)>;
 def : Pat<(i1 (setult i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpLT, CmpU)>;
@@ -765,6 +792,7 @@ def : Pat<(i1 (setne i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpNE, Cmp
 def : Pat<(i1 (setne i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpNE, CmpS)>;
 def : Pat<(i1 (setlt i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpLT, CmpS)>;
 def : Pat<(i1 (setlt i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpLT, CmpS)>;
+def : Pat<(i1 (setlt i32:$a, (i32 (ldc (i32 timm:$b))))), (ISETPrc VReg32:$a, i32const:$b, CmpLT, CmpS)>;
 def : Pat<(i1 (setle i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpLE, CmpS)>;
 def : Pat<(i1 (setle i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpLE, CmpS)>;
 def : Pat<(i1 (setgt i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpGT, CmpS)>;
@@ -917,9 +945,10 @@ def : Pat<(i64 (imm:$src0)),   (MOV64i imm:$src0)>;
 // TODO: LD, LDS, LDSM, LDL, ST, STS
 multiclass LDC<RegisterClass RC, int Width> {
   def c : GASSInstLdst<(outs RC:$dst),
-                       (ins constantmem:$offset), 
+                       (ins i32const:$offset), 
                        0xb82,
-                       "LDC." #Width #" \t$dst, $offset;", [], Width> {
+                       "LDC." #Width #" \t$dst, $offset;", 
+                       [], Width> {
     let ptr = 0xff; // base offset
     bits<32> offset; // TODO: check width of constant mem
     let Inst{127-102} = offset{25-0}; 
@@ -931,6 +960,9 @@ multiclass LDC<RegisterClass RC, int Width> {
 
 defm LDC32 : LDC<VReg32, 32>, Sched<[WriteINT]>; // Sched?
 defm LDC64 : LDC<VReg64, 64>, Sched<[WriteINT]>;
+
+def : Pat<(i32 (ldc (i32 timm:$offset))), (LDC32c i32const:$offset)>;
+def : Pat<(i64 (ldc (i32 timm:$offset))), (LDC64c i32const:$offset)>;
 
 // setting mayLoad = false allows us to move LDGs
 let mayLoad = false in {

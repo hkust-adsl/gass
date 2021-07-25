@@ -176,10 +176,10 @@ void GASSDAGToDAGISel::Select(SDNode *N) {
     return;
   } break;
   // GASS ISD
-  case GASSISD::LDC:
-    if (tryLDC(N))
-      return;
-    break;
+  // case GASSISD::LDC:
+  //   if (tryLDC(N))
+  //     return;
+  //   break;
   case GASSISD::SETCC_LOGIC: 
     if (trySETCC_LOGIC(N))
       return;
@@ -775,5 +775,13 @@ bool GASSDAGToDAGISel::trySETCC_LOGIC(SDNode *N) {
                    PredFlip, PredMask};
   GASSSETCC_LOGIC = CurDAG->getMachineNode(Opcode, DL, VT, Ops);
   ReplaceNode(N, GASSSETCC_LOGIC);
+  return true;
+}
+
+//=----------------------------------------------------------------------=//
+// ComplexPattern
+//=----------------------------------------------------------------------=//
+template<int With>
+bool GASSDAGToDAGISel::SelectConstMem(SDValue N, SDValue &Imm) {
   return true;
 }

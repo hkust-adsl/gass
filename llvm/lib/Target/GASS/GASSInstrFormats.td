@@ -320,3 +320,15 @@ def hasSM80 : Predicate<"Subtarget->getSmVersion() >= 80">;
 def simm12 : Operand<i16>, ImmLeaf<i16, [{return isInt<12>(Imm);}]>;
 def simm20 : Operand<i32>, ImmLeaf<i32, [{return isInt<20>(Imm);}]>;
 def simm24 : Operand<i32>, ImmLeaf<i32, [{return isInt<24>(Imm);}]>;
+
+// Constant Memory (e.g., c[0x0][0x160])
+// let OperandType = "OPERAND_IMMEDIATE", 
+let PrintMethod = "printConstantMem" in {
+def i32const : Operand<i32>, TImmLeaf<i32, [{ return isInt<32>;}]>;
+def i64const : Operand<i64>, TImmLeaf<i64, [{ return isInt<32>;}]>;
+// def f32const : Operand<f32>, ComplexPattern<f32, 1, "SelectConstMem<32>", []>;
+// def f64const : Operand<f64>, ComplexPattern<f64, 1, "SelectConstMem<64>", []>;
+}
+
+// Uniform Registers
+// let OperandType = 

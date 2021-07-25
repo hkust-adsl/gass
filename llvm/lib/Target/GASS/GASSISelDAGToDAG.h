@@ -43,6 +43,10 @@ private:
   void selectBuildVector(SDNode *N, unsigned RegClassID);
 
   bool tryEXTRACT_VECTOR_ELT_F16(SDNode *N);
+
+  // Complext pattern
+  template<int Width>
+  bool SelectConstMem(SDValue N, SDValue &Imm);
 };
 } // namespace llvm
 
