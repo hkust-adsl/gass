@@ -1273,6 +1273,12 @@ def int_nvvm_cp_async_cg_shared_global_16 :
     [IntrArgMemOnly, NoAlias<ArgIndex<0>>, NoAlias<ArgIndex<1>>,
      WriteOnly<ArgIndex<0>>, ReadOnly<ArgIndex<1>>],
     "llvm.nvvm.cp.async.cg.shared.global.16">;
+def int_nvvm_cp_async_cg_shared_global_16_p :
+    GCCBuiltin<"__nvvm_cp_async_cg_shared_global_16_p">,
+    Intrinsic<[],[llvm_shared_i8ptr_ty, llvm_global_i8ptr_ty, llvm_i1_ty],
+    [IntrArgMemOnly, NoAlias<ArgIndex<0>>, NoAlias<ArgIndex<1>>,
+     WriteOnly<ArgIndex<0>>, ReadOnly<ArgIndex<1>>],
+    "llvm.nvvm.cp.async.cg.shared.global.16.p">;
 
 def int_nvvm_cp_async_commit_group :
     GCCBuiltin<"__nvvm_cp_async_commit_group">,
@@ -4490,5 +4496,12 @@ def int_nvvm_ldmatrix_m8n8_x4_trans
 // nvvm-nop
 def int_nvvm_nop : Intrinsic<[], [], [IntrHasSideEffects], "llvm.nvvm.nop">;
 def int_nvvm_tput_bench : Intrinsic<[], [llvm_metadata_ty], [IntrHasSideEffects], "llvm.nvvm.tputbench">;
+// def int_nvvm_tput_bench_lds : Intrinsic<[], [llvm_metadata_ty] , >;
+// def int_nvvm_tput_bench_ldg :
+// def int_nvvm_tput_bench_sts : 
+// def int_nvvm_tput_bench_stg : 
+def int_nvvm_tput_bench_ldgsts : 
+    Intrinsic<[], [llvm_shared_i8ptr_ty, llvm_global_i8ptr_ty], 
+              [IntrHasSideEffects], "llvm.nvvm.tputbench.ldgsts">;
 def int_nvvm_sink : Intrinsic<[], [llvm_any_ty], [IntrHasSideEffects], "llvm.nvvm.sink.any">;
 } // let TargetPrefix = "nvvm"
