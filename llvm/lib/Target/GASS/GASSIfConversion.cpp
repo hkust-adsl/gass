@@ -234,10 +234,19 @@ void GASSIfCvt::fixLiveRange(const SlotIndex &Origin, const SlotIndex &New) {
     if (!LIS->hasInterval(Reg))
       continue;
     LiveInterval &LI = LIS->getInterval(Reg);
-    for (LiveRange::Segment &Seg : LI.segments) {
+    for (size_t i=0; i<LI.segments.size(); ++i) {
+      LiveInterval::Segment &Seg = LI.segments[i];
       if (Seg.end == Origin) {
         Seg.end = New;
         LI.verify();
+        // FIXME: this only works for some special cases
+        if (++i < LI.segments.size()) { // preventing following passes to mark reg as dead
+          if (LI.segments[i].start == New) {
+            MachineInstr *NextMI = LIS->getInstructionFromIndex(New);
+            MachineInstrBuilder MIB(*NextMI->getMF(), NextMI);
+            MIB.addUse(Reg, RegState::Implicit);
+          }
+        }          
         break;
       }
     }

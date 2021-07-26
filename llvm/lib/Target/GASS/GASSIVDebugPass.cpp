@@ -5,6 +5,7 @@
 #include "llvm/Analysis/IVUsers.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/CodeGen/LiveIntervals.h"
 #include "llvm/Pass.h"
 
 using namespace llvm;
@@ -31,6 +32,8 @@ public:
     AU.addPreserved<IVUsersWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addPreserved<DominatorTreeWrapperPass>();
+    AU.addRequired<LiveIntervals>();
+    AU.addPreserved<LiveIntervals>();
   }
 };
 } // anonymous namespace
@@ -41,28 +44,31 @@ bool GASSIVDebug::runOnLoop(Loop *L, LPPassManager & /*LPM*/) {
   auto &IU = getAnalysis<IVUsersWrapperPass>().getIU();
   auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 
-  // Ref: LSRInstance::CollectChains()
-  SmallVector<BasicBlock *, 8> LatchPath;
-  BasicBlock *LoopHeader = L->getHeader();
-  for (DomTreeNode *Rung = DT.getNode(L->getLoopLatch());
-       Rung->getBlock() != LoopHeader; Rung = Rung = Rung->getIDom())
-    LatchPath.push_back(Rung->getBlock());
-  LatchPath.push_back(LoopHeader);
+  // // Ref: LSRInstance::CollectChains()
+  // SmallVector<BasicBlock *, 8> LatchPath;
+  // BasicBlock *LoopHeader = L->getHeader();
+  // for (DomTreeNode *Rung = DT.getNode(L->getLoopLatch());
+  //      Rung->getBlock() != LoopHeader; Rung = Rung = Rung->getIDom())
+  //   LatchPath.push_back(Rung->getBlock());
+  // LatchPath.push_back(LoopHeader);
 
-  // Walk the instruction stream from the loop header to the loop latch.
-  for (BasicBlock *BB : reverse(LatchPath)) {
-    for (Instruction &I : *BB) {
-      // Skip instructions that weren't seen by IVUsers analysis.
-      if (isa<PHINode>(I) || !IU.isIVUserOrOperand(&I))
-        continue;
+  // // Walk the instruction stream from the loop header to the loop latch.
+  // for (BasicBlock *BB : reverse(LatchPath)) {
+  //   for (Instruction &I : *BB) {
+  //     // Skip instructions that weren't seen by IVUsers analysis.
+  //     if (isa<PHINode>(I) || !IU.isIVUserOrOperand(&I))
+  //       continue;
 
-      // Ignore users that are part of a SCEV expression. (?)
-      // ...?
-      I.dump();
-      if (SE.isSCEVable(I.getType()))
-        SE.getSCEV(&I)->dump();
-    }
-  }
+  //     // Ignore users that are part of a SCEV expression. (?)
+  //     // ...?
+  //     // I.dump();
+  //     // if (SE.isSCEVable(I.getType()))
+  //     //   SE.getSCEV(&I)->dump();
+  //   }
+  // }
+
+  auto *LIS = &getAnalysis<LiveIntervals>();
+  LIS->dump();
   
   return false;
 }

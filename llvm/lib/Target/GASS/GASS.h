@@ -29,6 +29,10 @@ FunctionPass *createRegPressureComputePass();
 FunctionPass *createGASSLDGSinkPass();
 FunctionPass *createGASSDeleteDeadPHIsPass();
 Pass *createGASSIVDebugPass();
+// Delete dead label for WAW reg
+FunctionPass *createGASSMarkUndeadPass();
+void initializeGASSMarkUndeadPass(PassRegistry &);
+// ...
 
 void initializeGASSAnnotateUniformValuesPass(PassRegistry &);
 void initializeGASSSinkingPass(PassRegistry &);
