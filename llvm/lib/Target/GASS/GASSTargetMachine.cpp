@@ -220,6 +220,8 @@ void GASSPassConfig::addOptimizedRegAlloc() {
   // PreRA instruction scheduling.
   addPass(&MachineSchedulerID);
 
+  // addPass(createMachineFunctionPrinterPass(outs()));
+
   // // Compute Register Pressure at each line
   // addPass(createRegPressureComputePass());
   // addPass(&MachineFunctionPrinterPassID);

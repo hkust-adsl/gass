@@ -1,16 +1,23 @@
 #include "GASS.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/PostOrderIterator.h"
+#include "llvm/CodeGen/LiveInterval.h"
+#include "llvm/CodeGen/LivePhysRegs.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
+#include "llvm/CodeGen/MachineOperand.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/Passes.h"
+#include "llvm/CodeGen/SlotIndexes.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
 #include "llvm/CodeGen/TargetOpcodes.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
+#include "llvm/CodeGen/LiveIntervals.h"
+#include "llvm/CodeGen/Register.h"
 #include "llvm/InitializePasses.h"
 
 using namespace llvm;
@@ -36,6 +43,8 @@ namespace {
 class GASSIfCvt {
   const TargetInstrInfo *TII = nullptr;
   const TargetRegisterInfo *TRI = nullptr;
+  LiveIntervals *LIS = nullptr;
+  MachineRegisterInfo *MRI = nullptr;
 public:
   MachineBasicBlock *Head;
   MachineBasicBlock *Tail;
@@ -58,6 +67,8 @@ private:
   /// Find a valid insertion point in Head.
   bool findInsertionPoint();
 
+  void fixLiveRange(const SlotIndex &Origin, const SlotIndex &New);
+
 public:
   /// If the sub-CFG headed by MBB can be if-converted, 
   /// initialize and return true.
@@ -68,9 +79,11 @@ public:
   void convertIf(SmallVectorImpl<MachineBasicBlock *> &RemovedBlocks);
 
   /// Initialize per-function data structures
-  void initialize(MachineFunction &MF) {
+  void initialize(MachineFunction &MF, LiveIntervals *LIS) {
     TII = MF.getSubtarget().getInstrInfo();
     TRI = MF.getSubtarget().getRegisterInfo();
+    MRI = &MF.getRegInfo();
+    this->LIS = LIS;
   }
 };
 
@@ -144,14 +157,23 @@ bool GASSIfCvt::canConvertIf(MachineBasicBlock *MBB) {
 
 void GASSIfCvt::convertIf(SmallVectorImpl<MachineBasicBlock *> &RemovedBlocks) {
   assert(Head && Tail && TBB && FBB && "Call canConvertIf first.");
+  assert(isTriangle() && "Only support Triangle for now");
 
+  SlotIndex Origin, New; // Update Segment
+  MachineBasicBlock::iterator PreInsertionPoint = std::prev(InsertionPoint);
   if (TBB != Tail) {
     predicateBlock(TBB, /*ReversePredicate=*/false);
+    Origin = LIS->getMBBStartIdx(TBB);
     Head->splice(InsertionPoint, TBB, TBB->begin(), TBB->getFirstTerminator());
+    New = LIS->getInstructionIndex(*std::next(PreInsertionPoint));
+    fixLiveRange(Origin, New);
   }
   if (FBB != Tail) {
     predicateBlock(FBB, /*ReversePredicate=*/true);
+    Origin = LIS->getMBBStartIdx(FBB);
     Head->splice(InsertionPoint, FBB, FBB->begin(), FBB->getFirstTerminator());
+    New = LIS->getInstructionIndex(*std::next(PreInsertionPoint));
+    fixLiveRange(Origin, New);
   }
 
   // TODO: Are there extra Tail predecessors?
@@ -202,7 +224,25 @@ void GASSIfCvt::convertIf(SmallVectorImpl<MachineBasicBlock *> &RemovedBlocks) {
   LLVM_DEBUG(dbgs() << *Head);
 }
 
-
+// Any LiveRange that ends with Origin should be replaced by New
+void GASSIfCvt::fixLiveRange(const SlotIndex &Origin, const SlotIndex &New) {
+  // Ref: LiveIntervals::repairIntervalsInRange
+  for (size_t I = 0, E = MRI->getNumVirtRegs(); I < E; ++I) {
+    Register Reg = Register::index2VirtReg(I);
+    if (!Reg.isVirtual())
+      continue;
+    if (!LIS->hasInterval(Reg))
+      continue;
+    LiveInterval &LI = LIS->getInterval(Reg);
+    for (LiveRange::Segment &Seg : LI.segments) {
+      if (Seg.end == Origin) {
+        Seg.end = New;
+        LI.verify();
+        break;
+      }
+    }
+  }
+}
 
 //==------------------------------------------------------------------------==//
 // GASSIfConversion
@@ -213,7 +253,12 @@ class GASSIfConversion : public MachineFunctionPass {
   const TargetRegisterInfo *TRI = nullptr;
   MachineDominatorTree *DomTree = nullptr;
   MachineLoopInfo *Loops = nullptr;
+  LiveIntervals *LIS = nullptr;
+  MachineRegisterInfo *MRI = nullptr;
+
   GASSIfCvt IfCvt;
+
+  friend class LiveIntervals;
 public:
   static char ID;
 
@@ -232,6 +277,8 @@ public:
 private:
   bool tryConvertIf(MachineBasicBlock *);
   bool shouldConvertIf();
+
+
 };
 
 char GASSIfConversion::ID = 0;
@@ -239,6 +286,7 @@ char GASSIfConversion::ID = 0;
 
 INITIALIZE_PASS_BEGIN(GASSIfConversion, DEBUG_TYPE, PASS_NAME, false, false)
 INITIALIZE_PASS_DEPENDENCY(MachineDominatorTree)
+INITIALIZE_PASS_DEPENDENCY(LiveIntervals)
 INITIALIZE_PASS_END(GASSIfConversion, DEBUG_TYPE, PASS_NAME, false, false)
 
 void GASSIfConversion::getAnalysisUsage(AnalysisUsage &AU) const {
@@ -246,6 +294,7 @@ void GASSIfConversion::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addPreserved<MachineDominatorTree>();
   AU.addRequired<MachineLoopInfo>();
   AU.addPreserved<MachineLoopInfo>();
+  AU.addRequired<LiveIntervals>();
   MachineFunctionPass::getAnalysisUsage(AU);
 }
 
@@ -307,9 +356,11 @@ bool GASSIfConversion::runOnMachineFunction(MachineFunction &MF) {
   TRI = STI.getRegisterInfo();
   DomTree = &getAnalysis<MachineDominatorTree>();
   Loops = getAnalysisIfAvailable<MachineLoopInfo>();
+  LIS = &getAnalysis<LiveIntervals>();
+  MRI = &MF.getRegInfo();
 
   bool Changed = false;
-  IfCvt.initialize(MF);
+  IfCvt.initialize(MF, LIS);
 
   // TODO: check this.
   // Visit blocks in dominator tree post-order.
