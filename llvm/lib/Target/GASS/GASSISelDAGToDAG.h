@@ -13,14 +13,17 @@ class GASSDAGToDAGISel : public SelectionDAGISel {
   // Cache Subtarget
   const GASSSubtarget *Subtarget;
 public:
-  explicit GASSDAGToDAGISel(GASSTargetMachine &TM)
-    : SelectionDAGISel(TM) {}
+  explicit GASSDAGToDAGISel(TargetMachine *TM = nullptr,
+                            CodeGenOpt::Level OptLevel = CodeGenOpt::Aggressive)
+    : SelectionDAGISel(*TM, OptLevel) {}
 
   StringRef getPassName() const override {
     return "GASS DAG->DAG Pattern Instruction Selection";
   }
 
   bool runOnMachineFunction(MachineFunction &MF) override;
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
 
 private:
 #include "GASSGenDAGISel.inc"

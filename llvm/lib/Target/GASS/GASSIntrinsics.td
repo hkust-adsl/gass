@@ -14,13 +14,14 @@ multiclass LDGSTS<int Width> {
     
     // let Inst{17} = // bypass -> 0, not-bypass -> 1
     // let Inst{18} = // not-zfill -> 0, zfill -> 1
-    // let Inst{15-11} = 
+    // let Inst{15-13} = 
     //    0->DEFAULT(nothing),  1->CONSTANT.PRIVATE, 2->CONSTANT.CTA, 3->CONSTANT.CTA.PRIVATE
     //    4->CONSTANT, 5->MMIO.CTA, 6->GPU.PRIVATE, 7->MMIO.CTA.PRIVATE
     // let Inst{22-20} = 
     //    0->.EF, 1->?, 2->.EL, 3->.LU, 4->.EU, 5->.NA(?)
     let Inst{27-0} = 0xb901d46;
 
+    let Inst{15-13} = 4; // .CONSTANT
     bits<3> pred;
     let Inst{25-23} = pred; // pred mask
     bits<20> doff;
@@ -50,6 +51,28 @@ def : Pat<(int_nvvm_cp_async_cg_shared_global_16_p VReg32:$dbase, VReg64:$ptr, V
           (LDGSTS128riri VReg32:$dbase, 0, VReg64:$ptr, 0, VReg1:$pred)>;
 
 //----------shared memory----------------
+class LDSMBase<dag outs, dag ins, string asmstr, int Num> 
+  : GASSInst<outs, ins, 0x83b, asmstr, []> {
+  let Inst{9-8} = !cond(
+    !eq(Num, 1): 0,
+    !eq(Num, 2): 1,
+    !eq(Num, 4): 2
+  );
+
+  // Flag Encoding
+  bits<1> trans;
+  let Inst{14} = trans;
+
+  // Operand Encoding
+  bits<8> dst;
+  bits<8> ptr;
+  bits<24> offset;
+
+  let Dst = dst;
+  let Src0 = ptr;
+  let Inst{127-104} = offset;
+}
+
 let isFixLat = false in {
 let mayLoad = true in {
 multiclass LDSM<RegisterClass RC, int Num> {
@@ -64,33 +87,36 @@ multiclass LDSM<RegisterClass RC, int Num> {
   //   : GASSInst<(outs RC:$dst), (ins VReg32:$ptr, SReg32:$u_off, i32imm:$offset), 0x83b, 
   //              "LDSM.16.M88."#Num#"\t $dst, [$ptr+$u_ff+$offset];", []>;
 
-  def _ri
-    : GASSInst<(outs RC:$dst), (ins VReg32:$ptr, i32imm:$offset, LdsmTrans:$trans), 0x83b, 
-               "LDSM.16.$trans."#Num#"\t $dst, [$ptr+$offset];", []> {
-    bits<1> trans; // .M88 | .MT88
-    let Inst{14} = trans; // M88 -> 0, MT88 -> 1
+  // def _ri
+  //   : GASSInst<(outs RC:$dst), (ins VReg32:$ptr, i32imm:$offset, LdsmTrans:$trans), 0x83b, 
+  //              "LDSM.16.$trans."#Num#"\t $dst, [$ptr+$offset];", []> {
+  //   bits<1> trans; // .M88 | .MT88
+  //   let Inst{14} = trans; // M88 -> 0, MT88 -> 1
 
-    // TODO: clean up this
-    // Num
-    let Inst{9-8} = !cond(
-      !eq(Num, 1): 0,
-      !eq(Num, 2): 1,
-      !eq(Num, 4): 2
-    );
+  //   // TODO: clean up this
+  //   // Num
+  //   let Inst{9-8} = !cond(
+  //     !eq(Num, 1): 0,
+  //     !eq(Num, 2): 1,
+  //     !eq(Num, 4): 2
+  //   );
 
-    bits<8> dst;
-    bits<8> ptr;
+  //   bits<8> dst;
+  //   bits<8> ptr;
     
-    let Dst = dst;
-    let Src0 = ptr;
+  //   let Dst = dst;
+  //   let Src0 = ptr;
 
-    bits<24> offset;
+  //   bits<24> offset;
 
-    let Inst{127-104} = offset;
+  //   let Inst{127-104} = offset;
 
-    // let Inst{103-96} = UR idx
-    // let Inst{27} = 1; if has UR offset
-  }
+  //   // let Inst{103-96} = UR idx
+  //   // let Inst{27} = 1; if has UR offset
+  // }
+  def _ri : LDSMBase<(outs RC:$dst), (ins VReg32:$ptr, i32imm:$offset, LdsmTrans:$trans), 
+                      "LDSM.16.$trans."#Num#"\t $dst, [$ptr+$offset];", Num>;
+
 
   def _ri_pseudo : GASSPseudoInstNoPred<(outs VReg32:$d0, VReg32:$d1, VReg32:$d2, VReg32:$d3), 
                                   (ins VReg32:$ptr, i32imm:$ioff, LdsmTrans:$trans), []>;
@@ -290,6 +316,8 @@ multiclass HMMA16816 {
     let Inst{11} = 1;
     // .F32
     let Inst{12} = 1;
+    // Always reuse registers
+    // let Inst{58} = 1; // seems Turing doesn't need this
   }
 
   // TODO:

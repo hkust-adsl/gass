@@ -14,6 +14,8 @@ def GASSsetcc_logic : SDNode<"GASSISD::SETCC_LOGIC", GASSSDSetccLogicOp, []>;
 
 def ldc : SDNode<"GASSISD::LDC", SDTUnaryOp>;
 
+include "GASSInstrInfoUniform.td"
+
 //=---------------------------------=//
 // Operands
 //=---------------------------------=//

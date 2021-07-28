@@ -8,6 +8,7 @@
 #include "llvm/Analysis/CFGPrinter.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
+#include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/TargetRegistry.h"
@@ -160,12 +161,14 @@ bool GASSPassConfig::addPreISel() {
   // TODO: can we eliminate this?
   addPass(createGASSSinkingPass());
   // following the practice in AMDGPU
-  addPass(createGASSAnnotateUniformValues());
+  // addPass(createGASSAnnotateUniformValues());
+  addPass(createPrintModulePass(outs()));
   return false;
 }
 
 bool GASSPassConfig::addInstSelector() {
-  addPass(new GASSDAGToDAGISel(getGASSTargetMachine()));
+  addPass(new GASSDAGToDAGISel(&getGASSTargetMachine()));
+  addPass(createMachineFunctionPrinterPass(outs()));
   addPass(createGASSExpandPreRAPseudoPass());
   // addPass(createMachineVerifierPass("** Verify After ISel **"));
   return false;
@@ -221,7 +224,6 @@ void GASSPassConfig::addOptimizedRegAlloc() {
   addPass(&MachineSchedulerID);
 
   addPass(createGASSMarkUndeadPass());
-  // addPass(createMachineFunctionPrinterPass(outs()));
   // addPass(createGASSIVDebugPass());
 
   // // Compute Register Pressure at each line
@@ -242,6 +244,7 @@ void GASSPassConfig::addOptimizedRegAlloc() {
     // FIXME: can this move into MachineLateOptimization?
     addPass(&MachineLICMID);
   }
+  // addPass(createMachineFunctionPrinterPass(outs()));
 }
 
 bool GASSPassConfig::addILPOpts() {

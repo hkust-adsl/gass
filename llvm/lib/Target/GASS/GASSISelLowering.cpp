@@ -1,9 +1,11 @@
 #include "GASSISelLowering.h"
 #include "GASS.h"
+#include "GASSRegisterInfo.h"
 #include "GASSSubtarget.h"
 #include "GASSTargetMachine.h"
 #include "llvm/CodeGen/ISDOpcodes.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
+#include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/TableGen/Record.h"
 
@@ -308,6 +310,18 @@ GASSTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   case ISD::CONCAT_VECTORS: return lowerCONCAT_VECTORS(Op, DAG);
   case ISD::GlobalAddress: return lowerGlobalAddress(Op, DAG);
   }
+}
+
+//---------------- RegClass ----------------
+const TargetRegisterClass*
+GASSTargetLowering::getRegClassFor(MVT VT, bool isDivergent) const {
+  const TargetRegisterClass *RC = TargetLowering::getRegClassFor(VT, isDivergent);
+  if (Subtarget.getSmVersion() < 75)
+    return RC;
+  const GASSRegisterInfo *TRI = Subtarget.getRegisterInfo();
+  if (!isDivergent && (VT == MVT::i1 || VT == MVT::i32))
+    return TRI->getEquivalentSGPRClass(RC);
+  return RC;
 }
 
 //=--------------------------------------=//

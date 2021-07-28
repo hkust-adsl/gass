@@ -137,6 +137,10 @@ def VReg128 : GASSRegClass<[v2i64, v2f64, v4i32, v4f32,
 def SReg1 : GASSRegClass<[i1], 1, (add (sequence "UPR%u", 0, 6))>;
 def SReg32 : GASSRegClass<[i32], 32, (add (sequence "SGPR%u", 0, 63))>;
 
+def SReg64Tuple : GASSRegTuples<[sub0, sub1], SReg32, 63, 2, 2, "UR">;
+// TODO: URZ
+def SReg64 : GASSRegClass<[i64, v2i32], 64, (add SReg64Tuple)>;
+
 //=--------------------------------------------------------------------------=//
 // Virtual registers (will be eliminated after ISel)
 //=--------------------------------------------------------------------------=//

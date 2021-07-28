@@ -4,6 +4,7 @@
 // #include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/CodeGen/TargetLowering.h"
+#include "llvm/CodeGen/TargetRegisterInfo.h"
 
 namespace llvm {
 class GASSSubtarget;
@@ -66,6 +67,9 @@ public:
   MVT getScalarShiftAmountTy(const DataLayout &, EVT) const override {
     return MVT::i32;
   }
+
+  // override the default function to support UR
+  const TargetRegisterClass* getRegClassFor(MVT VT, bool isDivergent) const override;
 
 private:
   // Custom combining

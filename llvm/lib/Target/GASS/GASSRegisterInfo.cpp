@@ -70,3 +70,13 @@ GASSRegisterInfo::regsCover(const Register &Reg, const Register &Other,
   else
     return false;
 }
+
+const TargetRegisterClass* 
+GASSRegisterInfo::getEquivalentSGPRClass(const TargetRegisterClass *VRC) const {
+  unsigned Size = getRegSizeInBits(*VRC);
+  switch (Size) {
+  default: llvm_unreachable("Unsupported SGPR");
+  case 1: return &GASS::SReg1RegClass;
+  case 32: return &GASS::SReg32RegClass;
+  }
+}

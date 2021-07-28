@@ -2,13 +2,16 @@
 #include "GASSISelDAGToDAG.h"
 #include "GASSSubtarget.h"
 #include "MCTargetDesc/GASSMCTargetDesc.h"
+#include "llvm/Analysis/LegacyDivergenceAnalysis.h"
 #include "llvm/CodeGen/ISDOpcodes.h"
+#include "llvm/CodeGen/SchedulerRegistry.h"
 #include "llvm/CodeGen/SelectionDAGISel.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IntrinsicsNVPTX.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/InitializePasses.h"
 
 using namespace llvm;
 
@@ -18,6 +21,17 @@ bool GASSDAGToDAGISel::runOnMachineFunction(MachineFunction &MF) {
   Subtarget = &MF.getSubtarget<GASSSubtarget>();
   return SelectionDAGISel::runOnMachineFunction(MF);
 }
+
+void GASSDAGToDAGISel::getAnalysisUsage(AnalysisUsage &AU) const {
+  AU.addRequired<LegacyDivergenceAnalysis>();
+  SelectionDAGISel::getAnalysisUsage(AU);
+}
+
+INITIALIZE_PASS_BEGIN(GASSDAGToDAGISel, DEBUG_TYPE,
+                      "GASS DAG->DAG Pattern Instruction Selection", false, false)
+INITIALIZE_PASS_DEPENDENCY(LegacyDivergenceAnalysis)
+INITIALIZE_PASS_END(GASSDAGToDAGISel, DEBUG_TYPE, 
+                    "GASS DAG->DAG Pattern Instruction Selection", false, false)
 
 //=-----------------------------------=//
 // static helpers

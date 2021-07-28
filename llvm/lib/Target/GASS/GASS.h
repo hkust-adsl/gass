@@ -48,6 +48,7 @@ void initializeRegPressureComputePass(PassRegistry &);
 void initializeGASSLDGSinkPass(PassRegistry &);
 void initializeGASSDeleteDeadPHIsPass(PassRegistry &);
 void initializeGASSIVDebugPass(PassRegistry &);
+void initializeGASSDAGToDAGISelPass(PassRegistry &);
 
 
 namespace GASS {
