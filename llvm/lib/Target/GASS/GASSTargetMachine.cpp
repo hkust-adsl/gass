@@ -162,13 +162,12 @@ bool GASSPassConfig::addPreISel() {
   addPass(createGASSSinkingPass());
   // following the practice in AMDGPU
   // addPass(createGASSAnnotateUniformValues());
-  addPass(createPrintModulePass(outs()));
+  addPass(createPrintFunctionPass(outs()));
   return false;
 }
 
 bool GASSPassConfig::addInstSelector() {
   addPass(new GASSDAGToDAGISel(&getGASSTargetMachine()));
-  addPass(createMachineFunctionPrinterPass(outs()));
   addPass(createGASSExpandPreRAPseudoPass());
   // addPass(createMachineVerifierPass("** Verify After ISel **"));
   return false;

@@ -14,6 +14,7 @@ enum NodeType : unsigned {
   FIRST_NUMBER = ISD::BUILTIN_OP_END,
   Wrapper,
 
+  CONSTANT_MEM,
   EXIT,
 
   LD,

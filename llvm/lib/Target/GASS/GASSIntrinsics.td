@@ -73,68 +73,26 @@ class LDSMBase<dag outs, dag ins, string asmstr, int Num>
   let Inst{127-104} = offset;
 }
 
-let isFixLat = false in {
-let mayLoad = true in {
+let isFixLat = false, mayLoad = true in
 multiclass LDSM<RegisterClass RC, int Num> {
-  // def _r 
-  //   : GASSInst<(outs RC:$dst), (ins VReg32:$ptr), 0x83b, "LDSM.16.M88."#Num#"\t $dst, [$ptr];", []>;
-
-  // def _ru 
-  //   : GASSInst<(outs RC:$dst), (ins VReg32:$ptr, SReg32:$u_off), 0x83b, 
-  //              "LDSM.16.M88."#Num#"\t $dst, [$ptr+$u_ff];", []>;
-
-  // def _rui
-  //   : GASSInst<(outs RC:$dst), (ins VReg32:$ptr, SReg32:$u_off, i32imm:$offset), 0x83b, 
-  //              "LDSM.16.M88."#Num#"\t $dst, [$ptr+$u_ff+$offset];", []>;
-
-  // def _ri
-  //   : GASSInst<(outs RC:$dst), (ins VReg32:$ptr, i32imm:$offset, LdsmTrans:$trans), 0x83b, 
-  //              "LDSM.16.$trans."#Num#"\t $dst, [$ptr+$offset];", []> {
-  //   bits<1> trans; // .M88 | .MT88
-  //   let Inst{14} = trans; // M88 -> 0, MT88 -> 1
-
-  //   // TODO: clean up this
-  //   // Num
-  //   let Inst{9-8} = !cond(
-  //     !eq(Num, 1): 0,
-  //     !eq(Num, 2): 1,
-  //     !eq(Num, 4): 2
-  //   );
-
-  //   bits<8> dst;
-  //   bits<8> ptr;
-    
-  //   let Dst = dst;
-  //   let Src0 = ptr;
-
-  //   bits<24> offset;
-
-  //   let Inst{127-104} = offset;
-
-  //   // let Inst{103-96} = UR idx
-  //   // let Inst{27} = 1; if has UR offset
-  // }
   def _ri : LDSMBase<(outs RC:$dst), (ins VReg32:$ptr, i32imm:$offset, LdsmTrans:$trans), 
-                      "LDSM.16.$trans."#Num#"\t $dst, [$ptr+$offset];", Num>;
-
+                     "LDSM.16.$trans."#Num#"\t $dst, [$ptr+$offset];", Num>;
+  def _rui : LDSMBase<(outs RC:$dst), (ins VReg32:$ptr, SReg32:$uoff, i32imm:$offset, LdsmTrans:$trans),
+                      "LDSM.16.$trans."#Num#"\t $dst, [$ptr+$uoff+$offset];", Num> {
+    bits<8> uoff;
+    let Inst{103-96} = uoff;
+    let Inst{27} = 1; // has UR offset;
+  }
 
   def _ri_pseudo : GASSPseudoInstNoPred<(outs VReg32:$d0, VReg32:$d1, VReg32:$d2, VReg32:$d3), 
                                   (ins VReg32:$ptr, i32imm:$ioff, LdsmTrans:$trans), []>;
   def _rui_pseudo : GASSPseudoInstNoPred<(outs VReg32:$d0, VReg32:$d1, VReg32:$d2, VReg32:$d3), 
                                    (ins VReg32:$ptr, SReg32:$uoff, i32imm:$ioff, LdsmTrans:$trans), []>;
 }
-}
-}
+
 defm LDSM_x1 : LDSM<VReg32, 1>, Sched<[WriteLDS]>, Requires<[hasSM80]>;
 defm LDSM_x2 : LDSM<VReg64, 2>, Sched<[WriteLDS64]>, Requires<[hasSM80]>;
 defm LDSM_x4 : LDSM<VReg128, 4>, Sched<[WriteLDS128]>, Requires<[hasSM75]>;
-
-// TODO: patterns for _ri_pseudo & _rui_pseudo
-
-// def : Pat<(set v2f16:$d0, v2f16:$d1, v2f16:$d2, v2f16:$d3,
-//                (int_nvvm_ldmatrix_m8n8_x4 i32:$ptr, i64imm:$offset)),
-//           (set (REG_SEQUENCE VReg128, VReg32:$d0, sub0, VReg32:$d1, sub1, 
-//                                              VReg32:$d2, sub2, VReg32:$d3, sub3)>;
 
 // cp.async.commit_group;
 // TODO: schedule model
@@ -192,10 +150,6 @@ multiclass FMNMX<bit IsMin> {
     bits<4> MNMXP = !if(IsMin, 0x7, 0xf);
     let Inst{26-23} = MNMXP;
   }
-
-  // def ri : ;
-
-  // def rc : ;
 }
 
 defm FMIN : FMNMX<true>, Sched<[WriteFMNMX]>;
