@@ -14,8 +14,6 @@ def GASSsetcc_logic : SDNode<"GASSISD::SETCC_LOGIC", GASSSDSetccLogicOp, []>;
 
 def ldc : SDNode<"GASSISD::LDC", SDTUnaryOp>;
 
-include "GASSInstrInfoUniform.td"
-
 //=---------------------------------=//
 // Operands
 //=---------------------------------=//
@@ -23,8 +21,10 @@ def PredNot : Operand<i1> {
   let PrintMethod = "printPredNot";
 }
 def constantmem : Operand<i32> {
+  // let OperandNamespace = "GASS";
   let PrintMethod = "printConstantMem";
   // let EncoderMethod = "encodeConstantMem"; // default: getMachineOpValue
+  // let OperandType = "OPERAND_CONSTANT_MEM";
 }
 
 def brtarget : Operand<OtherVT>;
@@ -138,10 +138,8 @@ def CmpOr  : PatLeaf<(i32 2)>;
 multiclass IADD3 {
   def rrr : GASSInstOp3rrr<(outs VReg32:$dst),
                           (ins VReg32:$src0, VReg32:$src1, VReg32:$src2),
-                          0x210,
-                          "IADD3 \t$dst, $src0, $src1, $src2;",
-                          [(set i32:$dst, (add (add i32:$src0, i32:$src1), 
-                                                i32:$src2))]> {
+                          0x210, "IADD3 \t$dst, $src0, $src1, $src2;",
+                          [(set i32:$dst, (add (add i32:$src0, i32:$src1), i32:$src2))]> {
     let Inst{16-13} = 0xf; // no ps1
     let Inst{26-23} = 0xf; // no ps0
 
@@ -151,10 +149,20 @@ multiclass IADD3 {
 
   def rir : GASSInstOp3rir<(outs VReg32:$dst),
                           (ins VReg32:$src0, i32imm:$src1, VReg32:$src2),
-                          0x810,
-                          "IADD3 \t$dst, $src0, $src1, $src2;",
-                          [(set i32:$dst, (add (add i32:$src0, imm:$src1),
-                                                i32:$src2))]> {
+                          0x810, "IADD3 \t$dst, $src0, $src1, $src2;",
+                          [(set i32:$dst, (add (add i32:$src0, imm:$src1),i32:$src2))]> {
+    let Inst{16-13} = 0xf; // no ps1
+    let Inst{26-23} = 0xf; // no ps0
+
+    let Inst{19-17} = 0x7; // no pd0
+    let Inst{22-20} = 0x7; // no pd1
+  }
+
+  def rur : GASSInstOp3rrr<(outs VReg32:$dst),
+                          (ins VReg32:$src0, SReg32:$src1, VReg32:$src2),
+                          0xc10, "IADD3 \t$dst, $src0, $src1, $src2;",
+                          // Let DAGCombiner select (?) this one
+                          []>, Requires<[hasSM75]> {
     let Inst{16-13} = 0xf; // no ps1
     let Inst{26-23} = 0xf; // no ps0
 
@@ -186,8 +194,8 @@ multiclass IADD3 {
 }
 defm IADD3 : IADD3, Sched<[WriteINT]>;
 // Support 2-source add (TODO)
-def : Pat<(i32 (add i32:$src0, i32:$src1)),
-          (IADD3rir VReg32:$src0, PatLeaf<(i32 0)>, VReg32:$src1)>;
+// def : Pat<(i32 (add i32:$src0, i32:$src1)),
+          // (IADD3rir VReg32:$src0, PatLeaf<(i32 0)>, VReg32:$src1)>;
 
 // 2-operand IADD, 
 // This is IADD3 with default value
@@ -283,8 +291,8 @@ multiclass IADD64 {
   def ri : GASSPseudoInst<(outs VReg64:$dst), (ins VReg64:$src0, i64imm:$src1),
                           [(set i64:$dst, (add i64:$src0, imm:$src1))]>;
 
-  // def rc : GASSPseudoInst<(outs VReg64:$dst), (ins VReg64:$src0, i32const:$src1),
-  //                         [(set i64:$dst, (add i64:$src0, (i64 (ldc (i32 timm:$src1)))))]>;
+  def rc : GASSPseudoInst<(outs VReg64:$dst), (ins VReg64:$src0, i32const:$src1),
+                          [(set i64:$dst, (add i64:$src0, (i64 (ldc (i32 timm:$src1)))))]>;
 }
 defm IADD64 : IADD64, Sched<[WriteINT]>;
 
@@ -764,7 +772,7 @@ multiclass SETP<string OpcStr, RegisterClass RC, Operand ImmCls,
   }
 
   def rc : GASSInstOp2rc<(outs VReg1:$pdst),
-                         (ins RC:$src0, i32const:$src1, CmpMode:$cmp, CmpModeSign:$sign),
+                         (ins RC:$src0, constantmem:$src1, CmpMode:$cmp, CmpModeSign:$sign),
                          rcEnc,
                          !strconcat(OpcStr, "$cmp$sign \t$pdst, $src0, $src1;"),[]> {
     let dst = 0;
@@ -871,6 +879,29 @@ multiclass SETPLogic<string OpcStr, RegisterClass RC, Operand ImmCls,
     bits<2> logic;
     let Inst{11-10} = logic;
   }
+
+  def rc : GASSInstOp2rc<
+      (outs VReg1:$pdst),
+      (ins RC:$src0, constantmem:$src1, VReg1:$psrc0, CmpMode:$cmp, CmpModeSign:$sign, CmpLogic:$logic),
+      riEnc,
+      !strconcat(OpcStr, "$cmp$sign$logic \t$pdst, $src0, $src1, $psrc0;"),
+      []> {
+    let dst = 0;
+    bits<3> pdst;
+    bits<3> cmp;
+    bit sign;
+    
+    let Inst{19-17} = pdst;
+    let Inst{22-20} = 0x7; // pdst1
+    let Inst{14-12} = cmp;
+    let Inst{9} = sign;
+
+    bits<3> psrc0;
+    let Inst{25-23} = psrc0; // ps0
+    let Inst{6-4} = 0x7; // ?
+    bits<2> logic;
+    let Inst{11-10} = logic;
+  }
 }
 defm ISETPLogic : SETPLogic<"ISETP", VReg32, i32imm, 0x20c, 0x80c>, 
                   Sched<[WriteISETP]>;
@@ -909,33 +940,31 @@ def PLOP3 : GASSInst<(outs VReg1:$dst),
 
 
 //=---------------------------------=//
-// 
+// constant mem
 //=---------------------------------=//
+// def : Pat<(ldc (i32 timm:$offset)), (constantmem:$offset)>;
+// def : Pat<(i64 (ldc (i32 timm:$offset))), (constantmem:$offset)>;
 
 //=---------------------------------=//
 // mov
 //=---------------------------------=//
 multiclass MOV<RegisterClass RC, int Width, Operand ImmCls, Operand FpImmCls> {
-  def r : GASSInstOp1r<(outs RC:$dst),
-                   (ins RC:$src0),
+  def r : GASSInstOp1r<(outs RC:$dst), (ins RC:$src0),
                    0x202, "MOV."#Width#" \t$dst, $src0;", []> {
     let Inst{11-8} = 0xf;
   }
 
-  def i : GASSInstOp1i<(outs RC:$dst),
-                   (ins ImmCls:$src0),
+  def i : GASSInstOp1i<(outs RC:$dst), (ins ImmCls:$src0),
                    0x802, "MOV."#Width#" \t$dst, $src0;", []> {
     let Inst{11-8} = 0xf;
   }
   
-  def f : GASSInstOp1i<(outs RC:$dst),
-                   (ins FpImmCls:$src0),
+  def f : GASSInstOp1i<(outs RC:$dst), (ins FpImmCls:$src0),
                    0x802, "MOV."#Width#" \t$dst, $src0;", []> {
     let Inst{11-8} = 0xf;
   }
 
-  def c : GASSInstOp1c<(outs RC:$dst),
-                   (ins constantmem:$src0), // Not true.
+  def c : GASSInstOp1c<(outs RC:$dst), (ins constantmem:$src0), // Not true.
                    0xa02, "MOV."#Width#" \t$dst, $src0;", []> {
     let Inst{11-8} = 0xf;
   }
@@ -952,6 +981,8 @@ def : Pat<(i32 (imm:$src0)),   (MOV32i imm:$src0)>;
 def : Pat<(f32 (fpimm:$src0)), (MOV32f fpimm:$src0)>;
 def : Pat<(i64 (imm:$src0)),   (MOV64i imm:$src0)>;
 
+// TODO: move this
+include "GASSInstrInfoUniform.td"
 //=---------------------------------=//
 // load/store instructions
 //=---------------------------------=//

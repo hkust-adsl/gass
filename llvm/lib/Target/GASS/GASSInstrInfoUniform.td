@@ -3,11 +3,11 @@ multiclass ULDC<RegisterClass RC, int Width> {
   // def rc : ;
 }
 
-defm ULDC32 : ULDC<SReg32, 32>, Sched<[WriteINT]>;
-defm ULDC64 : ULDC<SReg64, 64>, Sched<[WriteINT]>;
+defm ULDC32 : ULDC<SReg32, 32>, Sched<[WriteINT]>, Requires<[hasSM75]>;
+defm ULDC64 : ULDC<SReg64, 64>, Sched<[WriteINT]>, Requires<[hasSM75]>;
 
-def : Pat<(i32 (ldc (i32 timm:$offset))), (ULDC32c i32const:$offset)>;
-def : Pat<(i64 (ldc (i32 timm:$offset))), (ULDC64c i32const:$offset)>;
+// def : Pat<(i32 (ldc (i32 timm:$offset))), (ULDC32c i32const:$offset)>;
+// def : Pat<(i64 (ldc (i32 timm:$offset))), (ULDC64c i32const:$offset)>;
 
 // TODO:
 //   UISETP, UIADD3, UMOV, USHF, UIMAD

@@ -386,7 +386,13 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
             .addReg(VPtr).add(IOff).add(IfTrans)
             .addImm(0).addReg(GASS::PT);
         } else if (Opc == GASS::LDSM_x4_rui_pseudo) {
-          llvm_unreachable("Not implemented");
+          const MachineOperand &UOff = MI.getOperand(5);
+          const MachineOperand &IOff = MI.getOperand(6);
+          const MachineOperand &IfTrans = MI.getOperand(7);
+          assert(UOff.isReg() && IOff.isImm() && IfTrans.isImm());
+          BuildMI(MBB, MI, DL, TII->get(GASS::LDSM_x4_rui), D)
+            .addReg(VPtr).add(UOff).add(IOff).add(IfTrans)
+            .addImm(0).addReg(GASS::PT);
         }
 
         // 3. extract result

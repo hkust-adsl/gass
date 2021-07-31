@@ -238,11 +238,12 @@ bool GASSDAGToDAGISel::selectADDRri(SDValue Value, SDValue &Base,
 
 /// Return true if matches (vreg + ureg)
 bool GASSDAGToDAGISel::selectADDRrui(SDValue Value, SDValue &VOffset, SDValue &UOffset) {
-  return false; // Not implemented
   if (Value.getOpcode() == ISD::ADD) {
+    return false;
     SDValue LHS = Value.getOperand(0);
     SDValue RHS = Value.getOperand(1);
 
+    // TODO: query FuncInfo about the Reg Type
     if (!LHS->isDivergent()) {
       VOffset = RHS;
       UOffset = LHS;
@@ -790,6 +791,54 @@ bool GASSDAGToDAGISel::trySETCC_LOGIC(SDNode *N) {
   GASSSETCC_LOGIC = CurDAG->getMachineNode(Opcode, DL, VT, Ops);
   ReplaceNode(N, GASSSETCC_LOGIC);
   return true;
+}
+
+//=----------------------------------------------------------------------=//
+// Combine MachineSDNode
+//=----------------------------------------------------------------------=//
+// Ref: AMDGPUDAGToDAGISel::PostprocessISelDAG()
+void GASSDAGToDAGISel::PostprocessISelDAG() {
+  bool IsModified = false;
+  do {
+    IsModified = false;
+
+    // Go over all selected nodes
+    SelectionDAG::allnodes_iterator Position = CurDAG->allnodes_begin();
+    while (Position != CurDAG->allnodes_end()) {
+      SDNode *Node = &*Position++;
+      MachineSDNode *MachineNode = dyn_cast<MachineSDNode>(Node);
+      if (!MachineNode)
+        continue;
+
+      SDNode *ResNode = PostISelCombine(MachineNode);
+      if (ResNode != Node) {
+        if (ResNode)
+          ReplaceUses(Node, ResNode);
+        IsModified = true;
+      }
+    }
+    CurDAG->RemoveDeadNodes();
+  } while (IsModified);
+}
+
+SDNode* GASSDAGToDAGISel::PostISelCombine(MachineSDNode *Node) {
+  // Combine Uniform-datapath regs
+  if (Subtarget->getSmVersion() >= 75) {
+    // Note: Node->getOpcode doesn't work
+    // if (Node->getMachineOpcode() == GASS::IADD3rrr) {
+    //   assert(Node->getNumOperands() == 5);
+    //   // if any of the operand is UR
+    //   // (iadd3 ... (vreg32 COPY sreg32:src), ...)
+    //   //  -> (iadd3 ... sreg32:$src, ...)
+    //   for (unsigned idx = 0; idx < 3; ++idx) {
+    //     SDValue Op = Node->getOperand(idx);
+    //     // Op.dump();
+    //     if (Op->getOpcode() == ISD::CopyFromReg)
+    //       llvm_unreachable("Target!");
+    //   }
+    // }
+  }
+  return Node;
 }
 
 //=----------------------------------------------------------------------=//

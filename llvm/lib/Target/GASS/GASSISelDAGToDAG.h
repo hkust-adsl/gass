@@ -25,6 +25,9 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
+  // Combine MachineSDNode
+  void PostprocessISelDAG() override;
+
 private:
 #include "GASSGenDAGISel.inc"
   void Select(SDNode *Node) override;
@@ -47,6 +50,8 @@ private:
 
   bool tryEXTRACT_VECTOR_ELT_F16(SDNode *N);
 
+  // Post ISel combine
+  SDNode* PostISelCombine(MachineSDNode *MN);
   // Complext pattern
   template<int Width>
   bool SelectConstMem(SDValue N, SDValue &Imm);

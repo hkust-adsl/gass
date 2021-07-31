@@ -7,6 +7,7 @@
 #include "GASSELFStreamer.h"
 #include "GASSELFObjectWriter.h"
 #include "GASSAsmBackend.h"
+#include "GASSDefines.h"
 #include "TargetInfo/GASSTargetInfo.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"

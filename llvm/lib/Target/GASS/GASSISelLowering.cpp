@@ -139,6 +139,9 @@ SDValue GASSTargetLowering::PerformDAGCombine(SDNode *N,
   default: break;
   case ISD::XOR: case ISD::AND: case ISD::OR:
     return performLogicCombine(N, DCI);
+  case GASS::IADD3rrr:
+    llvm_unreachable("Try to combine IADD3rrr!");
+    break;
   }
   return SDValue();
 }
@@ -238,13 +241,6 @@ GASSTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
   return DAG.getNode(GASSISD::EXIT, dl, MVT::Other, Chain);
 }
 
-static unsigned alignTo(unsigned CurOff, unsigned AlignReq) {
-  while (CurOff % AlignReq != 0)
-    CurOff++;
-
-  return CurOff;    
-}
-
 // Ins: ISD::InputArg. Mainly about type (VT)
 // This function is used to construct InVals
 /// @param Chain Chain
@@ -289,7 +285,7 @@ SDValue GASSTargetLowering::LowerFormalArguments(
     unsigned AlignRequirement = DL.getABITypeAlignment(Ty);
     CBankOff = alignTo(CBankOff, AlignRequirement);
     SDValue ParamNode = DAG.getNode(GASSISD::LDC, dl, ObjectVT, 
-                                    DAG.getTargetConstant(CBankOff, dl, MVT::i32)); 
+                                    DAG.getTargetConstant(CBankOff, dl, MVT::i32));
     InVals.push_back(ParamNode);
 
     // Move forward CBankOff
@@ -316,11 +312,11 @@ GASSTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
 const TargetRegisterClass*
 GASSTargetLowering::getRegClassFor(MVT VT, bool isDivergent) const {
   const TargetRegisterClass *RC = TargetLowering::getRegClassFor(VT, isDivergent);
-  if (Subtarget.getSmVersion() < 75)
+  if (Subtarget.getSmVersion() < 100) // Testing...
     return RC;
-  const GASSRegisterInfo *TRI = Subtarget.getRegisterInfo();
-  if (!isDivergent && (VT == MVT::i1 || VT == MVT::i32))
-    return TRI->getEquivalentSGPRClass(RC);
+  // const GASSRegisterInfo *TRI = Subtarget.getRegisterInfo();
+  // if (!isDivergent && (VT == MVT::i1 || VT == MVT::i32))
+  //   return TRI->getEquivalentSGPRClass(RC);
   return RC;
 }
 

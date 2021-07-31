@@ -162,12 +162,13 @@ bool GASSPassConfig::addPreISel() {
   addPass(createGASSSinkingPass());
   // following the practice in AMDGPU
   // addPass(createGASSAnnotateUniformValues());
-  addPass(createPrintFunctionPass(outs()));
   return false;
 }
 
 bool GASSPassConfig::addInstSelector() {
   addPass(new GASSDAGToDAGISel(&getGASSTargetMachine()));
+  // addPass(createGASSMachineInstrCombinePass());
+  addPass(&MachineFunctionPrinterPassID);
   addPass(createGASSExpandPreRAPseudoPass());
   // addPass(createMachineVerifierPass("** Verify After ISel **"));
   return false;
@@ -207,6 +208,8 @@ void GASSPassConfig::addOptimizedRegAlloc() {
   // separate vregs before. Splitting can also improve reg. allocation quality.
   addPass(&RenameIndependentSubregsID);
 
+  // addPass(&MachineFunctionPrinterPassID);
+
   //==***************** GASS specific *************************==//
   // PreRA IfConvert
   addPass(createMachineVerifierPass("** Verify Before Early If Conversion **"));
@@ -227,7 +230,7 @@ void GASSPassConfig::addOptimizedRegAlloc() {
 
   // // Compute Register Pressure at each line
   // addPass(createRegPressureComputePass());
-  // addPass(&MachineFunctionPrinterPassID);
+  
 
   if (addRegAssignmentOptimized()) {
     // Allow targets to expand pseudo instructions depending on the choice of
@@ -243,7 +246,6 @@ void GASSPassConfig::addOptimizedRegAlloc() {
     // FIXME: can this move into MachineLateOptimization?
     addPass(&MachineLICMID);
   }
-  // addPass(createMachineFunctionPrinterPass(outs()));
 }
 
 bool GASSPassConfig::addILPOpts() {

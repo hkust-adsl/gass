@@ -30,6 +30,7 @@ add_llvm_target(GASSCodeGen
   GASSIVDebugPass.cpp
   GASSLDGSinkPass.cpp
   GASSMachineFunctionCFGPrinter.cpp
+  GASSMachineInstrCombinePass.cpp
   GASSMarkUndeadPass.cpp
   GASSMCInstLowering.cpp
   GASSPreEmitPreparePass.cpp

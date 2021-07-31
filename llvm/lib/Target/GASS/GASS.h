@@ -28,6 +28,7 @@ FunctionPass *createGASSPreEmitPreparePass();
 FunctionPass *createRegPressureComputePass();
 FunctionPass *createGASSLDGSinkPass();
 FunctionPass *createGASSDeleteDeadPHIsPass();
+FunctionPass *createGASSMachineInstrCombinePass();
 Pass *createGASSIVDebugPass();
 // Delete dead label for WAW reg
 FunctionPass *createGASSMarkUndeadPass();
@@ -49,6 +50,7 @@ void initializeGASSLDGSinkPass(PassRegistry &);
 void initializeGASSDeleteDeadPHIsPass(PassRegistry &);
 void initializeGASSIVDebugPass(PassRegistry &);
 void initializeGASSDAGToDAGISelPass(PassRegistry &);
+void initializeGASSMachineInstrCombinePass(PassRegistry &);
 
 
 namespace GASS {

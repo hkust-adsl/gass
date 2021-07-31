@@ -39,8 +39,10 @@ void GASSInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
       // dst = ???
     }
     llvm_unreachable("Not implemented");
-  } else
+  } else {
+    I->dump();
     llvm_unreachable("Bad phys reg copy");
+  }
 
   BuildMI(MBB, I, DL, get(Op), DestReg)
       .addReg(SrcReg, getKillRegState(KillSrc))
