@@ -3,6 +3,7 @@
 
 // #include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/CodeGen/SelectionDAG.h"
+#include "llvm/CodeGen/SelectionDAGNodes.h"
 #include "llvm/CodeGen/TargetLowering.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 
@@ -92,6 +93,18 @@ private:
   void SplitInteger(SDValue Op, SDValue &Lo, SDValue &Hi, 
                     SelectionDAG &DAG) const;
   SDValue getAddr(GlobalAddressSDNode *N, SelectionDAG &DAG) const;
+};
+
+// Custom SDNode types
+class GASSConstantMemSDNode : public ConstantSDNode {
+  unsigned MemOffset = 0;
+public:
+  void setOffset(unsigned Off) { 
+    MemOffset = Off; 
+  }
+  static bool classof(const SDNode *N) {
+    return N->getOpcode() == GASSISD::CONSTANT_MEM;
+  }
 };
 
 } // namespace llvm

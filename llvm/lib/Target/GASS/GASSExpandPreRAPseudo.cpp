@@ -34,7 +34,7 @@ private:
   MachineOperand buildExtractSubRegOrImm(
       MachineBasicBlock::iterator MI, MachineRegisterInfo &MRI,
     MachineOperand &SuperReg, const TargetRegisterClass *SuperRC, 
-    unsigned SubIdx, const TargetRegisterClass *SubRC) const;
+    unsigned SubIdx, const TargetRegisterClass *SubRC, bool IsConstMem=false) const;
 };
 
 char GASSExpandPreRAPseudo::ID = 0;
@@ -71,13 +71,19 @@ MachineOperand GASSExpandPreRAPseudo::buildExtractSubReg(
 MachineOperand GASSExpandPreRAPseudo::buildExtractSubRegOrImm(
     MachineBasicBlock::iterator MI, MachineRegisterInfo &MRI,
     MachineOperand &Op, const TargetRegisterClass *SuperRC, 
-    unsigned SubIdx, const TargetRegisterClass *SubRC) const {
-  if (Op.isImm()) {
+    unsigned SubIdx, const TargetRegisterClass *SubRC, bool IsConstMem) const {
+  if (Op.isImm() && !IsConstMem) {
     if (SubIdx == GASS::sub0)
       return MachineOperand::CreateImm(static_cast<int32_t>(Op.getImm()));
     if (SubIdx == GASS::sub1)
       return MachineOperand::CreateImm(static_cast<int32_t>(Op.getImm() >> 32));
     llvm_unreachable("Unhandled register index for immediate");
+  } else if (Op.isImm() && IsConstMem) {
+    // assumes 64-bit width but seems dangerous?
+    if (SubIdx == GASS::sub0)
+      return MachineOperand::CreateImm(Op.getImm());
+    if (SubIdx == GASS::sub1)
+      return MachineOperand::CreateImm(Op.getImm() + 4);
   }
   
   return buildExtractSubReg(MI, MRI, Op, SuperRC, SubIdx, SubRC);
@@ -102,7 +108,7 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
       LLVM_DEBUG(MI.dump());
       switch (Opc) {
       default: break;
-      case GASS::IADD64rr: case GASS::IADD64ri: {
+      case GASS::IADD64rr: case GASS::IADD64ri: case GASS::IADD64rc: {
         // IADD64rr dst, lhs, rhs; ->
         //   IADDCARRY dst.sub0, c, lhs.sub0, rhs.sub0, !PT;
         //   IADDCARRY dst.sub1, PT, lhs.sub1, rhs.sub1, c;
@@ -129,15 +135,17 @@ bool GASSExpandPreRAPseudo::runOnMachineFunction(MachineFunction &MF) {
         MachineOperand LHSSub1 = buildExtractSubReg(MII, MRI, LHS, LHSRC,
                                                     GASS::sub1, LHSSubRC);
 
+        bool IsConstMem = Opc == GASS::IADD64rc ? true : false;
         MachineOperand RHSSub0 = buildExtractSubRegOrImm(MII, MRI, RHS, RHSRC,
-                                                         GASS::sub0, RHSSubRC);
+                                                         GASS::sub0, RHSSubRC, IsConstMem);
         MachineOperand RHSSub1 = buildExtractSubRegOrImm(MII, MRI, RHS, RHSRC,
-                                                         GASS::sub1, RHSSubRC);
+                                                         GASS::sub1, RHSSubRC, IsConstMem);
 
         // IADD.X $dst.sub0, $c, $lhs.sub0, $rhs.sub0, !pt;
         unsigned OpcIADD = 0;
         if (Opc == GASS::IADD64rr) OpcIADD = GASS::IADDXrr;
         else if (Opc == GASS::IADD64ri) OpcIADD = GASS::IADDXri;
+        else if (Opc == GASS::IADD64rc) OpcIADD = GASS::IADDXrc;
         BuildMI(MBB, MI, DL, TII->get(OpcIADD), DstSub0)
           .addReg(CarryReg, RegState::Define)
           .add(LHSSub0)

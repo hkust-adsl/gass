@@ -114,6 +114,7 @@ const char *GASSTargetLowering::getTargetNodeName(unsigned Opcode) const {
   case GASSISD::MOV:  return "GASSISD::MOV";
   case GASSISD::LDC:  return "GASSISD::LDC";
   case GASSISD::SETCC_LOGIC: return "GASSISD::SETCC_LOGIC";
+  case GASSISD::CONSTANT_MEM: return "GASSISD::CONSTANT_MEM";
   }
 }
 

@@ -13,6 +13,8 @@ def GASSSDSetccLogicOp : SDTypeProfile<1, 6, [
 def GASSsetcc_logic : SDNode<"GASSISD::SETCC_LOGIC", GASSSDSetccLogicOp, []>;
 
 def ldc : SDNode<"GASSISD::LDC", SDTUnaryOp>;
+def cmem : SDNode<"GASSISD::CONSTANT_MEM", SDTIntLeaf>; // SDTIntLeaf?
+def tidx : SDNode<"ISD::TargetIndex", SDTIntLeaf>;
 
 //=---------------------------------=//
 // Operands
@@ -170,11 +172,17 @@ multiclass IADD3 {
     let Inst{22-20} = 0x7; // no pd1
   }
 
-  // def rcr : GASSInstOp3rcr<(outs VReg32:$dst),
-  //                          (ins VReg32:$src0, i32const:$src1, VReg32:$src2),
-  //                          0x0,
-  //                          "IADD3 \t$dst, $src0, $src1, $src2;",
-  //                          []> {}
+  def rcr : GASSInstOp3rcr<(outs VReg32:$dst),
+                           (ins VReg32:$src0, constantmem:$src1, VReg32:$src2),
+                           0x0,
+                           "IADD3 \t$dst, $src0, $src1, $src2;",
+                           [(set i32:$dst, (add (add i32:$src0, tidx:$src1), i32:$src2))]> {
+    let Inst{16-13} = 0xf; // no ps1
+    let Inst{26-23} = 0xf; // no ps0
+
+    let Inst{19-17} = 0x7; // no pd0
+    let Inst{22-20} = 0x7; // no pd1
+  }
 
   // def rri : GASSInstOp3rri<(outs VReg32:$dst),
   //                         (ins VReg32:$src0, VReg32:$src1, i32imm:$src2),
@@ -280,6 +288,30 @@ multiclass IADDX {
     // ps1
     let Inst{16-13} = 0xf;
   }
+
+  def rc : GASSInstOp2rc<(outs VReg32:$dst, VReg1:$carryout),
+                    (ins VReg32:$src0, i32const:$src1, 
+                         PredSign:$carryin_sign, VReg1:$carryin),
+                    0xa10,
+                    "IADD3.X \t$dst, $carryout, $src0, $src1, RZ, $carryin_sign$carryin;",
+                    [/*TODO*/]> {
+    let Inst{10} = 1; // .X
+    let Src2 = 0xff; // RZ
+
+    // pd0
+    bits<3> carryout;
+    let Inst{19-17} = carryout;
+    // pd1
+    let Inst{22-20} = 0x7; 
+
+    // ps0
+    bit carryin_sign;
+    bits<3> carryin;
+    let Inst{26} = carryin_sign;
+    let Inst{25-23} = carryin;
+    // ps1
+    let Inst{16-13} = 0xf;
+  }
 }
 defm IADDX : IADDX, Sched<[WriteINT]>;
 
@@ -291,8 +323,8 @@ multiclass IADD64 {
   def ri : GASSPseudoInst<(outs VReg64:$dst), (ins VReg64:$src0, i64imm:$src1),
                           [(set i64:$dst, (add i64:$src0, imm:$src1))]>;
 
-  def rc : GASSPseudoInst<(outs VReg64:$dst), (ins VReg64:$src0, i32const:$src1),
-                          [(set i64:$dst, (add i64:$src0, (i64 (ldc (i32 timm:$src1)))))]>;
+  def rc : GASSPseudoInst<(outs VReg64:$dst), (ins VReg64:$src0, i64const:$src1),
+                          [(set i64:$dst, (add i64:$src0, tidx:$src1))]>;
 }
 defm IADD64 : IADD64, Sched<[WriteINT]>;
 
@@ -794,8 +826,8 @@ defm ISETP : SETP<"ISETP", VReg32, i32imm, 0x20c, 0x80c, 0xa0c>, Sched<[WriteISE
 // Patterns
 // unsigned compare
 def : Pat<(i1 (setueq i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpEQ, CmpU)>;
-def : Pat<(i1 (setueq i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpEQ, CmpU)>;
-def : Pat<(i1 (setueq i32:$a, (ldc (i32 timm:$b)))), (ISETPrc VReg32:$a, i32const:$b, CmpEQ, CmpU)>;
+def : Pat<(i1 (setueq i32:$a, imm:$b)), (ISETPri VReg32:$a, i32imm:$b, CmpEQ, CmpU)>;
+def : Pat<(i1 (setueq i32:$a, tidx:$b)), (ISETPrc VReg32:$a, i32const:$b, CmpEQ, CmpU)>;
 def : Pat<(i1 (setune i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpNE, CmpU)>;
 def : Pat<(i1 (setune i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpNE, CmpU)>;
 def : Pat<(i1 (setult i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpLT, CmpU)>;
@@ -813,14 +845,14 @@ def : Pat<(i1 (setne i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpNE, Cmp
 def : Pat<(i1 (setne i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpNE, CmpS)>;
 def : Pat<(i1 (setlt i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpLT, CmpS)>;
 def : Pat<(i1 (setlt i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpLT, CmpS)>;
-def : Pat<(i1 (setlt i32:$a, (ldc (i32 timm:$b)))), (ISETPrc VReg32:$a, i32const:$b, CmpLT, CmpS)>;
+def : Pat<(i1 (setlt i32:$a, tidx:$b)), (ISETPrc VReg32:$a, i32const:$b, CmpLT, CmpS)>;
 def : Pat<(i1 (setle i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpLE, CmpS)>;
 def : Pat<(i1 (setle i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpLE, CmpS)>;
 def : Pat<(i1 (setgt i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpGT, CmpS)>;
 def : Pat<(i1 (setgt i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpGT, CmpS)>;
 def : Pat<(i1 (setge i32:$a, i32:$b)), (ISETPrr VReg32:$a, VReg32:$b, CmpGE, CmpS)>;
 def : Pat<(i1 (setge i32:$a, imm:$b)), (ISETPri VReg32:$a, imm:$b, CmpGE, CmpS)>;
-def : Pat<(i1 (setge i32:$a, (ldc (i32 timm:$b)))), (ISETPrc VReg32:$a, i32const:$b, CmpGE, CmpS)>;
+def : Pat<(i1 (setge i32:$a, tidx:$b)), (ISETPrc VReg32:$a, i32const:$b, CmpGE, CmpS)>;
 
 
 // i1 compares

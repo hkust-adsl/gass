@@ -167,8 +167,8 @@ bool GASSPassConfig::addPreISel() {
 
 bool GASSPassConfig::addInstSelector() {
   addPass(new GASSDAGToDAGISel(&getGASSTargetMachine()));
-  // addPass(createGASSMachineInstrCombinePass());
-  addPass(&MachineFunctionPrinterPassID);
+  addPass(createGASSMachineInstrCombinePass());
+  // addPass(&MachineFunctionPrinterPassID);
   addPass(createGASSExpandPreRAPseudoPass());
   // addPass(createMachineVerifierPass("** Verify After ISel **"));
   return false;
