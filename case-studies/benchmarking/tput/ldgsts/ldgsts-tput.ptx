@@ -1,0 +1,53 @@
+.version 7.3
+.target sm_80
+.address_size 64
+
+.extern .shared .align 4 .b8 __shared_ptr[];
+
+.visible .entry _bench(
+  .param .u64 param_base_ptr,
+  .param .u64 param_res_ptr
+) {
+  .reg .s32 tid;
+  .reg .s32 start, end, res;
+
+  .reg .s32 dst;
+  .reg .s64 src, base_ptr, res_ptr, st_ptr;
+
+
+  ld.param.u64 base_ptr, [param_base_ptr];
+  ld.param.u64 res_ptr, [param_res_ptr];
+  mov.s32 tid, %tid.x;
+  mov.u32 start, %clock;
+
+  // dst = tid*16;
+  // src = base + tid*16;
+  mul.lo.s32 dst, tid, 16;
+  mad.wide.s32 src, tid, 16, base_ptr;
+
+  .reg .s32 k;
+  .reg .pred p;
+  mov.s32 k, 128;
+
+Loop:
+  setp.ne.s32 p, k, 0;
+  cp.async.cg.shared.global [dst], [src], 16;
+  cp.async.cg.shared.global [dst], [src], 16;
+  cp.async.cg.shared.global [dst], [src], 16;
+  cp.async.cg.shared.global [dst], [src], 16;
+  cp.async.cg.shared.global [dst], [src], 16;
+  cp.async.cg.shared.global [dst], [src], 16;
+  cp.async.cg.shared.global [dst], [src], 16;
+  cp.async.cg.shared.global [dst], [src], 16;
+  cp.async.cg.shared.global [dst], [src], 16;
+  cp.async.cg.shared.global [dst], [src], 16;
+  sub.s32 k, k, 1;
+  @p bra Loop;
+
+  mov.u32 end, %clock;
+
+  sub.u32 res, end, start;
+
+  mad.wide.s32 st_ptr, tid, 4, res_ptr;
+  st.global.b32 [st_ptr], res;
+}
