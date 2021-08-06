@@ -235,6 +235,20 @@ multiclass IADD {
     let Inst{19-17} = 0x7; // no pd0
     let Inst{22-20} = 0x7; // no pd1
   }
+
+  def ru : GASSInstOp2rr<(outs VReg32:$dst),
+                    (ins VReg32:$src0, SReg32:$src1),
+                    0xc10,
+                    "IADD3 \t$dst, $src0, $src1, RZ;",
+                    []> {
+    let Src2 = 0xff;
+
+    let Inst{16-13} = 0xf; // no ps1
+    let Inst{26-23} = 0xf; // no ps0
+
+    let Inst{19-17} = 0x7; // no pd0
+    let Inst{22-20} = 0x7; // no pd1
+  }
 }
 defm IADD : IADD, Sched<[WriteINT]>;
 
@@ -1181,10 +1195,6 @@ let isTerminator = true, isBranch = true, hasSideEffects = true in {
     let Inst{78-76} = a;
     bit not;
     let Inst{79} = not;
-
-    // let AsmString = "@"
-    //   #!if(!eq(not, 0), "") 
-    //   #"$a BRA \t$target";
   }
 }
 

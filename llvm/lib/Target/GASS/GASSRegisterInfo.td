@@ -55,6 +55,9 @@ def RZ32 : GASSReg<"RZ", 0xff> {
   let SubRegs = [RZ16_LO, RZ16_HI];
   let SubRegIndices = [lo, hi];
 }
+def UPT : GASSReg<"UPT", 0x7>;
+def URZ32 : GASSReg<"URZ", 0x3f>;
+
 // this should never be used
 def RZ32_1 : GASSReg<"RZ32_1", 0xff> {
   let SubRegs = [RZ16_1_LO, RZ16_1_HI];
@@ -134,8 +137,8 @@ def VReg128 : GASSRegClass<[v2i64, v2f64, v4i32, v4f32,
 }
 
 // Uniform Registers
-def SReg1 : GASSRegClass<[i1], 1, (add (sequence "UPR%u", 0, 6))>;
-def SReg32 : GASSRegClass<[i32], 32, (add (sequence "SGPR%u", 0, 63))>;
+def SReg1 : GASSRegClass<[i1], 1, (add (sequence "UPR%u", 0, 6), UPT)>;
+def SReg32 : GASSRegClass<[i32], 32, (add (sequence "SGPR%u", 0, 63), URZ32)>;
 
 def SReg64Tuple : GASSRegTuples<[sub0, sub1], SReg32, 63, 2, 2, "UR">;
 // TODO: URZ

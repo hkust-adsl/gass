@@ -34,6 +34,11 @@ Pass *createGASSIVDebugPass();
 FunctionPass *createGASSMarkUndeadPass();
 void initializeGASSMarkUndeadPass(PassRegistry &);
 // ...
+FunctionPass *createGASSMachineDCEPass();
+void initializeGASSMachineDCEPass(PassRegistry &);
+
+FunctionPass *createGASSConstantMemPropagatePass();
+void initializeGASSConstantMemPropagatePass(PassRegistry &);
 
 void initializeGASSAnnotateUniformValuesPass(PassRegistry &);
 void initializeGASSSinkingPass(PassRegistry &);

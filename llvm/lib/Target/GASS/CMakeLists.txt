@@ -18,6 +18,7 @@ add_llvm_target(GASSCodeGen
   GASSAsmPrinter.cpp
   GASSBarrierSettingPass.cpp
   GASSBranchOffsetPass.cpp
+  GASSConstantMemPropagatePass.cpp
   GASSCodeGenPrepare.cpp
   GASSCodeSink.cpp
   GASSDeleteDeadPHIsPass.cpp
@@ -31,6 +32,7 @@ add_llvm_target(GASSCodeGen
   GASSLDGSinkPass.cpp
   GASSMachineFunctionCFGPrinter.cpp
   GASSMachineInstrCombinePass.cpp
+  GASSMachineDCEPass.cpp
   GASSMarkUndeadPass.cpp
   GASSMCInstLowering.cpp
   GASSPreEmitPreparePass.cpp

@@ -35,6 +35,9 @@ BitVector GASSRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   Reserved.set(GASS::RZ32_1);
   Reserved.set(GASS::RZ64);
   Reserved.set(GASS::PT);
+
+  Reserved.set(GASS::URZ32);
+  Reserved.set(GASS::UPT);
   
   return Reserved;
 }

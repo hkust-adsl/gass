@@ -167,10 +167,20 @@ bool GASSPassConfig::addPreISel() {
 
 bool GASSPassConfig::addInstSelector() {
   addPass(new GASSDAGToDAGISel(&getGASSTargetMachine()));
+
+  addPass(createGASSConstantMemPropagatePass()); 
+  addPass(createGASSMachineDCEPass());
+
   addPass(createGASSMachineInstrCombinePass());
-  // addPass(&MachineFunctionPrinterPassID);
+  addPass(createGASSMachineDCEPass());
+  
   addPass(createGASSExpandPreRAPseudoPass());
   // addPass(createMachineVerifierPass("** Verify After ISel **"));
+  return false;
+}
+
+bool GASSPassConfig::addILPOpts() {
+  // addPass(&EarlyIfPredicatorID);
   return false;
 }
 
@@ -246,11 +256,6 @@ void GASSPassConfig::addOptimizedRegAlloc() {
     // FIXME: can this move into MachineLateOptimization?
     addPass(&MachineLICMID);
   }
-}
-
-bool GASSPassConfig::addILPOpts() {
-  // addPass(&EarlyIfPredicatorID);
-  return false;
 }
 
 void GASSPassConfig::addPreRegAlloc() {

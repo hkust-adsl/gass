@@ -331,4 +331,109 @@ def i64const : Operand<i64>, TImmLeaf<i64, [{ return isInt<32>;}]>;
 }
 
 // Uniform Registers
-// let OperandType = 
+def upred : PredicateOperand<OtherVT, (ops i32imm, SReg1), (ops (i32 0), UPT)> {
+  let PrintMethod = "printPredicateOperand";
+  let EncoderMethod = "encodePredicateOperand";
+}
+
+class GASSUInst<dag oops, dag iops, bits<12> opcode, 
+               string asmstr, list<dag> pattern> : Instruction {
+  let Namespace = "GASS";
+
+  bits<128> Inst;
+
+  bits<4> pmask;
+  bits<8> Dst  = 0;
+  bits<8> Src0 = 0;
+  bits<8> Src1 = 0;
+  bits<8> Src2 = 0;
+
+  let Inst{103-96} = Src1;
+  let Inst{95-88}  = Src0;
+  let Inst{87-80}  = Dst;
+  let Inst{79-76}  = pmask;
+  let Inst{75-64}  = opcode;
+  let Inst{7-0}    = Src2;
+
+  dag OutOperandList = oops;
+  dag InOperandList = !con(iops, (ins upred:$pmask));
+  let AsmString = !strconcat("${pmask}\t", asmstr);
+  let Pattern = pattern;
+
+  // Schedule Info
+  // Need to sync with TsflagsMask in 'GASSInstrInfo.h'
+  bit isFixLat = true;
+  let TSFlags{0} = isFixLat;
+
+  // Almost all GASS instructions 
+  let isPredicable = true;
+
+  // assume instrs have no SideEffects
+  let hasSideEffects = false;
+}
+
+//=--------------------------------------------------------------------------=//
+// 2-operand template
+//=--------------------------------------------------------------------------=//
+class GASSUInstOp2rr<dag oops, dag iops, bits<12> opcode, string asm, 
+                  list<dag> pattern> 
+    : GASSUInst<oops, iops, opcode, asm, pattern> {
+  bits<8> dst;
+  bits<8> src0;
+  bits<8> src1;
+
+  let Dst = dst;
+  let Src0 = src0;
+  let Src1 = src1;
+}
+
+class GASSUInstOp2ri<dag oops, dag iops, bits<12> opcode, string asm, 
+                  list<dag> pattern> 
+    : GASSUInst<oops, iops, opcode, asm, pattern> {
+  bits<8> dst;
+  bits<8> src0;
+  bits<32> src1;
+
+  let Dst = dst;
+  let Src0 = src0;
+  let Inst{127-96} = src1;
+}
+
+//=--------------------------------------------------------------------------=//
+// 1-operand template
+//=--------------------------------------------------------------------------=//
+class GASSUInstOp1r<dag oops, dag iops, bits<12> opcode, string asm, 
+                  list<dag> pattern> 
+    : GASSUInst<oops, iops, opcode, asm, pattern> {
+  bits<8> dst;
+  bits<8> src0;
+
+  let Dst = dst;
+  let Src1 = src0;
+}
+
+class GASSUInstOp1i<dag oops, dag iops, bits<12> opcode, string asm, 
+                  list<dag> pattern> 
+    : GASSUInst<oops, iops, opcode, asm, pattern> {
+  bits<8> dst;
+  bits<32> src0;
+
+  let Dst = dst;
+  let Inst{127-96} = src0;
+}
+
+//=--------------------------------------------------------------------------=//
+// 0-operand template (dst only)
+//=--------------------------------------------------------------------------=//
+class GASSUInstOp0<dag oops, dag iops, bits<12> opcode, string asm, 
+                  list<dag> pattern> 
+    : GASSUInst<oops, iops, opcode, asm, pattern> {
+  bits<8> dst;
+
+  let Dst = dst;
+}
+
+class GASSPseudoUInst<dag outs, dag ins, list<dag> pattern>
+  : GASSUInst<outs, ins, 0x0, "", pattern> {
+  let isPseudo = true;
+}

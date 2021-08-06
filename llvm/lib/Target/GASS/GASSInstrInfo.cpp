@@ -567,7 +567,7 @@ bool GASSInstrInfo::isLDS(const MachineInstr &MI) {
   case GASS::LDS32r: case GASS::LDS32ri:
   case GASS::LDS64r: case GASS::LDS64ri:
   case GASS::LDS128r: case GASS::LDS128ri:
-  case GASS::LDSM_x4_ri:
+  case GASS::LDSM_x4_ri: case GASS::LDSM_x4_rui:
     return true;
   }
 }

@@ -313,7 +313,7 @@ GASSTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
 const TargetRegisterClass*
 GASSTargetLowering::getRegClassFor(MVT VT, bool isDivergent) const {
   const TargetRegisterClass *RC = TargetLowering::getRegClassFor(VT, isDivergent);
-  if (Subtarget.getSmVersion() < 100) // Testing...
+  if (Subtarget.getSmVersion() < 75) // Testing...
     return RC;
   // const GASSRegisterInfo *TRI = Subtarget.getRegisterInfo();
   // if (!isDivergent && (VT == MVT::i1 || VT == MVT::i32))

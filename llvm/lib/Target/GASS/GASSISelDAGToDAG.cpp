@@ -238,6 +238,7 @@ bool GASSDAGToDAGISel::selectADDRri(SDValue Value, SDValue &Base,
 
 /// Return true if matches (vreg + ureg)
 bool GASSDAGToDAGISel::selectADDRrui(SDValue Value, SDValue &VOffset, SDValue &UOffset) {
+  // Hard to make this right, disable it.
   if (Value.getOpcode() == ISD::ADD) {
     return false;
     SDValue LHS = Value.getOperand(0);
