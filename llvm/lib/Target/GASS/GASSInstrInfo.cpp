@@ -329,6 +329,14 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       .addReg(GASS::RZ32)
       .add(MI.getOperand(3)).add(MI.getOperand(4)); // PredMask
   } break;
+  case GASS::IMULru: {
+    Register Dst = MI.getOperand(0).getReg();
+    BuildMI(MBB, MI, DL, get(GASS::IMAD_S32rur), Dst)
+      .add(MI.getOperand(1))
+      .add(MI.getOperand(2))
+      .addReg(GASS::RZ32)
+      .add(MI.getOperand(3)).add(MI.getOperand(4)); // PredMask
+  } break;
   case GASS::IMUL_WIDErr: {
     llvm_unreachable("Not implemented");
   } break;

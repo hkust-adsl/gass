@@ -375,14 +375,15 @@ multiclass IMUL {
   def rr : GASSPseudoInst<(outs VReg32:$dst),
                     (ins VReg32:$src0, VReg32:$src1),
                     [(set i32:$dst, (mul i32:$src0, i32:$src1))]>;
+  
+  def ru : GASSPseudoInst<(outs VReg32:$dst),
+                          (ins VReg32:$src0, SReg32:$src1), []>;
 
   def _WIDErr : GASSPseudoInst<(outs VReg64:$dst),
-                         (ins VReg32:$src0, VReg32:$src1),
-                         []>;
+                         (ins VReg32:$src0, VReg32:$src1), []>;
 
   def _WIDEri : GASSPseudoInst<(outs VReg64:$dst),
-                         (ins VReg32:$src0, i32imm:$src1),
-                         []>;
+                         (ins VReg32:$src0, i32imm:$src1), []>;
 }
 defm IMUL : IMUL, Sched<[WriteIMUL]>;
 
@@ -422,6 +423,14 @@ multiclass IMAD<bit IsSigned> {
                                           i32:$src2))]>, Sched<[WriteIMUL]> {
     let Inst{19-17} = 0x7; // pd0: PT
     let Inst{26-23} = 0xf; // ps0: !PT
+  }
+
+  def rur : GASSInstOp3rrr<(outs VReg32:$dst),
+                           (ins VReg32:$src0, SReg32:$src1, VReg32:$src2),
+                           0xc24, "IMAD \t$dst, $src0, $src1, $src2;",
+                           []>, Sched<[WriteIMUL]> {
+    let Inst{19-17} = 0x7;
+    let Inst{26-23} = 0xf;
   }
 
   def _WIDErrr : GASSInstOp3rrr<(outs VReg64:$dst),

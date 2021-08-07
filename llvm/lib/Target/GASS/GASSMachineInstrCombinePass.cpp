@@ -327,6 +327,11 @@ static void postProcess(MachineFunction &MF, const GASSInstrInfo *TII,
         MRI->replaceRegWith(MI.getOperand(0).getReg(), NewDst);
         ToDelete.push_back(&MI);
       }
+      // IMULrr
+      if (MI.getOpcode() == GASS::IMULrr && 
+          MRI->getRegClass(MI.getOperand(1).getReg()) == &GASS::VReg32RegClass &&
+          MRI->getRegClass(MI.getOperand(2).getReg()) == &GASS::SReg32RegClass)
+        MI.setDesc(TII->get(GASS::IMULru));
       // if (MI.getOpcode() == GASS::CBRA &&
       //     MRI->getRegClass(MI.getOperand(1).getReg()) == &GASS::SReg1RegClass)
       //   MI.setDesc(TII->get(GASS::UCBRA));
