@@ -102,6 +102,7 @@ public:
   createMachineScheduler(MachineSchedContext *C) const override {
     ScheduleDAGMILive *DAG =
         new ScheduleDAGMILive(C, std::make_unique<GASSSchedStrategy>(C));
+    DAG->addMutation(createGASSSM80DepRemoveDAGMutation());
     // DAG->addMutation(createGASSTensorCoreChainDAGMutation());
     // DAG->addMutation(createGASSCarryInClusterDAGMutation());
     return DAG;
@@ -136,7 +137,7 @@ void GASSPassConfig::addIRPasses() {
     addPass(createCanonicalizeFreezeInLoopsPass());
     // debug
     // addPass(createGASSIVDebugPass());
-    addPass(createLoopStrengthReducePass());
+    // addPass(createLoopStrengthReducePass());
 
     // GC lowering?
     addPass(createLowerConstantIntrinsicsPass());
@@ -296,5 +297,4 @@ void GASSPassConfig::addPreEmitPass() {
   // addPass(createGASSPhysRegLivenessPass());
   addPass(createGASSBarrierSettingPass());
   // StallSetting here (called by GASSAsmPrinter)
-  addPass(&MachineFunctionPrinterPassID);
 }

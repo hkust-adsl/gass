@@ -655,8 +655,12 @@ void GASSSchedStrategy::constructKs() {
   //        << "LDS Cycles Per K: " << LDSCycPerK << "\n"
   //        << "LDG Cycles: " << ToalLDGCycles << "\n"
   //        << "Max LDGs Per K: " << MaxLDGsPerK << "\n";
+  // DAG->viewGraph();
+  // DAG->dumpNode(DAG->ExitSU);
   
   // TODO: Plan ahead.
+  // DAG->viewGraph();
+
 
   // // 5. dump
   // for (auto iter : Ks) {

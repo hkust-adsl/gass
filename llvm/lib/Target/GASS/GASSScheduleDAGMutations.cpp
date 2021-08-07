@@ -17,6 +17,12 @@ public:
   TensorCoreChainDAGMutation() {}
   void apply(ScheduleDAGInstrs *DAG) override;
 };
+
+class SM80DepRemoveDAGMutation : public ScheduleDAGMutation {
+public:
+  SM80DepRemoveDAGMutation() {}
+  void apply(ScheduleDAGInstrs *DAG) override;
+};
 } // anonymous namespace
 
 // Let Tensor Core instructions 
@@ -43,6 +49,22 @@ void TensorCoreChainDAGMutation::apply(ScheduleDAGInstrs *DAG) {
   }
 }
 
+void SM80DepRemoveDAGMutation::apply(ScheduleDAGInstrs *DAG) {
+    // remove deps ldsm -> ldgdepbar
+  for (SUnit &SU : DAG->SUnits) {
+    if (SU.getInstr()->getOpcode() == GASS::LDSM_x4_ri ||
+        SU.getInstr()->getOpcode() == GASS::LDSM_x4_rui) {
+      for (SDep &Pred : SU.Preds) {
+        if (Pred.getSUnit()->getInstr()->getOpcode() == GASS::LDGDEPBAR) {
+          // outs() << "Catch!\n";
+          SUnit *PredSU = Pred.getSUnit();
+          SU.removePred(Pred);
+        }
+      }
+    }
+  }
+}
+
 //==------------------------------------------------------------------------==//
 // public interface
 //==------------------------------------------------------------------------==//
@@ -51,5 +73,7 @@ std::unique_ptr<ScheduleDAGMutation> createGASSTensorCoreChainDAGMutation() {
   return std::make_unique<TensorCoreChainDAGMutation>();
 }
 
-
+std::unique_ptr<ScheduleDAGMutation> createGASSSM80DepRemoveDAGMutation() {
+  return std::make_unique<SM80DepRemoveDAGMutation>();
+}
 } // namespace llvm

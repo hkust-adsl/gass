@@ -17,7 +17,7 @@ def SM70UnitFP64ALU : ProcResource<1> { let BufferSize = 0; }
 def SM70UnitSFU : ProcResource<1> { let BufferSize = 0; }
 def SM70UnitTensorCore : ProcResource<1> { let BufferSize = 0; }
 // Other
-
+def SM70UnitOther : ProcResource<0> { let BufferSize = 0; }
 
 // WriteRes
 // 4. Map processor resources to SchedWrites
@@ -84,6 +84,9 @@ def : WriteRes<WriteLDG, [SM70UnitLDST]> { let Latency = 250;
                                            let ResourceCycles = [20] /*[40]*/; }
 def : WriteRes<WriteSTG, [SM70UnitLDST]> { let Latency = 100; 
                                            let ResourceCycles = [16]; } // TODO: lat?
+
+// not supported
+def : WriteRes<WriteLDGSTS, [SM70UnitOther]>;
 
 // Refine Basic Model
 // 1. InstRW is used to refine scheduling info, override the target defaults

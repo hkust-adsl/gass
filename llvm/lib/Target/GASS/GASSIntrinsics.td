@@ -41,7 +41,7 @@ multiclass LDGSTS<int Width> {
 let mayStore = true, mayLoad = true in {
 // defm LDGSTS32 : LDGSTS<32>, Sched<[WriteLDG]>; // TODO: revisit this.
 // defm LDGSTS64 : LDGSTS<64>, Sched<[WriteLDG]>;
-defm LDGSTS128 : LDGSTS<128>, Sched<[WriteLDG]>, Requires<[hasSM80]>;
+defm LDGSTS128 : LDGSTS<128>, Sched<[WriteLDGSTS]>, Requires<[hasSM80]>;
 }
 
 // ref: RISCVInstrInfo.td:1081

@@ -34,3 +34,4 @@ def WriteLDS64 : SchedWrite;
 def WriteSTS64 : SchedWrite;
 def WriteLDS128: SchedWrite;
 def WriteSTS128: SchedWrite;
+def WriteLDGSTS : SchedWrite;

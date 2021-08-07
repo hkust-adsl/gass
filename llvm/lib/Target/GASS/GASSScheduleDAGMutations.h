@@ -10,6 +10,9 @@ namespace llvm {
 std::unique_ptr<ScheduleDAGMutation> 
 createGASSTensorCoreChainDAGMutation();
 
+std::unique_ptr<ScheduleDAGMutation> 
+createGASSSM80DepRemoveDAGMutation();
+
 // Cluster IADDX to reduce predicate register pressure
 std::unique_ptr<ScheduleDAGMutation>
 createGASSCarryInClusterDAGMutation();

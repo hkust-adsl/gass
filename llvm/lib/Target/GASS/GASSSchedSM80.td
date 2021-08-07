@@ -12,6 +12,7 @@ def SM80Model : SchedMachineModel {
 let SchedModel = SM80Model in {
 def SM80UnitALU   : ProcResource<1> { let BufferSize = 0; }
 def SM80UnitLDST  : ProcResource<1> { let BufferSize = 0; /*5*/ }
+def SM80UnitLDGSTS : ProcResource<1> { let BufferSize = 0; /*5*/ }
 def SM80UnitFP32ALU : ProcResource<1> { let BufferSize = 0; }
 def SM80UnitFP64ALU : ProcResource<1> { let BufferSize = 0; }
 def SM80UnitSFU : ProcResource<1> { let BufferSize = 0; }
@@ -61,7 +62,7 @@ def : WriteRes<WriteMUFU, [SM80UnitSFU]> { let Latency = 10; // TODO: verify thi
 def : WriteRes<WriteHMMA884, [SM80UnitTensorCore]> { let Latency = 10; // TODO: verify this
                                                      let ResourceCycles = [2]; }
 def : WriteRes<WriteHMMA16816, [SM80UnitTensorCore]> { let Latency = 20; // At least 20
-                                                       let ResourceCycles = [16]; }
+                                                       let ResourceCycles = [8]; }
 
 // Memory
 // shared memory (4 cycles for LDS.32 (w/o bank conflict))
@@ -75,7 +76,7 @@ def : WriteRes<WriteLDS64, [SM80UnitLDST]> { let Latency = 10;
 def : WriteRes<WriteSTS64, [SM80UnitLDST]> { let Latency = 10; 
                                              let ResourceCycles = [6] /*[8]*/; }
 def : WriteRes<WriteLDS128, [SM80UnitLDST]> { let Latency = 10; 
-                                              let ResourceCycles = [20] /*[16]*/; }
+                                              let ResourceCycles = [16] /*[16]*/; }
 def : WriteRes<WriteSTS128, [SM80UnitLDST]> { let Latency = 10; 
                                               let ResourceCycles = [20] /*[16]*/; }
 // global memory
@@ -84,6 +85,9 @@ def : WriteRes<WriteLDG, [SM80UnitLDST]> { let Latency = 250;
                                            let ResourceCycles = [20] /*[40]*/; }
 def : WriteRes<WriteSTG, [SM80UnitLDST]> { let Latency = 100; 
                                            let ResourceCycles = [16]; } // TODO: lat?
+// global memory <=> smem
+def : WriteRes<WriteLDGSTS, [SM80UnitLDGSTS]> { let Latency = 20;
+                                                let ResourceCycles = [16]; }
 
 // Refine Basic Model
 // 1. InstRW is used to refine scheduling info, override the target defaults
