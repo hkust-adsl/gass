@@ -170,6 +170,8 @@ multiclass IADD3 {
 
     let Inst{19-17} = 0x7; // no pd0
     let Inst{22-20} = 0x7; // no pd1
+
+    let Inst{27} = 1; // Use UR
   }
 
   def rcr : GASSInstOp3rcr<(outs VReg32:$dst),
@@ -248,6 +250,8 @@ multiclass IADD {
 
     let Inst{19-17} = 0x7; // no pd0
     let Inst{22-20} = 0x7; // no pd1
+
+    let Inst{27} = 1; // use UR
   }
 }
 defm IADD : IADD, Sched<[WriteINT]>;

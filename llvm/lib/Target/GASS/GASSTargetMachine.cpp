@@ -222,7 +222,7 @@ void GASSPassConfig::addOptimizedRegAlloc() {
 
   //==***************** GASS specific *************************==//
   // PreRA IfConvert
-  addPass(createMachineVerifierPass("** Verify Before Early If Conversion **"));
+  // addPass(createMachineVerifierPass("** Verify Before Early If Conversion **"));
   addPass(createGASSIfConversionPass());
   addPass(createMachineVerifierPass("** Verify After Early If Conversion **"));
   // FIXME: Do we need to update LiveIntervals?
@@ -296,4 +296,5 @@ void GASSPassConfig::addPreEmitPass() {
   // addPass(createGASSPhysRegLivenessPass());
   addPass(createGASSBarrierSettingPass());
   // StallSetting here (called by GASSAsmPrinter)
+  addPass(&MachineFunctionPrinterPassID);
 }

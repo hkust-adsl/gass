@@ -21,6 +21,8 @@ void GASSInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                 MCRegister SrcReg, bool KillSrc) const {
   unsigned Op;
 
+  Register PredReg = GASS::PT;
+
   if (GASS::VReg32RegClass.contains(SrcReg) &&
       GASS::VReg32RegClass.contains(DestReg)) {
     Op = GASS::MOV32r;
@@ -39,6 +41,10 @@ void GASSInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
       // dst = ???
     }
     llvm_unreachable("Not implemented");
+  } else if (GASS::SReg32RegClass.contains(SrcReg) &&
+             GASS::SReg32RegClass.contains(DestReg)) {
+    Op = GASS::UMOV32r;
+    PredReg = GASS::UPT;
   } else {
     I->dump();
     llvm_unreachable("Bad phys reg copy");
@@ -46,7 +52,7 @@ void GASSInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
 
   BuildMI(MBB, I, DL, get(Op), DestReg)
       .addReg(SrcReg, getKillRegState(KillSrc))
-      .addImm(0).addReg(GASS::PT);
+      .addImm(0).addReg(PredReg);
 }
 
 //=----------------------------------------------------------------------=//
@@ -422,7 +428,8 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       .addImm(GASS::SHF_FLAGS::LO)
       .add(MI.getOperand(3)).add(MI.getOperand(4)); // PredMask
   } break;
-  case GASS::SHL32rr: case GASS::SHL32ri: {
+  case GASS::SHL32rr: case GASS::SHL32ri:
+  case GASS::USHL32rr: case GASS::USHL32ri: {
     // SHL32 $dst, $src, $amt;
     //   ->
     // SHF.L.U32.LO $dst, $src, $amt, RZ;
@@ -431,17 +438,29 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     const MachineOperand &Amount = MI.getOperand(2);
 
     unsigned Opcode;
-    if (Amount.isReg()) 
-      Opcode = GASS::SHFrrr;
-    else if (Amount.isImm())
-      Opcode = GASS::SHFrir;
-    else
-      llvm_unreachable("Invalid data type");
-
+    Register ZeroReg = GASS::RZ32;
+    if (Opc == GASS::SHL32rr || Opc == GASS::SHL32ri) {
+      if (Amount.isReg()) 
+        Opcode = GASS::SHFrrr;
+      else if (Amount.isImm())
+        Opcode = GASS::SHFrir;
+      else
+        llvm_unreachable("Invalid data type");
+    } else if (Opc == GASS::USHL32rr || Opc == GASS::USHL32ri) {
+      ZeroReg = GASS::URZ32;
+      if (Amount.isReg()) 
+        Opcode = GASS::USHFrrr;
+      else if (Amount.isImm())
+        Opcode = GASS::USHFrir;
+      else
+        llvm_unreachable("Invalid data type");
+    } else
+      llvm_unreachable("Invalid opcode");
+    
     BuildMI(MBB, MI, DL, get(Opcode), Dst)
       .addReg(Src)
       .add(Amount)
-      .addReg(GASS::RZ32)
+      .addReg(ZeroReg)
       .addImm(GASS::SHF_FLAGS::L)
       .addImm(GASS::SHF_FLAGS::U32)
       .addImm(GASS::SHF_FLAGS::LO)

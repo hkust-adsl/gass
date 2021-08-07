@@ -165,6 +165,9 @@ void GASSInstPrinter::printPredicateOperand(const MCInst *MI, unsigned OpNo,
   // don't print @PT
   if (PredFlip.getImm() == 0 && PredMask.getReg() == GASS::PT) 
     return;
+  // don't print @UPT
+  if (PredFlip.getImm() == 0 && PredMask.getReg() == GASS::UPT)
+    return;
   O << "@";
   if (PredFlip.getImm() != 0)
     O << "!";

@@ -371,6 +371,54 @@ class GASSUInst<dag oops, dag iops, bits<12> opcode,
   // assume instrs have no SideEffects
   let hasSideEffects = false;
 }
+//=--------------------------------------------------------------------------=//
+// 3-operand template
+//=--------------------------------------------------------------------------=//
+class GASSUInstOp3rrr<dag oops, dag iops, bits<12> opcode, string asm, 
+                  list<dag> pattern> 
+    : GASSUInst<oops, iops, opcode, asm, pattern> {
+  bits<8> dst;
+  bits<8> src0;
+  bits<8> src1;
+  bits<8> src2;
+
+  let Dst = dst;
+  let Src0 = src0;
+  let Src1 = src1;
+  let Src2 = src2;
+}
+
+class GASSUInstOp3rri<dag oops, dag iops, bits<12> opcode, string asm, 
+                  list<dag> pattern> 
+    : GASSUInst<oops, iops, opcode, asm, pattern> {
+  bits<8> dst;
+  bits<8> src0;
+  bits<8> src1;
+  bits<32> src2;
+
+  let Dst = dst;
+  let Src0 = src0;
+  let Src1 = src1;
+  let Inst{127-96} = src2;
+
+  let Inst{27} = 1; // UR as operand
+}
+
+class GASSUInstOp3rir<dag oops, dag iops, bits<12> opcode, string asm, 
+                  list<dag> pattern> 
+    : GASSUInst<oops, iops, opcode, asm, pattern> {
+  bits<8> dst;
+  bits<8> src0;
+  bits<32> src1;
+  bits<8> src2;
+
+  let Dst = dst;
+  let Src0 = src0;
+  let Inst{127-96} = src1;
+  let Src2 = src2;
+
+  let Inst{27} = 1; // UR as operand
+}
 
 //=--------------------------------------------------------------------------=//
 // 2-operand template
@@ -385,6 +433,8 @@ class GASSUInstOp2rr<dag oops, dag iops, bits<12> opcode, string asm,
   let Dst = dst;
   let Src0 = src0;
   let Src1 = src1;
+
+  let Inst{27} = 1; // UR as operand
 }
 
 class GASSUInstOp2ri<dag oops, dag iops, bits<12> opcode, string asm, 
@@ -397,6 +447,8 @@ class GASSUInstOp2ri<dag oops, dag iops, bits<12> opcode, string asm,
   let Dst = dst;
   let Src0 = src0;
   let Inst{127-96} = src1;
+
+  let Inst{27} = 1; // UR as operand
 }
 
 //=--------------------------------------------------------------------------=//
@@ -410,6 +462,8 @@ class GASSUInstOp1r<dag oops, dag iops, bits<12> opcode, string asm,
 
   let Dst = dst;
   let Src1 = src0;
+
+  let Inst{27} = 1; // UR as operand
 }
 
 class GASSUInstOp1i<dag oops, dag iops, bits<12> opcode, string asm, 

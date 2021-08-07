@@ -22,7 +22,8 @@ let Namespace = "GASS" in {
 }
 
 // Uniform Datapath Registers
-foreach Index = 0-63 in {
+// 0-3 are reserved (?)
+foreach Index = 4-63 in {
   def SGPR#Index : GASSReg<"UR"#Index, Index>;
 }
 
@@ -138,7 +139,7 @@ def VReg128 : GASSRegClass<[v2i64, v2f64, v4i32, v4f32,
 
 // Uniform Registers
 def SReg1 : GASSRegClass<[i1], 1, (add (sequence "UPR%u", 0, 6), UPT)>;
-def SReg32 : GASSRegClass<[i32], 32, (add (sequence "SGPR%u", 0, 63), URZ32)>;
+def SReg32 : GASSRegClass<[i32], 32, (add (sequence "SGPR%u", 4, 63), URZ32)>;
 
 def SReg64Tuple : GASSRegTuples<[sub0, sub1], SReg32, 63, 2, 2, "UR">;
 // TODO: URZ

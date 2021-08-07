@@ -147,7 +147,7 @@ int executeModule(CUmodule *cuMod) {
   void *args[] = {&resultDevice};
   CUmodule module;
   CUfunction kernel;
-  cuModuleLoad(&module, "/tmp/gass-bench-kernel.cubin");
+  cuModuleLoad(&module, "/tmp/gass-icache-bench-kernel.cubin");
   cuModuleGetFunction(&kernel, module, "bench");
   cuLaunchKernel(kernel, 1, 1, 1, 32, 1, 1, 0, 0, args, 0);
   cudaMemcpy(result, resultDevice, sizeof(int)*32, cudaMemcpyDeviceToHost);

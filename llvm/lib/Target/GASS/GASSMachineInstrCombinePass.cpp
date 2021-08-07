@@ -19,6 +19,7 @@
 #include "llvm/CodeGen/TargetOpcodes.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/IR/DebugLoc.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
@@ -58,6 +59,9 @@ MachineDivergenceAnalysis::MachineDivergenceAnalysis(
       // if source of divergence
       unsigned Opc = MI.getOpcode();
       if (Opc == GASS::READ_TID_X || Opc == GASS::READ_TID_Y || Opc == GASS::READ_TID_Z ||
+          // TODO: LDC & READ_CTAID_? are not source of divergence, but this keep the logic simple
+          Opc == GASS::LDC32c || Opc == GASS::LDC64c || 
+          Opc == GASS::READ_CTAID_X || Opc == GASS::READ_CTAID_Y || Opc == GASS::READ_CTAID_Z ||
           Opc == GASS::LDS16r || Opc == GASS::LDS16ri ||
           Opc == GASS::LDS32r || Opc == GASS::LDS32ri ||
           Opc == GASS::LDS64r || Opc == GASS::LDS64ri ||
@@ -363,14 +367,40 @@ bool GASSMachineInstrCombine::runUniformRegisterCombine(MachineFunction &MF) {
     bool ShouldAdd = true;
     for (MachineInstr &UseMI : MRI->use_instructions(Reg)) {
       unsigned Opc = UseMI.getOpcode();
-      if (Opc == GASS::CBRA) {
-        dbgs() << "Remove %" << Register::virtReg2Index(Reg) << "\n";
+      // if (Opc == GASS::CBRA) {
+      //   ShouldAdd = false; break;
+      // }
+      if (Opc == GASS::LDGSTS128riri && MRI->getRegClass(Reg) == &GASS::VReg1RegClass) {
+        ShouldAdd = false; break;
+      }
+      // if (Opc == GASS::ISETPri && MRI->getRegClass(Reg) == &GASS::VReg32RegClass) {
+      //   ShouldAdd = false; break;
+      // }
+    }
+    if (ShouldAdd)
+      UniformCands2.insert(Reg);
+  }
+  // 2.5 expect all operands to be uniform
+  DenseSet<Register> UniformCands3;
+  for (Register Reg : UniformCands2) {
+    MachineInstr *DefMI = MRI->getVRegDef(Reg);
+    assert(DefMI);
+    unsigned Opc = DefMI->getOpcode();
+    bool ShouldAdd = true;
+    for (unsigned i=0; i<DefMI->getNumOperands(); ++i) {
+      MachineOperand &MO = DefMI->getOperand(i);
+      if (!MO.isReg() || !MO.isUse())
+        continue;
+      Register UseReg = MO.getReg();
+      if (UseReg == GASS::PT)
+        continue;
+      if (!UniformCands2.contains(UseReg)) {
         ShouldAdd = false;
         break;
       }
     }
     if (ShouldAdd)
-      UniformCands2.insert(Reg);
+      UniformCands3.insert(Reg);
   }
 
   // 3. prune recursively
@@ -384,14 +414,16 @@ bool GASSMachineInstrCombine::runUniformRegisterCombine(MachineFunction &MF) {
     }
   } while (MadePrune);
 
-  for (Register Reg : UniformCands2)
+  for (Register Reg : UniformCands3)
   if (MDA.isUniform(Reg))
     LLVM_DEBUG(dbgs() << "%" << Register::virtReg2Index(Reg) << "\n");
 
-  replaceWithSReg(MF, UniformCands2, TII, MRI);
+  replaceWithSReg(MF, UniformCands3, TII, MRI);
   postProcess(MF, TII, MRI);
   MadeChange = doUniformRegisterCombine(MF, MDA);
   while(MadeChange && doUniformRegisterCombine(MF, MDA));
+
+  LLVM_DEBUG(MF.dump());
 
   return MadeChange;
 }

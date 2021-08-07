@@ -45,6 +45,38 @@ defm UOR  : UBITWISE, Sched<[WriteINT]>; // TODO: Uniform
 defm UXOR : UBITWISE, Sched<[WriteINT]>;
 defm UAND : UBITWISE, Sched<[WriteINT]>;
 
+// USHIFT
+multiclass USHF {
+  def rrr : GASSUInstOp3rrr<(outs SReg32:$dst),
+                       (ins SReg32:$src0, SReg32:$src1, SReg32:$src2,
+                            ShiftDir:$dir, ShiftType:$ty, ShiftLoc:$hi),
+                       0x299, // TODO: verify this
+                       "USHF$dir$ty$hi \t$dst, $src0, $src1, $src2;",
+                       []> {
+    bits<1> dir; // .L | .R
+    let Inst{12} = dir;
+    bits<2> ty; // .S64 | .S32 | .U32
+    let Inst{10-9} = ty;
+    bits<1> hi; // .HI | .LO
+    let Inst{16} = hi;
+  }
+
+  def rir : GASSUInstOp3rir<(outs SReg32:$dst),
+                     (ins SReg32:$src0, i32imm:$src1, SReg32:$src2,
+                          ShiftDir:$dir, ShiftType:$ty, ShiftLoc:$hi),
+                     0x899,
+                     "USHF$dir$ty$hi \t$dst, $src0, $src1, $src2;",
+                     []> {
+    bits<1> dir; // .L | .R
+    let Inst{12} = dir;
+    bits<2> ty; // .S64 | .S32 | .U32
+    let Inst{10-9} = ty;
+    bits<1> hi; // .HI | .LO
+    let Inst{16} = hi;
+  }
+}
+defm USHF : USHF, Sched<[WriteSHIFT]>;
+
 multiclass UIADD {
   def rr : GASSUInstOp2rr<(outs SReg32:$dst), (ins SReg32:$src0, SReg32:$src1),
                          0x290, "UIADD3 \t$dst, $src0, $src1, URZ;", []> {
@@ -118,7 +150,7 @@ multiclass USETP<string OpcStr, RegisterClass RC, Operand ImmCls,
     let Inst{6-4} = 0x7; // ?
   }
 }
-defm UISETP : USETP<"USETP", SReg32, i32imm, 0x28c, 0x88c>, 
+defm UISETP : USETP<"UISETP", SReg32, i32imm, 0x28c, 0x88c>, 
               Sched<[WriteISETP]>;
 
 multiclass UMOV {

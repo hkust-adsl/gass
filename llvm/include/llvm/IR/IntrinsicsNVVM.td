@@ -4496,7 +4496,8 @@ def int_nvvm_ldmatrix_m8n8_x4_trans
 // nvvm-nop
 def int_nvvm_nop : Intrinsic<[], [], [IntrHasSideEffects], "llvm.nvvm.nop">;
 def int_nvvm_tput_bench : Intrinsic<[], [llvm_metadata_ty], [IntrHasSideEffects], "llvm.nvvm.tputbench">;
-// def int_nvvm_tput_bench_lds : Intrinsic<[], [llvm_metadata_ty] , >;
+// def int_nvvm_tput_bench_lds : Intrinsic<[], [llvm_shared_i8ptr_ty], [IntrHasSideEffects],
+//                                         "llvm.nvvm.">;
 // def int_nvvm_tput_bench_ldg :
 // def int_nvvm_tput_bench_sts : 
 // def int_nvvm_tput_bench_stg : 

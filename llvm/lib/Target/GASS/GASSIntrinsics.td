@@ -271,7 +271,7 @@ multiclass HMMA16816 {
     // .F32
     let Inst{12} = 1;
     // Always reuse registers
-    // let Inst{58} = 1; // seems Turing doesn't need this
+    let Inst{58} = 1; // seems Turing doesn't need this
   }
 
   // TODO:
