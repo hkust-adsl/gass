@@ -431,6 +431,8 @@ multiclass IMAD<bit IsSigned> {
                            []>, Sched<[WriteIMUL]> {
     let Inst{19-17} = 0x7;
     let Inst{26-23} = 0xf;
+
+    let Inst{27} = 1; // use UR
   }
 
   def _WIDErrr : GASSInstOp3rrr<(outs VReg64:$dst),
