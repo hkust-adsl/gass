@@ -691,7 +691,7 @@ MachineOperand* GASSInstrInfo::getMemOperandReg(MachineInstr &MI) {
   case GASS::LDG32r: case GASS::LDG32ri:
   case GASS::LDG64r: case GASS::LDG64ri:
   case GASS::LDG128r: case GASS::LDG128ri:
-  case GASS::LDSM_x4_ri:
+  case GASS::LDSM_x4_ri: case GASS::LDSM_x4_rui:
     return &MI.getOperand(1);
   case GASS::STS16r: case GASS::STS16ri:
   case GASS::STS32r: case GASS::STS32ri:

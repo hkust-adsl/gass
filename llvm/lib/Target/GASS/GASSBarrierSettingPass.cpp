@@ -17,6 +17,7 @@
 #include "GASSSubtarget.h"
 #include "GASSInstrInfo.h"
 #include "LiveBarRange.h"
+#include "MCTargetDesc/GASSMCTargetDesc.h"
 #include "llvm/CodeGen/LivePhysRegs.h"
 #include "llvm/CodeGen/LiveIntervals.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
@@ -821,6 +822,32 @@ void GASSBarrierSetting::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
       }
       TheEnd: {}
     } // if (MachineOperand *BSrc = GII->getMemOperandReg(MI))
+
+    // A special rule for the UR offset in LDSM_x4_rui
+    if (MI.getOpcode() == GASS::LDSM_x4_rui) {
+      MachineOperand *UROff = &MI.getOperand(2);
+      SlotIndex SIStart = LIS->getInstructionIndex(MI);
+
+      // Record WAR barriers
+      std::vector<MachineInstr *> ScanRange = getScanRange(MBB, iter);
+      for (MachineInstr *probe : ScanRange) {
+        // The last inst must wait on this.
+        if (probe == ScanRange.back()) {
+            SlotIndex SIEnd = LIS->getInstructionIndex(*probe);
+            Barriers.emplace_back(MI, SIStart, SIEnd, true, LIS, GII);
+            break;
+        }
+        for (MachineOperand &Def : probe->defs()) {
+          if (Def.isReg() && GRI->regsOverlap(UROff->getReg(), Def.getReg())) {
+            SlotIndex SIEnd = LIS->getInstructionIndex(*probe);
+            Barriers.emplace_back(MI, SIStart, SIEnd, true, LIS, GII);
+            goto TheEnd2; // double break
+          }
+        }
+      }
+      TheEnd2: {}
+    }
+
   }
 
   // 0.0 If multiple WAR barriers start with the same instruction, remove one
