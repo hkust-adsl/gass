@@ -170,6 +170,10 @@ void GASSDAGToDAGISel::Select(SDNode *N) {
     case Intrinsic::nvvm_tput_bench:
       if (tryTPUT_BENCH(N))
         return;
+      break;
+    case Intrinsic::nvvm_tput_bench_ldgsts: {
+      llvm_unreachable("isel nvvm_tput_bench_ldgsts");
+    } break;
     } break;
   } break;
   case ISD::ConstantFP: {

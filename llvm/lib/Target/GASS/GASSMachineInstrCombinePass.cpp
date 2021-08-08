@@ -62,6 +62,8 @@ MachineDivergenceAnalysis::MachineDivergenceAnalysis(
           // TODO: LDC & READ_CTAID_? are not source of divergence, but this keep the logic simple
           Opc == GASS::LDC32c || Opc == GASS::LDC64c || 
           Opc == GASS::READ_CTAID_X || Opc == GASS::READ_CTAID_Y || Opc == GASS::READ_CTAID_Z ||
+          // TODO: clock should not be source of divergent?
+          Opc == GASS::CS2R_CLOCK ||
           Opc == GASS::LDS16r || Opc == GASS::LDS16ri ||
           Opc == GASS::LDS32r || Opc == GASS::LDS32ri ||
           Opc == GASS::LDS64r || Opc == GASS::LDS64ri ||
