@@ -16,10 +16,14 @@ GASSSubtarget::GASSSubtarget(const Triple &TT, StringRef CPU, StringRef FS,
                              const TargetMachine &TM)
   : GASSGenSubtargetInfo(TT, CPU, CPU, FS),
     TLInfo(TM, *this) {
-    // Provide the default CPU if we don't have one.
-    std::string TargetName = std::string(CPU.empty() ? "sm_70" : CPU);
+  // Do not provide default CPU
+  if (CPU.empty())
+    llvm_unreachable("GPU arch not provided");
+    
+  ParseSubtargetFeatures(CPU, /*TuneCPU*/ CPU, FS);
 
-    ParseSubtargetFeatures(TargetName, /*TuneCPU*/ TargetName, FS);
+  if (!isSmVersionValid())
+    llvm_unreachable("Invalid GPU arch. Abort");
 }
 
 bool GASSSubtarget::enableMachineScheduler() const { return true; }
@@ -40,9 +44,7 @@ unsigned GASSSubtarget::getParamBase() const {
   switch (SmVersion) {
   default:
     llvm_unreachable("SmVersion invalid");
-  case 70:
-  case 75:
-  case 80:
+  case 70: case 75: case 80:
     return 0x160;
   }
 }
@@ -50,10 +52,7 @@ unsigned GASSSubtarget::getParamBase() const {
 unsigned GASSSubtarget::getConstantOffset(unsigned IntNo) const {
   switch (SmVersion) {
   default: llvm_unreachable("SmVersion invalid");
-  case 70:
-  case 75:
-  case 80:
-  case 86: {
+  case 70: case 75: case 80: case 86: {
     switch (IntNo) {
     default: llvm_unreachable("Invalid intrinsic");
     case Intrinsic::nvvm_read_ptx_sreg_ntid_x: return 0x0;

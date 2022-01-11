@@ -5,6 +5,7 @@
 #include "GASSISelLowering.h"
 #include "GASSFrameLowering.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
+#include <set>
 
 #define GET_SUBTARGETINFO_HEADER
 #include "GASSGenSubtargetInfo.inc"
@@ -58,6 +59,11 @@ public:
   // NVGPU specific info
   unsigned getSmVersion() const { return SmVersion; }
   unsigned getParamBase() const;
+
+  bool isSmVersionValid() const {
+    std::set<unsigned> ValidSms = {70, 75, 80};
+    return ValidSms.find(SmVersion) != ValidSms.end();
+  }
 };
 } // namespace llvm
 
