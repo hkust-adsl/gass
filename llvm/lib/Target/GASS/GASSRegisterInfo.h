@@ -29,9 +29,9 @@ public:
   bool regsCover(const Register &Reg, const Register &Other,
                  const MachineRegisterInfo &MRI) const;
 
-  /// \returns A SGPR reg class with the same width as \p VRC
-  const TargetRegisterClass*
-  getEquivalentSGPRClass(const TargetRegisterClass *VRC) const;
+  // /// \returns A SGPR reg class with the same width as \p VRC
+  // const TargetRegisterClass*
+  // getEquivalentSGPRClass(const TargetRegisterClass *VRC) const;
 };
 
 } // namespace llvm

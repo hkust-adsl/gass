@@ -172,8 +172,8 @@ bool GASSPassConfig::addInstSelector() {
   addPass(createGASSConstantMemPropagatePass()); 
   addPass(createGASSMachineDCEPass());
 
-  addPass(createGASSMachineInstrCombinePass());
-  addPass(createGASSMachineDCEPass());
+  // addPass(createGASSMachineInstrCombinePass());
+  // addPass(createGASSMachineDCEPass());
   
   addPass(createGASSExpandPreRAPseudoPass());
   // addPass(createMachineVerifierPass("** Verify After ISel **"));
