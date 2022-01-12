@@ -171,51 +171,51 @@ bool GASSMachineInstrCombine::runOnMachineFunction(MachineFunction &MF) {
 static void simpleCSE(MachineFunction &MF, MachineRegisterInfo *MRI, 
                       const GASSInstrInfo *TII,
                       DenseSet<Register> &ActiveRegs) {
-  // d0 = IADDrr sreg32:%a, sreg32:%b
-  // d1 = IADD3rrr sreg32:%a, sreg32:%b, c
-  //   =>
-  // sreg:%d0 = IADDrr %a, %b
-  // vreg:%d1 = IADDrr %c, %d0
+  // // d0 = IADDrr sreg32:%a, sreg32:%b
+  // // d1 = IADD3rrr sreg32:%a, sreg32:%b, c
+  // //   =>
+  // // sreg:%d0 = IADDrr %a, %b
+  // // vreg:%d1 = IADDrr %c, %d0
 
-  // within basicblock
-  DenseSet<MachineInstr*> IADDrrCand;
-  std::vector<MachineInstr*> ToDelete;
-  for (MachineBasicBlock &MBB : MF) {
-    for (MachineInstr &MI : MBB) {
-      if (MI.getOpcode() == GASS::IADDrr) {
-        Register a = MI.getOperand(1).getReg();
-        Register b = MI.getOperand(2).getReg();
-        if (ActiveRegs.contains(a) && ActiveRegs.contains(b)) {
-          IADDrrCand.insert(&MI);
-        }
-      }
+  // // within basicblock
+  // DenseSet<MachineInstr*> IADDrrCand;
+  // std::vector<MachineInstr*> ToDelete;
+  // for (MachineBasicBlock &MBB : MF) {
+  //   for (MachineInstr &MI : MBB) {
+  //     if (MI.getOpcode() == GASS::IADDrr) {
+  //       Register a = MI.getOperand(1).getReg();
+  //       Register b = MI.getOperand(2).getReg();
+  //       if (ActiveRegs.contains(a) && ActiveRegs.contains(b)) {
+  //         IADDrrCand.insert(&MI);
+  //       }
+  //     }
 
-      if (MI.getOpcode() == GASS::IADD3rrr) {
-        Register Dst = MI.getOperand(0).getReg();
-        Register a = MI.getOperand(1).getReg();
-        Register b = MI.getOperand(2).getReg();
-        Register c = MI.getOperand(3).getReg();
-        MachineOperand &PredImm = MI.getOperand(4);
-        MachineOperand &Pred = MI.getOperand(5);
+  //     if (MI.getOpcode() == GASS::IADD3rrr) {
+  //       Register Dst = MI.getOperand(0).getReg();
+  //       Register a = MI.getOperand(1).getReg();
+  //       Register b = MI.getOperand(2).getReg();
+  //       Register c = MI.getOperand(3).getReg();
+  //       MachineOperand &PredImm = MI.getOperand(4);
+  //       MachineOperand &Pred = MI.getOperand(5);
 
-        if (ActiveRegs.contains(a) && ActiveRegs.contains(b) && !ActiveRegs.contains(c)) {
-          for (MachineInstr *Cand : IADDrrCand) {
-            if (Cand->getOperand(1).getReg() == a &&
-                Cand->getOperand(2).getReg() == b) {
-              Register NewDst = MRI->createVirtualRegister(&GASS::VReg32RegClass);
-              BuildMI(MBB, MI, MI.getDebugLoc(), TII->get(GASS::IADDrr), NewDst)
-                .addReg(c).addReg(Cand->getOperand(0).getReg()).add(PredImm).add(Pred);
-              MRI->replaceRegWith(Dst, NewDst);
-              ToDelete.push_back(&MI);
-            }
-          }
-        }
-      }
-    }
-  } // for MBB : MF
+  //       if (ActiveRegs.contains(a) && ActiveRegs.contains(b) && !ActiveRegs.contains(c)) {
+  //         for (MachineInstr *Cand : IADDrrCand) {
+  //           if (Cand->getOperand(1).getReg() == a &&
+  //               Cand->getOperand(2).getReg() == b) {
+  //             Register NewDst = MRI->createVirtualRegister(&GASS::VReg32RegClass);
+  //             BuildMI(MBB, MI, MI.getDebugLoc(), TII->get(GASS::IADDrr), NewDst)
+  //               .addReg(c).addReg(Cand->getOperand(0).getReg()).add(PredImm).add(Pred);
+  //             MRI->replaceRegWith(Dst, NewDst);
+  //             ToDelete.push_back(&MI);
+  //           }
+  //         }
+  //       }
+  //     }
+  //   }
+  // } // for MBB : MF
 
-  for (MachineInstr *MI : ToDelete)
-    MI->removeFromParent();
+  // for (MachineInstr *MI : ToDelete)
+  //   MI->removeFromParent();
 }
 
 static void replaceWithSReg(MachineFunction &MF, DenseSet<Register> &UniformRegs,
@@ -287,8 +287,8 @@ static void replaceWithSReg(MachineFunction &MF, DenseSet<Register> &UniformRegs
         OP2Sub(GASS::SRA32ri, GASS::USRA32ri);
         OP2Sub(GASS::SRL32ri, GASS::USRL32ri);
         OP2Sub(GASS::AND32ri, GASS::UAND32ri);
-        OP2Sub(GASS::IADDrr, GASS::UIADDrr);
-        OP2Sub(GASS::IADDri, GASS::UIADDri);
+        // OP2Sub(GASS::IADDrr, GASS::UIADDrr);
+        // OP2Sub(GASS::IADDri, GASS::UIADDri);
         OP2Sub(GASS::SUBrr, GASS::USUBrr);
         OP4Sub(GASS::ISETPri, GASS::UISETPri);
         // With out predicate
@@ -314,21 +314,21 @@ static void postProcess(MachineFunction &MF, const GASSInstrInfo *TII,
   std::vector<MachineInstr*> ToDelete;
   for (MachineBasicBlock &MBB : MF) {
     for (MachineInstr &MI : MBB) {
-      if (MI.getOpcode() == GASS::IADDrr && 
-          MRI->getRegClass(MI.getOperand(1).getReg()) == &GASS::VReg32RegClass &&
-          MRI->getRegClass(MI.getOperand(2).getReg()) == &GASS::SReg32RegClass)
-        MI.setDesc(TII->get(GASS::IADDru));
-      // reorder ...
-      if (MI.getOpcode() == GASS::IADDrr && 
-          MRI->getRegClass(MI.getOperand(1).getReg()) == &GASS::SReg32RegClass &&
-          MRI->getRegClass(MI.getOperand(2).getReg()) == &GASS::VReg32RegClass) {
-        Register NewDst = MRI->createVirtualRegister(&GASS::VReg32RegClass);
-        BuildMI(MBB, MI, MI.getDebugLoc(), TII->get(GASS::IADDru), NewDst)
-          .add(MI.getOperand(2)).add(MI.getOperand(1))
-          .add(MI.getOperand(3)).add(MI.getOperand(4));
-        MRI->replaceRegWith(MI.getOperand(0).getReg(), NewDst);
-        ToDelete.push_back(&MI);
-      }
+      // if (MI.getOpcode() == GASS::IADDrr && 
+      //     MRI->getRegClass(MI.getOperand(1).getReg()) == &GASS::VReg32RegClass &&
+      //     MRI->getRegClass(MI.getOperand(2).getReg()) == &GASS::SReg32RegClass)
+      //   MI.setDesc(TII->get(GASS::IADDru));
+      // // reorder ...
+      // if (MI.getOpcode() == GASS::IADDrr && 
+      //     MRI->getRegClass(MI.getOperand(1).getReg()) == &GASS::SReg32RegClass &&
+      //     MRI->getRegClass(MI.getOperand(2).getReg()) == &GASS::VReg32RegClass) {
+      //   Register NewDst = MRI->createVirtualRegister(&GASS::VReg32RegClass);
+      //   BuildMI(MBB, MI, MI.getDebugLoc(), TII->get(GASS::IADDru), NewDst)
+      //     .add(MI.getOperand(2)).add(MI.getOperand(1))
+      //     .add(MI.getOperand(3)).add(MI.getOperand(4));
+      //   MRI->replaceRegWith(MI.getOperand(0).getReg(), NewDst);
+      //   ToDelete.push_back(&MI);
+      // }
       // IMULrr
       if (MI.getOpcode() == GASS::IMULrr && 
           MRI->getRegClass(MI.getOperand(1).getReg()) == &GASS::VReg32RegClass &&
@@ -489,26 +489,26 @@ bool GASSMachineInstrCombine::doUniformRegisterCombine(MachineFunction &MF,
         }
         MachineInstr *PtrDefMI = PtrDef->getParent();
 
-        // FIXME: IADDru is not pseudo instr. It has Predicate masks. But will be ignored
-        if (PtrDefMI->getOpcode() == GASS::IADDru) {
-          MachineOperand &VOff = PtrDefMI->getOperand(1);
-          MachineOperand &SOff = PtrDefMI->getOperand(2);
-          Register NewD0 = MRI->createVirtualRegister(&GASS::VReg32RegClass);
-          Register NewD1 = MRI->createVirtualRegister(&GASS::VReg32RegClass);
-          Register NewD2 = MRI->createVirtualRegister(&GASS::VReg32RegClass);
-          Register NewD3 = MRI->createVirtualRegister(&GASS::VReg32RegClass);
+        // // FIXME: IADDru is not pseudo instr. It has Predicate masks. But will be ignored
+        // if (PtrDefMI->getOpcode() == GASS::IADDru) {
+        //   MachineOperand &VOff = PtrDefMI->getOperand(1);
+        //   MachineOperand &SOff = PtrDefMI->getOperand(2);
+        //   Register NewD0 = MRI->createVirtualRegister(&GASS::VReg32RegClass);
+        //   Register NewD1 = MRI->createVirtualRegister(&GASS::VReg32RegClass);
+        //   Register NewD2 = MRI->createVirtualRegister(&GASS::VReg32RegClass);
+        //   Register NewD3 = MRI->createVirtualRegister(&GASS::VReg32RegClass);
 
-          BuildMI(MBB, MI, DL, TII->get(GASS::LDSM_x4_rui_pseudo))
-            .addReg(NewD0, RegState::Define).addReg(NewD1, RegState::Define)
-            .addReg(NewD2, RegState::Define).addReg(NewD3, RegState::Define)
-            .add(VOff).add(SOff).add(IOff).add(Trans);
-          MRI->replaceRegWith(D0, NewD0);
-          MRI->replaceRegWith(D1, NewD1);
-          MRI->replaceRegWith(D2, NewD2);
-          MRI->replaceRegWith(D3, NewD3);
+        //   BuildMI(MBB, MI, DL, TII->get(GASS::LDSM_x4_rui_pseudo))
+        //     .addReg(NewD0, RegState::Define).addReg(NewD1, RegState::Define)
+        //     .addReg(NewD2, RegState::Define).addReg(NewD3, RegState::Define)
+        //     .add(VOff).add(SOff).add(IOff).add(Trans);
+        //   MRI->replaceRegWith(D0, NewD0);
+        //   MRI->replaceRegWith(D1, NewD1);
+        //   MRI->replaceRegWith(D2, NewD2);
+        //   MRI->replaceRegWith(D3, NewD3);
           
-          ToDelete.push_back(&MI);
-        }
+        //   ToDelete.push_back(&MI);
+        // }
       } break;
       // TODO: STS also...
       }

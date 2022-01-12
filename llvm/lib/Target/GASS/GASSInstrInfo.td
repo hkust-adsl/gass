@@ -203,58 +203,10 @@ multiclass IADD3 {
   // def _Xrrr : ;
 }
 defm IADD3 : IADD3, Sched<[WriteINT]>;
-// Support 2-source add (TODO)
-// def : Pat<(i32 (add i32:$src0, i32:$src1)),
-          // (IADD3rir VReg32:$src0, PatLeaf<(i32 0)>, VReg32:$src1)>;
 
-// 2-operand IADD, 
-// This is IADD3 with default value
-multiclass IADD {
-  def rr : GASSInstOp2rr<(outs VReg32:$dst),
-                    (ins VReg32:$src0, VReg32:$src1),
-                    0x210,
-                    "IADD3 \t$dst, $src0, $src1, RZ;",
-                    [(set i32:$dst, (add i32:$src0, i32:$src1))]> {
-    let Src2 = 0xff;
-
-    let Inst{16-13} = 0xf; // no ps1
-    let Inst{26-23} = 0xf; // no ps0
-
-    let Inst{19-17} = 0x7; // no pd0
-    let Inst{22-20} = 0x7; // no pd1
-  }
-  
-  def ri : GASSInstOp2ri<(outs VReg32:$dst),
-                    (ins VReg32:$src0, i32imm:$src1),
-                    0x810,
-                    "IADD3 \t$dst, $src0, $src1, RZ;",
-                    [(set i32:$dst, (add i32:$src0, imm:$src1))]> {
-    let Src2 = 0xff;
-
-    let Inst{16-13} = 0xf; // no ps1
-    let Inst{26-23} = 0xf; // no ps0
-
-    let Inst{19-17} = 0x7; // no pd0
-    let Inst{22-20} = 0x7; // no pd1
-  }
-
-  def ru : GASSInstOp2rr<(outs VReg32:$dst),
-                    (ins VReg32:$src0, SReg32:$src1),
-                    0xc10,
-                    "IADD3 \t$dst, $src0, $src1, RZ;",
-                    []> {
-    let Src2 = 0xff;
-
-    let Inst{16-13} = 0xf; // no ps1
-    let Inst{26-23} = 0xf; // no ps0
-
-    let Inst{19-17} = 0x7; // no pd0
-    let Inst{22-20} = 0x7; // no pd1
-
-    let Inst{27} = 1; // use UR
-  }
-}
-defm IADD : IADD, Sched<[WriteINT]>;
+// TODO: we should test this
+def : Pat<(add i32:$src0, i32:$src1),       (IADD3rrr VReg32:$src0, VReg32:$src1, (i32 RZ32))>;
+def : Pat<(add i32:$src0, (i32 imm:$src1)), (IADD3rir VReg32:$src0, imm:$src1, (i32 RZ32))>;
 
 // lhs/rhs ADDX (ADDCARRY)
 // This is (real) IADD3 with defalut value
