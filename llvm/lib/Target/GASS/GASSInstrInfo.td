@@ -409,7 +409,15 @@ multiclass IMAD<bit IsSigned> {
   // def _HIrrr : ;
 }
 defm IMAD_S32 : IMAD<true>;
-// defm IMAD_U32 : IMAD<false>, Sched<[WriteFP32]>;
+
+// def : Pat<((i32 (mul i32:$src0, i32:$src1)),
+//            (IMAD_S32_rrr i32:$src0, i32:$src1, (i32 RZ32))>;
+// def : Pat<((i32 (mul i32:$src0, i32imm:$src1)),
+//            (IMAD_S32_rir i32:$src0, i32imm:$src1, (i32 RZ32))>;
+// def : Pat<((i64 (mul i32:$src0, i32:$src1)),
+//            (IMAD_S32_WIDErrr i32:$src0, i32:$src1, (i64 RZ64)))>;
+// def : Pat<((i64 (mul i32:$src0, i32imm:$src1))),
+//            (IMAD_S32_WIDErir i32:$src0, i32imm:$src1, (i64 RZ64))>;
 
 // SHF
 // ins:
@@ -450,8 +458,7 @@ defm SHF : SHF, Sched<[WriteSHIFT]>;
 //   LOP3 $dst, $src1, $src2, $src3, $immLut;
 multiclass LOP3 {
   def rrr : GASSInstOp3rrr<(outs VReg32:$dst),
-                     (ins VReg32:$src0, VReg32:$src1, VReg32:$src2, 
-                          i8imm:$immLut),
+                     (ins VReg32:$src0, VReg32:$src1, VReg32:$src2, i8imm:$immLut),
                      0x212, "LOP3.LUT $dst, $src0, $src1, $src2, $immLut;",
                      []> {
     bits<8> immLut;
@@ -461,10 +468,8 @@ multiclass LOP3 {
   }
 
   def rri : GASSInstOp3rri<(outs VReg32:$dst),
-                     (ins VReg32:$src0, VReg32:$src1, i32imm:$src2,
-                          i8imm:$immLut),
-                     0x412, "LOP3.LUT $dst, $src0, $src1, $src2, $immLut;",
-                     []> {
+                     (ins VReg32:$src0, VReg32:$src1, i32imm:$src2, i8imm:$immLut),
+                     0x412, "LOP3.LUT $dst, $src0, $src1, $src2, $immLut;", []> {
     bits<8> immLut;
     let Inst{26-23} = 0xf; // no ps0;
     let Inst{19-17} = 0x7; // no pd0;
@@ -472,10 +477,8 @@ multiclass LOP3 {
   }
 
   def rir : GASSInstOp3rir<(outs VReg32:$dst),
-                     (ins VReg32:$src0, i32imm:$src1, VReg32:$src2,
-                          i8imm:$immLut),
-                     0x812, "LOP3.LUT $dst, $src0, $src1, $src2, $immLut;",
-                     []> {
+                     (ins VReg32:$src0, i32imm:$src1, VReg32:$src2, i8imm:$immLut),
+                     0x812, "LOP3.LUT $dst, $src0, $src1, $src2, $immLut;", []> {
     bits<8> immLut;
     let Inst{26-23} = 0xf; // no ps0;
     let Inst{19-17} = 0x7; // no pd0;
@@ -632,9 +635,6 @@ multiclass FMA<string OpcStr, RegisterClass RC, Operand ImmCls, ValueType vt,
                      rirEnc,
                      !strconcat(OpcStr, " \t$dst, $a, $b, $c;"),
                      [(set vt:$dst, (fma vt:$a, fpimm:$b, vt:$c))]>;
-
-  // def rrc :
-  // def rcr :
 }
 
 // MUL
@@ -1207,32 +1207,28 @@ def BAR_DEFER : GASSInst<(outs), (ins),
 let isFixLat = false in {
 multiclass SHFL {
   def rrr : GASSInstOp3rrr<(outs VReg32:$dst),
-                     (ins VReg32:$src0, VReg32:$src1, VReg32:$src2,
-                          ShflMode:$shfl),
+                     (ins VReg32:$src0, VReg32:$src1, VReg32:$src2, ShflMode:$shfl),
                      0x389, "SHFL$shfl $dst, $src0, $src1, $src2;", []> {
     bits<2> shfl;
     let Inst{123-122} = shfl;
   }
 
   def rri : GASSInstOp3rri<(outs VReg32:$dst),
-                    (ins VReg32:$src0, VReg32:$src1, i32imm:$src2,
-                        ShflMode:$shfl),
+                    (ins VReg32:$src0, VReg32:$src1, i32imm:$src2, ShflMode:$shfl),
                     0x589, "SHFL$shfl $dst, $src0, $src1, $src2;", []> {
     bits<2> shfl;
     let Inst{123-122} = shfl;
   }
 
   def rir : GASSInstOp3rir<(outs VReg32:$dst),
-                     (ins VReg32:$src0, i32imm:$src1, VReg32:$src2,
-                          ShflMode:$shfl),
+                     (ins VReg32:$src0, i32imm:$src1, VReg32:$src2, ShflMode:$shfl),
                      0x989, "SHFL$shfl $dst, $src0, $src1, $src2;", []> {
     bits<2> shfl;
     let Inst{123-122} = shfl;
   }
 
   def rii : GASSInst<(outs VReg32:$dst),
-                     (ins VReg32:$src0, i32imm:$offset, i32imm:$mask,
-                          ShflMode:$shfl),
+                     (ins VReg32:$src0, i32imm:$offset, i32imm:$mask, ShflMode:$shfl),
                      0xf89, "SHFL$shfl $dst, $src0, $offset, $mask;", []> {
     bits<5> offset;
     bits<5> mask;

@@ -133,7 +133,7 @@ def : Pat<(int_nvvm_cos_approx_f f32:$src), (MUFU VReg32:$src, MufuCos)>;
 def : Pat<(int_nvvm_sin_approx_f f32:$src), (MUFU VReg32:$src, MufuSin)>;
 def : Pat<(int_nvvm_ex2_approx_f f32:$src), (MUFU VReg32:$src, MufuEx2)>;
 def : Pat<(int_nvvm_lg2_approx_f f32:$src), (MUFU VReg32:$src, MufuLg2)>;
-def : Pat<(int_nvvm_rcp_rn_f f32:$src), (MUFU VReg32:$src, MufuRcp)>;
+def : Pat<(int_nvvm_rcp_rn_f     f32:$src), (MUFU VReg32:$src, MufuRcp)>;
 // TODO: other flags...
 
 def : Pat<(fdiv f32:$src0, f32:$src1), 
