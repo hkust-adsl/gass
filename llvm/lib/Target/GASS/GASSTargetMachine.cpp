@@ -91,6 +91,7 @@ public:
 
   // GASS needs custom regalloc pipeline. (GASSIfConvert after RegisterCoalesce)
   void addOptimizedRegAlloc() override;
+  FunctionPass *createTargetRegisterAllocator(bool Optimized) override;
 
   void addPreSched2() override;
 
@@ -155,18 +156,19 @@ void GASSPassConfig::addIRPasses() {
   // TODO: disable it for now.
   // addPass(createLICMPass());
 
-  addPass(createSinkingPass());
+  // addPass(createSinkingPass());
 }
 
 bool GASSPassConfig::addPreISel() {
   // TODO: can we eliminate this?
-  addPass(createGASSSinkingPass());
+  // addPass(createGASSSinkingPass());
   // following the practice in AMDGPU
   // addPass(createGASSAnnotateUniformValues());
   return false;
 }
 
 bool GASSPassConfig::addInstSelector() {
+  // addPass(createPrintFunctionPass(llvm::errs()));
   addPass(new GASSDAGToDAGISel(&getGASSTargetMachine()));
 
   addPass(createGASSConstantMemPropagatePass()); 
@@ -223,7 +225,7 @@ void GASSPassConfig::addOptimizedRegAlloc() {
 
   //==***************** GASS specific *************************==//
   // PreRA IfConvert
-  // addPass(createMachineVerifierPass("** Verify Before Early If Conversion **"));
+  addPass(createMachineVerifierPass("** Verify Before Early If Conversion **"));
   addPass(createGASSIfConversionPass());
   addPass(createMachineVerifierPass("** Verify After Early If Conversion **"));
   // FIXME: Do we need to update LiveIntervals?
@@ -257,6 +259,11 @@ void GASSPassConfig::addOptimizedRegAlloc() {
     // FIXME: can this move into MachineLateOptimization?
     addPass(&MachineLICMID);
   }
+}
+
+// Use Fast allocator
+FunctionPass *GASSPassConfig::createTargetRegisterAllocator(bool Optimized) {
+  return createFastRegisterAllocator();
 }
 
 void GASSPassConfig::addPreRegAlloc() {

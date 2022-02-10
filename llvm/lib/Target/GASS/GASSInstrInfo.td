@@ -29,6 +29,11 @@ def constantmem : Operand<i32> {
   // let OperandType = "OPERAND_CONSTANT_MEM";
 }
 
+def IsSrc1Neg : Operand<i1> {
+  let PrintMethod   = "printIsSrc1Neg";
+  let EncoderMethod = "encodeIsSrc1Neg";
+}
+
 def brtarget : Operand<OtherVT>;
 
 def CmpMode : Operand<i32> {

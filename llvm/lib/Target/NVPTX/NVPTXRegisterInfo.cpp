@@ -64,6 +64,8 @@ std::string getNVPTXRegClassName(TargetRegisterClass const *RC) {
     return ".b16";
   if (RC == &NVPTX::Int1RegsRegClass)
     return ".pred";
+  if (RC == &NVPTX::BFloat16RegsRegClass)
+    return ".b16";
   if (RC == &NVPTX::SpecialRegsRegClass)
     return "!Special!";
   return "INTERNAL";
@@ -86,6 +88,8 @@ std::string getNVPTXRegClassStr(TargetRegisterClass const *RC) {
     return "%rs";
   if (RC == &NVPTX::Int1RegsRegClass)
     return "%p";
+  if (RC == &NVPTX::BFloat16RegsRegClass)
+    return "%bf";
   if (RC == &NVPTX::SpecialRegsRegClass)
     return "!Special!";
   return "INTERNAL";
