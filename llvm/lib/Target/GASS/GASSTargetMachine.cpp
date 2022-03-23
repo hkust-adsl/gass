@@ -143,7 +143,7 @@ void GASSPassConfig::addIRPasses() {
     // GC lowering?
     addPass(createLowerConstantIntrinsicsPass());
     addPass(createConstantHoistingPass());
-    
+
     addPass(createUnreachableBlockEliminationPass());
 
     // addPass(createConstantHoistingPass());
@@ -188,9 +188,9 @@ bool GASSPassConfig::addILPOpts() {
 }
 
 void GASSPassConfig::addOptimizedRegAlloc() {
-  addPass(&DetectDeadLanesID, false);
+  addPass(&DetectDeadLanesID);
 
-  addPass(&ProcessImplicitDefsID, false);
+  addPass(&ProcessImplicitDefsID);
 
   // LiveVariables currently requires pure SSA form.
   //
@@ -202,18 +202,18 @@ void GASSPassConfig::addOptimizedRegAlloc() {
   // When LiveVariables is removed this has to be removed/moved either.
   // Explicit addition of UnreachableMachineBlockElim allows stopping before or
   // after it with -stop-before/-stop-after.
-  addPass(&UnreachableMachineBlockElimID, false);
-  addPass(&LiveVariablesID, false);
+  addPass(&UnreachableMachineBlockElimID);
+  addPass(&LiveVariablesID);
 
   // Edge splitting is smarter with machine loop info.
-  addPass(&MachineLoopInfoID, false);
-  addPass(&PHIEliminationID, false);
+  addPass(&MachineLoopInfoID);
+  addPass(&PHIEliminationID);
 
   // Eventually, we want to run LiveIntervals before PHI elimination.
   // if (EarlyLiveIntervals)
   //   addPass(&LiveIntervalsID, false);
 
-  addPass(&TwoAddressInstructionPassID, false);
+  addPass(&TwoAddressInstructionPassID);
   addPass(&RegisterCoalescerID); // Standard
 
   // The machine scheduler may accidentally create disconnected components
