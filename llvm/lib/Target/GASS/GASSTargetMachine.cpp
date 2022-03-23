@@ -44,8 +44,8 @@ GASSTargetMachine::GASSTargetMachine(const Target &T, const Triple &TT,
                         std::string("e-p3:32:32-i64:64-i128:128-v16:16-v32:32-n16:32:64"), 
                         TT, CPU, FS, Options, Reloc::PIC_,
                         getEffectiveCodeModel(CM, CodeModel::Small), OL),
-      TLOF(std::make_unique<GASSTargetObjectFile>()),
-      Subtarget(std::make_unique<GASSSubtarget>(TT, CPU, FS, *this)) {
+      Subtarget(std::make_unique<GASSSubtarget>(TT, CPU, FS, *this)),
+      TLOF(std::make_unique<GASSTargetObjectFile>()) {
   // TODO: check this.
   setRequiresStructuredCFG(true);
   initAsmInfo(); // What does this do?
