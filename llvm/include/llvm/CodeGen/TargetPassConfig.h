@@ -82,7 +82,7 @@ public:
 /// This is an ImmutablePass solely for the purpose of exposing CodeGen options
 /// to the internals of other CodeGen passes.
 class TargetPassConfig : public ImmutablePass {
-private:
+protected:
   PassManagerBase *PM = nullptr;
   AnalysisID StartBefore = nullptr;
   AnalysisID StartAfter = nullptr;

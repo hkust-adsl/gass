@@ -27,7 +27,7 @@ static cl::opt<bool> BenchmarkMode("gass-benchmark-mode",
 
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeGASSTarget() {
   RegisterTargetMachine<GASSTargetMachine> X(getTheGASSTarget());
-  auto PR = PassRegistry::getPassRegistry();
+  auto *PR = PassRegistry::getPassRegistry();
   initializeGASSStallSettingPass(*PR);
   // initializeGASSBranchOffsetPass(*PR);
   initializeGASSExpandPreRAPseudoPass(*PR);
@@ -73,6 +73,10 @@ public:
     return getTM<GASSTargetMachine>();
   }
 
+  // Major APIs
+  // void addISelPasses(); // Do NOT override this
+  void addMachinePasses() override;
+
   void addIRPasses() override;
 
   // Any "last minute" IR passes 
@@ -80,20 +84,10 @@ public:
   bool addPreISel() override;
 
   bool addInstSelector() override;
-  bool addILPOpts() override;
-
-  //=---------------------------------------=//
-  // Debug, to delete
-  // Print cfg
-  void addMachineLateOptimization() override;
-  void addPreRegAlloc() override;
-  //=--------------------------------------=//
 
   // GASS needs custom regalloc pipeline. (GASSIfConvert after RegisterCoalesce)
   void addOptimizedRegAlloc() override;
   FunctionPass *createTargetRegisterAllocator(bool Optimized) override;
-
-  void addPreSched2() override;
 
   // Set instruction control info
   void addPreEmitPass() override;
@@ -113,6 +107,48 @@ public:
 
 TargetPassConfig *GASSTargetMachine::createPassConfig(PassManagerBase &PM) {
   return new GASSPassConfig(*this, PM);
+}
+
+// Major API
+void GASSPassConfig::addMachinePasses() {
+  AddingMachinePasses = true;
+
+  // Machine - CSE/DCE/LICM/Peephole
+  addMachineSSAOptimization();
+
+  // Debugifying the register allocator passes seems to provoke some
+  // non-determinism that affects CodeGen and there doesn't seem to be a point
+  // where it becomes safe again so stop debugifying here.
+  DebugifyIsSafe = false;
+
+  // Run register allocation and passes that are tightly coupled with it,
+  // including phi elimination and scheduling.
+  if (getOptimizeRegAlloc())
+    addOptimizedRegAlloc();
+  else
+    addFastRegAlloc();
+
+  // Prolog/Epilog inserter needs a TargetMachine to instantiate. But only
+  // do so if it hasn't been disabled, substituted, or overridden.
+  if (!isPassSubstitutedOrOverridden(&PrologEpilogCodeInserterID))
+      addPass(createPrologEpilogInserterPass());
+
+  // We don't need late machine optimization (?)
+
+  // Expand pseudo instructions before second scheduling pass.
+  addPass(&ExpandPostRAPseudosID);
+
+  addBlockPlacement();
+
+  addPreEmitPass();
+
+  // Does GASS need these?
+  addPass(&FuncletLayoutID, false);
+  addPass(&StackMapLivenessID, false); // Okay, seems relavent, not 100% sure
+
+  // remove some weird passes
+
+  AddingMachinePasses = false;
 }
 
 void GASSPassConfig::addIRPasses() {
@@ -168,28 +204,19 @@ bool GASSPassConfig::addPreISel() {
 }
 
 bool GASSPassConfig::addInstSelector() {
-  // addPass(createPrintFunctionPass(llvm::errs()));
   addPass(new GASSDAGToDAGISel(&getGASSTargetMachine()));
 
   addPass(createGASSConstantMemPropagatePass()); 
   addPass(createGASSMachineDCEPass());
-
-  // addPass(createGASSMachineInstrCombinePass());
-  // addPass(createGASSMachineDCEPass());
   
   addPass(createGASSExpandPreRAPseudoPass());
-  // addPass(createMachineVerifierPass("** Verify After ISel **"));
-  return false;
-}
-
-bool GASSPassConfig::addILPOpts() {
-  // addPass(&EarlyIfPredicatorID);
   return false;
 }
 
 void GASSPassConfig::addOptimizedRegAlloc() {
   addPass(&DetectDeadLanesID);
 
+  // TODO: what's this?
   addPass(&ProcessImplicitDefsID);
 
   // LiveVariables currently requires pure SSA form.
@@ -243,8 +270,6 @@ void GASSPassConfig::addOptimizedRegAlloc() {
 
   // // Compute Register Pressure at each line
   // addPass(createRegPressureComputePass());
-  
-
   if (addRegAssignmentOptimized()) {
     // Allow targets to expand pseudo instructions depending on the choice of
     // registers before MachineCopyPropagation.
@@ -264,33 +289,6 @@ void GASSPassConfig::addOptimizedRegAlloc() {
 // Use Fast allocator
 FunctionPass *GASSPassConfig::createTargetRegisterAllocator(bool Optimized) {
   return createFastRegisterAllocator();
-}
-
-void GASSPassConfig::addPreRegAlloc() {
-  // addPass(createGASSMachineFunctionCFGPrinterPass());
-}
-
-void GASSPassConfig::addMachineLateOptimization() {
-  // Branch folding must be run after regalloc and prolog/epilog insertion.
-  addPass(&BranchFolderPassID);
-
-  // Tail duplication.
-  // Note that duplicating tail just increases code size and degrades
-  // performance for targets that require Structured Control Flow.
-  // In addition it can also make CFG irreducible. Thus we disable it.
-  if (!TM->requiresStructuredCFG())
-    addPass(&TailDuplicateID);
-
-  // Copy propagation.
-  addPass(&MachineCopyPropagationID);
-}
-
-void GASSPassConfig::addPreSched2() {
-  // addPass(createIfConverter([](const MachineFunction &MF) {
-  //   return true;
-  // }));
-  // addPass(createGASSIfConversionPass());
-  // addPass(createGASSMachineFunctionCFGPrinterPass());
 }
 
 // NVGPU specific passes
