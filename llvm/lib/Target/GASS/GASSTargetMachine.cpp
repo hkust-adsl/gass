@@ -90,7 +90,6 @@ public:
 
   // GASS needs custom regalloc pipeline. (GASSIfConvert after RegisterCoalesce)
   void addOptimizedRegAlloc() override;
-  FunctionPass *createTargetRegisterAllocator(bool Optimized) override;
 
   // Set instruction control info
   void addPreEmitPass() override;
@@ -302,10 +301,6 @@ void GASSPassConfig::addOptimizedRegAlloc() {
   }
 }
 
-// Use Fast allocator
-FunctionPass *GASSPassConfig::createTargetRegisterAllocator(bool Optimized) {
-  return createFastRegisterAllocator();
-}
 
 // NVGPU specific passes
 void GASSPassConfig::addPreEmitPass() {
