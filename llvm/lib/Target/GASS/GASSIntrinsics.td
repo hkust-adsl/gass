@@ -45,6 +45,10 @@ defm LDGSTS128 : LDGSTS<128>, Sched<[WriteLDGSTS]>, Requires<[hasSM80]>;
 }
 
 // ref: RISCVInstrInfo.td:1081
+def : Pat<(int_nvvm_cp_async_cg_shared_global_16 (add VReg32:$dbase, simm20:$off), VReg64:$ptr), 
+          (LDGSTS128riri VReg32:$dbase, simm20:$off, VReg64:$ptr, 0, PT)>;
+def : Pat<(int_nvvm_cp_async_cg_shared_global_16 VReg32:$dbase, VReg64:$ptr),
+          (LDGSTS128riri VReg32:$dbase, 0, VReg64:$ptr, 0, PT)>;
 def : Pat<(int_nvvm_cp_async_cg_shared_global_16_p (add VReg32:$dbase, simm20:$off), VReg64:$ptr, VReg1:$pred), 
           (LDGSTS128riri VReg32:$dbase, simm20:$off, VReg64:$ptr, 0, VReg1:$pred)>;
 def : Pat<(int_nvvm_cp_async_cg_shared_global_16_p VReg32:$dbase, VReg64:$ptr, VReg1:$pred),
