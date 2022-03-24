@@ -85,6 +85,9 @@ public:
 
   bool addInstSelector() override;
 
+  // Machine Passes
+  void addMachineSSAOptimization() override;
+
   // GASS needs custom regalloc pipeline. (GASSIfConvert after RegisterCoalesce)
   void addOptimizedRegAlloc() override;
   FunctionPass *createTargetRegisterAllocator(bool Optimized) override;
@@ -211,6 +214,19 @@ bool GASSPassConfig::addInstSelector() {
   
   addPass(createGASSExpandPreRAPseudoPass());
   return false;
+}
+
+// Machine passes
+void GASSPassConfig::addMachineSSAOptimization() {
+  // Optimize PHIs before DCE: removing dead PHI cycles may make more
+  // instructions dead.
+  addPass(&OptimizePHIsID);
+
+  addPass(&EarlyMachineLICMID);
+  addPass(&MachineCSEID);
+  addPass(&MachineSinkingID);
+
+  // I don't understand how LLVM's peephole pass works
 }
 
 void GASSPassConfig::addOptimizedRegAlloc() {
