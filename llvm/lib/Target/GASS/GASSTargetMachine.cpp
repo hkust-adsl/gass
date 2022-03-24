@@ -11,6 +11,7 @@
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/ConstantHoisting.h"
@@ -125,30 +126,20 @@ void GASSPassConfig::addMachinePasses() {
 
   // Run register allocation and passes that are tightly coupled with it,
   // including phi elimination and scheduling.
-  if (getOptimizeRegAlloc())
-    addOptimizedRegAlloc();
-  else
-    addFastRegAlloc();
+  addOptimizedRegAlloc();
 
   // Prolog/Epilog inserter needs a TargetMachine to instantiate. But only
   // do so if it hasn't been disabled, substituted, or overridden.
   if (!isPassSubstitutedOrOverridden(&PrologEpilogCodeInserterID))
       addPass(createPrologEpilogInserterPass());
 
-  // We don't need late machine optimization (?)
-
   // Expand pseudo instructions before second scheduling pass.
   addPass(&ExpandPostRAPseudosID);
 
   addBlockPlacement();
 
+  // Delete IMPLICIT_DEF & Set barriers
   addPreEmitPass();
-
-  // Does GASS need these?
-  addPass(&FuncletLayoutID, false);
-  addPass(&StackMapLivenessID, false); // Okay, seems relavent, not 100% sure
-
-  // remove some weird passes
 
   AddingMachinePasses = false;
 }

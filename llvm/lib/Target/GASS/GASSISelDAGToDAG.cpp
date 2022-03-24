@@ -267,7 +267,7 @@ bool GASSDAGToDAGISel::tryLoad(SDNode *N) {
   SDLoc dl(N);
   MemSDNode *LD = cast<MemSDNode>(N);
   assert(LD->readMem() && "Expected load");
-  EVT LoadedVT = LD->getMemoryVT();
+  // EVT LoadedVT = LD->getMemoryVT();
   SDNode *GASSLD = nullptr;
   unsigned Opcode;
 
