@@ -283,9 +283,6 @@ static void replaceWithSReg(MachineFunction &MF, DenseSet<Register> &UniformRegs
         OP1Sub(GASS::LDC32c, GASS::ULDC32c);
         OP1Sub(GASS::MOV32r, GASS::UMOV32r);
         OP1Sub(GASS::MOV32i, GASS::UMOV32i);
-        OP2Sub(GASS::SHL32ri, GASS::USHL32ri);
-        OP2Sub(GASS::SRA32ri, GASS::USRA32ri);
-        OP2Sub(GASS::SRL32ri, GASS::USRL32ri);
         OP2Sub(GASS::AND32ri, GASS::UAND32ri);
         // OP2Sub(GASS::IADDrr, GASS::UIADDrr);
         // OP2Sub(GASS::IADDri, GASS::UIADDri);

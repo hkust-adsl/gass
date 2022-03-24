@@ -150,7 +150,7 @@ class GASSInstLdstGlobalOff<dag outs, dag ins, bits<12> opcode, string asmstr,
 //=--------------------------------------------------------------------------=//
 // examples: iadd3, imad, ffma
 class GASSInstOp3rrr<dag oops, dag iops, bits<12> opcode, string asm, 
-                  list<dag> pattern> 
+                  list<dag> pattern = []> 
     : GASSInst<oops, iops, opcode, asm, pattern> {
   bits<8> dst;
   bits<8> src0;
@@ -164,7 +164,7 @@ class GASSInstOp3rrr<dag oops, dag iops, bits<12> opcode, string asm,
 }
 
 class GASSInstOp3rri<dag oops, dag iops, bits<12> opcode, string asm, 
-                  list<dag> pattern> 
+                  list<dag> pattern = []> 
     : GASSInst<oops, iops, opcode, asm, pattern> {
   bits<8> dst;
   bits<8> src0;
@@ -178,7 +178,7 @@ class GASSInstOp3rri<dag oops, dag iops, bits<12> opcode, string asm,
 }
 
 class GASSInstOp3rir<dag oops, dag iops, bits<12> opcode, string asm, 
-                  list<dag> pattern> 
+                  list<dag> pattern = []>
     : GASSInst<oops, iops, opcode, asm, pattern> {
   bits<8> dst;
   bits<8> src0;

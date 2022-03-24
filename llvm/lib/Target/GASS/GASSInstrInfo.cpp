@@ -436,7 +436,6 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       .addImm(GASS::SHF_FLAGS::LO)
       .add(MI.getOperand(3)).add(MI.getOperand(4)); // PredMask
   } break;
-  case GASS::SHL32rr: case GASS::SHL32ri:
   case GASS::USHL32rr: case GASS::USHL32ri: {
     // SHL32 $dst, $src, $amt;
     //   ->
@@ -447,14 +446,7 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
 
     unsigned Opcode;
     Register ZeroReg = GASS::RZ32;
-    if (Opc == GASS::SHL32rr || Opc == GASS::SHL32ri) {
-      if (Amount.isReg()) 
-        Opcode = GASS::SHFrrr;
-      else if (Amount.isImm())
-        Opcode = GASS::SHFrir;
-      else
-        llvm_unreachable("Invalid data type");
-    } else if (Opc == GASS::USHL32rr || Opc == GASS::USHL32ri) {
+    if (Opc == GASS::USHL32rr || Opc == GASS::USHL32ri) {
       ZeroReg = GASS::URZ32;
       if (Amount.isReg()) 
         Opcode = GASS::USHFrrr;
@@ -464,7 +456,7 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
         llvm_unreachable("Invalid data type");
     } else
       llvm_unreachable("Invalid opcode");
-    
+
     BuildMI(MBB, MI, DL, get(Opcode), Dst)
       .addReg(Src)
       .add(Amount)
@@ -472,56 +464,6 @@ bool GASSInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       .addImm(GASS::SHF_FLAGS::L)
       .addImm(GASS::SHF_FLAGS::U32)
       .addImm(GASS::SHF_FLAGS::LO)
-      .add(MI.getOperand(3)).add(MI.getOperand(4)); // PredMask
-  } break;
-  case GASS::SRL32rr: case GASS::SRL32ri: {
-    // SRL32 $dst, $src, $amt;
-    //   ->
-    // SHF.R.U32.LO $dst, $src, $amt, RZ;
-    Register Dst = MI.getOperand(0).getReg();
-    Register Src = MI.getOperand(1).getReg();
-    const MachineOperand &Amount = MI.getOperand(2);
-
-    unsigned Opcode;
-    if (Amount.isReg()) 
-      Opcode = GASS::SHFrrr;
-    else if (Amount.isImm())
-      Opcode = GASS::SHFrir;
-    else
-      llvm_unreachable("Invalid data type");
-
-    BuildMI(MBB, MI, DL, get(Opcode), Dst)
-      .addReg(Src)
-      .add(Amount)
-      .addReg(GASS::RZ32)
-      .addImm(GASS::SHF_FLAGS::R)
-      .addImm(GASS::SHF_FLAGS::U32)
-      .addImm(GASS::SHF_FLAGS::LO)
-      .add(MI.getOperand(3)).add(MI.getOperand(4)); // PredMask
-  } break;
-  case GASS::SRA32rr: case GASS::SRA32ri: {
-    // SRA32 $dst, $src, $amt;
-    //   ->
-    // SHF.R.S32.HI $dst, $RZ, $amt, $src;
-    Register Dst = MI.getOperand(0).getReg();
-    Register Src = MI.getOperand(1).getReg();
-    const MachineOperand &Amount = MI.getOperand(2);
-
-    unsigned Opcode;
-    if (Amount.isReg()) 
-      Opcode = GASS::SHFrrr;
-    else if (Amount.isImm())
-      Opcode = GASS::SHFrir;
-    else
-      llvm_unreachable("Invalid data type");
-
-    BuildMI(MBB, MI, DL, get(Opcode), Dst)
-      .addReg(Src)
-      .add(Amount)
-      .addReg(GASS::RZ32)
-      .addImm(GASS::SHF_FLAGS::R)
-      .addImm(GASS::SHF_FLAGS::S32)
-      .addImm(GASS::SHF_FLAGS::HI)
       .add(MI.getOperand(3)).add(MI.getOperand(4)); // PredMask
   } break;
   case GASS::SRA64rr: case GASS::SRA64ri:

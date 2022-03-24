@@ -258,13 +258,7 @@ void GASSPassConfig::addOptimizedRegAlloc() {
 
   //==***************** GASS specific *************************==//
   // PreRA IfConvert
-  addPass(createMachineVerifierPass("** Verify Before Early If Conversion **"));
   addPass(createGASSIfConversionPass());
-  addPass(createMachineVerifierPass("** Verify After Early If Conversion **"));
-  // FIXME: Do we need to update LiveIntervals?
-  // Now we have more chances to do CSE   
-  // Not in SSA form
-  // addPass(&MachineCSEID);
   //==*********************************************************==//
   addPass(&DeadMachineInstructionElimID);
 

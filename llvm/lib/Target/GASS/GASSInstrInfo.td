@@ -59,20 +59,35 @@ def BoolMode : Operand<i32> {
 
 // funnel shift flags
 // SHF.{R|L}.{S32|U32}.{(HI)?}
-def ShiftDir : Operand<i1> {
+def ShiftDir : Operand<i32> {
   let PrintMethod = "printShiftDir";
   let EncoderMethod = "encodeShiftDir";
 }
 
-def ShiftType : Operand<i8> {
+// Using Operand<i1> here nukes ISel Gen :)
+def ShiftType : Operand<i32> {
   let PrintMethod = "printShiftType";
   let EncoderMethod = "encodeShiftType";
 }
 
-def ShiftLoc : Operand<i1> {
+def ShiftLoc : Operand<i32> {
   let PrintMethod = "printShiftLoc";
   let EncoderMethod = "encodeShiftLoc";
 }
+
+// These must sync with GASS.h
+def ShiftL : PatLeaf<(i32 0)>;
+def ShiftR : PatLeaf<(i32 1)>;
+
+def ShiftLo : PatLeaf<(i32 0)>;
+def ShiftHi : PatLeaf<(i32 1)>;
+
+def ShiftS32 : PatLeaf<(i32 0)>;
+def ShiftU32 : PatLeaf<(i32 1)>;
+def ShiftS64 : PatLeaf<(i32 2)>;
+def ShiftU64 : PatLeaf<(i32 3)>;
+// End of SHF>
+
 
 // Shuffle (SHFL) flags
 def ShflMode : Operand<i32> {
@@ -433,8 +448,7 @@ multiclass SHF {
                        (ins VReg32:$src0, VReg32:$src1, VReg32:$src2,
                             ShiftDir:$dir, ShiftType:$ty, ShiftLoc:$hi),
                        0x219,
-                       "SHF$dir$ty$hi \t$dst, $src0, $src1, $src2;",
-                       []> {
+                       "SHF$dir$ty$hi \t$dst, $src0, $src1, $src2;"> {
     bits<1> dir; // .L | .R
     let Inst{12} = dir;
     bits<2> ty; // .S64 | .S32 | .U32
@@ -447,8 +461,7 @@ multiclass SHF {
                      (ins VReg32:$src0, i32imm:$src1, VReg32:$src2,
                           ShiftDir:$dir, ShiftType:$ty, ShiftLoc:$hi),
                      0x819,
-                     "SHF$dir$ty$hi \t$dst, $src0, $src1, $src2;",
-                     []> {
+                     "SHF$dir$ty$hi \t$dst, $src0, $src1, $src2;"> {
     bits<1> dir; // .L | .R
     let Inst{12} = dir;
     bits<2> ty; // .S64 | .S32 | .U32
@@ -458,6 +471,28 @@ multiclass SHF {
   }
 }
 defm SHF : SHF, Sched<[WriteSHIFT]>;
+
+// SHL32 $dst, $src, $amt;
+//   ->
+// SHF.L.U32.LO $dst, $src, $amt, RZ;
+def : Pat<(shl i32:$src0, (i32 imm:$src1)),
+          (SHFrir VReg32:$src0, imm:$src1, (i32 RZ32), ShiftL, ShiftU32, ShiftLo)>;
+def : Pat<(shl i32:$src0, i32:$src1),
+          (SHFrrr VReg32:$src0, VReg32:$src1, (i32 RZ32), ShiftL, ShiftU32, ShiftLo)>;
+// SRA32 $dst, $src, $amt;
+//   ->
+// SHF.R.S32.HI $dst, $RZ, $amt, $src;
+def : Pat<(sra i32:$src0, i32:$src1),
+          (SHFrrr (i32 RZ32), VReg32:$src1, VReg32:$src0, ShiftR, ShiftS32, ShiftHi)>;
+def : Pat<(sra i32:$src0, (i32 imm:$src1)),
+          (SHFrir (i32 RZ32), imm:$src1, VReg32:$src0, ShiftR, ShiftS32, ShiftHi)>;
+// SRL32 $dst, $src, $amt;
+//   ->
+// SHF.R.U32.LO $dst, $src, $amt, RZ;
+def : Pat<(srl i32:$src0, i32:$src1),
+          (SHFrrr VReg32:$src0, VReg32:$src1, (i32 RZ32), ShiftR, ShiftU32, ShiftLo)>;
+def : Pat<(srl i32:$src0, (i32 imm:$src1)),
+          (SHFrir VReg32:$src0, imm:$src1, (i32 RZ32), ShiftR, ShiftU32, ShiftLo)>;
 
 // LOP3
 //   LOP3 $dst, $src1, $src2, $src3, $immLut;
@@ -557,15 +592,7 @@ multiclass SHIFT<SDNode OpNode> {
                             [(set i64:$dst, (OpNode i64:$src0, i32:$src1))]>;
   def 64ri : GASSPseudoInst<(outs VReg64:$dst),
                             (ins VReg64:$src0, i32imm:$src1),
-                            [(set i64:$dst, (OpNode i64:$src0, 
-                                                    (i32 imm:$src1)))]>;
-  def 32rr : GASSPseudoInst<(outs VReg32:$dst),
-                            (ins VReg32:$src0, VReg32:$src1),
-                            [(set i32:$dst, (OpNode i32:$src0, i32:$src1))]>;
-  def 32ri : GASSPseudoInst<(outs VReg32:$dst),
-                            (ins VReg32:$src0, i32imm:$src1),
-                            [(set i32:$dst, (OpNode i32:$src0,
-                                                    (i32 imm:$src1)))]>;
+                            [(set i64:$dst, (OpNode i64:$src0, (i32 imm:$src1)))]>;
 }
 defm SHL : SHIFT<shl>, Sched<[WriteSHIFT]>;
 defm SRA : SHIFT<sra>, Sched<[WriteSHIFT]>;

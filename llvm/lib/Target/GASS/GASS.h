@@ -116,20 +116,20 @@ enum LogicOp : unsigned {
 
 namespace SHF_FLAGS {
 enum LR {
-  L,
-  R
+  L = 0,
+  R = 1
 };
 
 enum LOHI {
-  LO,
-  HI
+  LO = 0,
+  HI = 1
 };
 
 enum TYPE {
-  S32,
-  U32,
-  S64,
-  U64
+  S32 = 0,
+  U32 = 1,
+  S64 = 2,
+  U64 = 3
 };
 } // namespace SHF_FLAGS
 
